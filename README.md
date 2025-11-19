@@ -22,7 +22,7 @@ Laravel Auto CRUD Generator is a package that simplifies CRUD (Create, Read, Upd
 You can install the package via Composer:
 
 ```bash
-composer require mrmarchone/laravel-auto-crud --dev
+composer require mustafafares/laravel-auto-crud --dev
 ```
 
 ## Publish Configuration

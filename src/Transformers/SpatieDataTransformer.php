@@ -4,10 +4,16 @@ namespace Mrmarchone\LaravelAutoCrud\Transformers;
 
 class SpatieDataTransformer
 {
-    public static function convertDataToString(array $data): string
+    public static function convertDataToString(array $data, string $traitUsage = ''): string
     {
         $string = '';
         $indent = str_repeat(' ', 4);
+
+        // Add trait usage at the beginning if provided
+        if ($traitUsage) {
+            $string .= $traitUsage . "\n\n";
+        }
+
         foreach ($data as $key => $value) {
             $string .= $indent.$value."\n".$indent.$key."\n";
         }

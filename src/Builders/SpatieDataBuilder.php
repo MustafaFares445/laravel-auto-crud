@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
+use Exception;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use Mrmarchone\LaravelAutoCrud\Transformers\SpatieDataTransformer;
 
-class SpatieDataBuilder extends BaseBuilder
+final class SpatieDataBuilder extends BaseBuilder
 {
     use TableColumnsTrait;
 
     private EnumBuilder $enumBuilder;
+
+    /**
+     * Track processed models to avoid infinite loops in recursive generation
+     *
+     * @var array<string>
+     */
+    private static array $processedModels = [];
 
     public function __construct()
     {
@@ -25,22 +34,99 @@ class SpatieDataBuilder extends BaseBuilder
 
     public function create(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'spatie_data', 'Data', 'Data', $overwrite, function ($modelData) use ($overwrite) {
-            $supportedData = $this->getHelperData($modelData, $overwrite);
+        $model = $this->getFullModelNamespace($modelData);
+        $modelKey = $model;
+
+        // Track processed models to avoid infinite loops
+        if (in_array($modelKey, self::$processedModels, true)) {
+            // Return existing Data class namespace if already processed
+            $namespace = 'App\\Data';
+            if ($modelData['folders']) {
+                $namespace .= '\\'.str_replace('/', '\\', $modelData['folders']);
+            }
+
+            return $namespace.'\\'.$modelData['modelName'].'Data';
+        }
+
+        self::$processedModels[] = $modelKey;
+
+        // Detect relationships and generate Data classes for related models
+        $relationships = RelationshipDetector::detectRelationships($model);
+        $this->generateRelatedDataClasses($relationships, $overwrite);
+
+        return $this->fileService->createFromStub($modelData, 'spatie_data', 'Data', 'Data', $overwrite, function ($modelData) use ($overwrite, $model) {
+            $supportedData = $this->getHelperData($modelData, $overwrite, $model);
+
+            // Add model property - always add this
+            $modelClassName = $modelData['modelName'];
+            $modelNamespace = $this->getFullModelNamespace($modelData);
+
+            // Build the model property string
+            $modelPropertyString = "/** @var class-string<{$modelClassName}> */\n    protected static string \$model = {$modelClassName}::class;";
+
+            // Add namespaces
+            $supportedData['namespaces'][] = "use {$modelNamespace};";
+            $supportedData['namespaces'][] = 'use App\Traits\HasModelAttributes;';
+
+            // Add media fields if they exist
+            $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
+
+            if (! empty($mediaFields)) {
+                $supportedData['namespaces'][] = 'use Illuminate\Http\UploadedFile;';
+                $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\File;';
+
+                // Add media properties
+                foreach ($mediaFields as $field) {
+                    $typeHint = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::getTypeHint($field['isSingle']);
+                    $property = "public {$typeHint} \${$field['name']};";
+                    $supportedData['properties'][$property] = '#[File]';
+                }
+            }
+
+            // Build the complete data section including model property, trait usage, and properties
+            $traitUsage = '    use HasModelAttributes;';
+            $propertiesString = SpatieDataTransformer::convertDataToString(
+                $supportedData['properties'] ?? [],
+                ''
+            );
+
+            // Combine model property, trait usage, and properties
+            // Ensure model property is always included at the beginning
+            $dataSection = $modelPropertyString."\n\n".$traitUsage;
+            if (! empty($propertiesString)) {
+                $dataSection .= "\n\n".$propertiesString;
+            }
 
             return [
                 '{{ namespaces }}' => SpatieDataTransformer::convertNamespacesToString($supportedData['namespaces']),
-                '{{ data }}' => SpatieDataTransformer::convertDataToString($supportedData['properties'] ?? []),
+                '{{ data }}' => $dataSection,
             ];
         });
     }
 
-    private function getHelperData(array $modelData, $overwrite = false): array
+    private function getHelperData(array $modelData, $overwrite = false, ?string $modelClass = null): array
     {
         $columns = $this->getAvailableColumns($modelData);
         $properties = [];
         $validationNamespaces = [];
         $validationNamespace = 'use Spatie\LaravelData\Attributes\Validation\{{ validationNamespace }};';
+
+        // Detect and add relationship properties
+        if ($modelClass) {
+            $relationships = RelationshipDetector::detectRelationships($modelClass);
+            $relationshipProperties = RelationshipDetector::getRelationshipProperties($relationships);
+
+            foreach ($relationshipProperties as $relProperty) {
+                $property = $relProperty['property'];
+                $validation = $relProperty['validation'] ?? '';
+                $properties['properties'][$property] = $validation;
+
+                // Add Json validation namespace if needed
+                if ($validation === '#[Json]') {
+                    $validationNamespaces[] = str_replace('{{ validationNamespace }}', 'Json', $validationNamespace);
+                }
+            }
+        }
 
         foreach ($columns as $column) {
             $rules = [];
@@ -138,5 +224,85 @@ class SpatieDataBuilder extends BaseBuilder
         $properties['namespaces'] = array_unique($validationNamespaces);
 
         return $properties;
+    }
+
+    /**
+     * Generate Data classes for related models
+     *
+     * @param  array  $relationships  Array of relationship definitions
+     * @param  bool  $overwrite  Whether to overwrite existing files
+     */
+    private function generateRelatedDataClasses(array $relationships, bool $overwrite): void
+    {
+        foreach ($relationships as $relationship) {
+            $relatedModel = $relationship['related_model'] ?? null;
+
+            if (! $relatedModel || ! class_exists($relatedModel)) {
+                continue;
+            }
+
+            // Check if already processed
+            if (in_array($relatedModel, self::$processedModels, true)) {
+                continue;
+            }
+
+            // Resolve model data for related model
+            $relatedModelData = $this->resolveModelDataFromClass($relatedModel);
+
+            if (! $relatedModelData) {
+                continue;
+            }
+
+            // Check if Data class already exists
+            $dataNamespace = 'App\\Data';
+            if ($relatedModelData['folders']) {
+                $dataNamespace .= '\\'.str_replace('/', '\\', $relatedModelData['folders']);
+            }
+            $dataClass = $dataNamespace.'\\'.$relatedModelData['modelName'].'Data';
+
+            if (class_exists($dataClass) && ! $overwrite) {
+                continue;
+            }
+
+            // Recursively generate Data class for related model
+            try {
+                $this->create($relatedModelData, $overwrite);
+            } catch (Exception $e) {
+                // Skip if generation fails
+                continue;
+            }
+        }
+    }
+
+    /**
+     * Resolve model data array from model class name
+     *
+     * @param  string  $modelClass  Full class name of the model
+     * @return array|null Model data array or null if cannot be resolved
+     */
+    private function resolveModelDataFromClass(string $modelClass): ?array
+    {
+        $parts = explode('\\', $modelClass);
+        $modelName = end($parts);
+
+        // Remove 'App\Models\' prefix if present
+        $namespaceParts = array_slice($parts, 0, -1);
+        $namespace = implode('\\', $namespaceParts);
+
+        // Extract folders if model is in a subdirectory
+        $folders = null;
+        if (str_contains($namespace, 'Models\\')) {
+            $modelsIndex = array_search('Models', $namespaceParts);
+            if ($modelsIndex !== false && $modelsIndex < count($namespaceParts) - 1) {
+                $folderParts = array_slice($namespaceParts, $modelsIndex + 1);
+                $folders = implode('/', $folderParts);
+            }
+        }
+
+        return [
+            'modelName' => $modelName,
+            'namespace' => $namespace,
+            'folders' => $folders,
+        ];
     }
 }

@@ -6,6 +6,7 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
+use Mrmarchone\LaravelAutoCrud\Builders\FilterBuilderBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RepositoryBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ResourceBuilder;
@@ -25,7 +26,8 @@ class CRUDGenerator
         private ViewBuilder $viewBuilder,
         private RepositoryBuilder $repositoryBuilder,
         private ServiceBuilder $serviceBuilder,
-        private SpatieDataBuilder $spatieDataBuilder)
+        private SpatieDataBuilder $spatieDataBuilder,
+        private FilterBuilderBuilder $filterBuilderBuilder)
     {
         $this->controllerBuilder = new ControllerBuilder;
         $this->resourceBuilder = new ResourceBuilder;
@@ -35,29 +37,42 @@ class CRUDGenerator
         $this->repositoryBuilder = new RepositoryBuilder;
         $this->serviceBuilder = new ServiceBuilder;
         $this->spatieDataBuilder = new SpatieDataBuilder;
+        $this->filterBuilderBuilder = new FilterBuilderBuilder;
     }
 
     public function generate($modelData, array $options): void
     {
         $checkForType = $options['type'];
 
+        $requestName = $spatieDataName = $service = null;
+
         if ($options['pattern'] == 'spatie-data') {
             $spatieDataName = $this->spatieDataBuilder->create($modelData, $options['overwrite']);
+
+            // If using service with spatie-data, also create FormRequest
+            if ($options['service'] ?? false) {
+                $requestName = $this->requestBuilder->createForSpatieData($modelData, $options['overwrite']);
+            }
         } else {
             $requestName = $this->requestBuilder->create($modelData, $options['overwrite']);
         }
 
-        $repository = $service = null;
-        if ($options['repository']) {
-            $repository = $this->repositoryBuilder->create($modelData, $options['overwrite']);
-            $service = $this->serviceBuilder->create($modelData, $repository, $options['overwrite']);
+        if ($options['service'] ?? false) {
+            $service = $this->serviceBuilder->createServiceOnly($modelData, $options['overwrite']);
+        }
+
+        $filterBuilder = $filterRequest = null;
+        if ($options['filter'] ?? false) {
+            $filterBuilder = $this->filterBuilderBuilder->create($modelData, $options['overwrite']);
+            $filterRequest = $this->requestBuilder->createFilterRequest($modelData, $options['overwrite']);
         }
 
         $data = [
             'requestName' => $requestName ?? '',
-            'repository' => $repository ?? '',
             'service' => $service ?? '',
             'spatieData' => $spatieDataName ?? '',
+            'filterBuilder' => $filterBuilder ?? '',
+            'filterRequest' => $filterRequest ?? '',
         ];
 
         $controllerName = $this->generateController($checkForType, $modelData, $data, $options);
@@ -71,11 +86,11 @@ class CRUDGenerator
         $controllerName = null;
 
         if (in_array('api', $types)) {
-            $controllerName = $this->generateAPIController($modelData, $data['requestName'], $data['repository'], $data['service'], $options, $data['spatieData']);
+            $controllerName = $this->generateAPIController($modelData, $data['requestName'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null);
         }
 
         if (in_array('web', $types)) {
-            $controllerName = $this->generateWebController($modelData, $data['requestName'], $data['repository'], $data['service'], $options, $data['spatieData']);
+            $controllerName = $this->generateWebController($modelData, $data['requestName'], $data['service'], $options, $data['spatieData']);
         }
 
         if (! $controllerName) {
@@ -85,19 +100,22 @@ class CRUDGenerator
         return $controllerName;
     }
 
-    private function generateAPIController(array $modelData, string $requestName, string $repository, string $service, array $options, ?string $spatieData = null): string
+    private function generateAPIController(array $modelData, string $requestName, string $service, array $options, ?string $spatieData = null, ?string $filterBuilder = null, ?string $filterRequest = null): string
     {
         $controllerName = null;
 
+        // Always generate Resource for API controllers
+        $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite']);
+
         if ($options['pattern'] == 'spatie-data') {
-            $controllerName = $repository
-                ? $this->controllerBuilder->createAPIRepositorySpatieData($modelData, $spatieData, $service, $options['overwrite'])
-                : $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $options['overwrite']);
+            // If service with spatie-data, use FormRequest + Data class pattern
+            if ($service && $requestName) {
+                $controllerName = $this->controllerBuilder->createAPIServiceSpatieData($modelData, $spatieData, $requestName, $service, $resourceName, $filterBuilder, $filterRequest, $options['overwrite']);
+            } else {
+                $controllerName = $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $resourceName, $filterBuilder, $filterRequest, $options['overwrite']);
+            }
         } elseif ($options['pattern'] == 'normal') {
-            $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite']);
-            $controllerName = $repository
-                ? $this->controllerBuilder->createAPIRepository($modelData, $resourceName, $requestName, $service, $options['overwrite'])
-                : $this->controllerBuilder->createAPI($modelData, $resourceName, $requestName, $options['overwrite']);
+            $controllerName = $this->controllerBuilder->createAPI($modelData, $resourceName, $requestName, $filterBuilder, $filterRequest, $options['overwrite']);
         }
 
         if (! $controllerName) {
@@ -107,18 +125,14 @@ class CRUDGenerator
         return $controllerName;
     }
 
-    private function generateWebController(array $modelData, string $requestName, string $repository, string $service, array $options, string $spatieData = ''): string
+    private function generateWebController(array $modelData, string $requestName, string $service, array $options, string $spatieData = ''): string
     {
         $controllerName = null;
 
         if ($options['pattern'] == 'spatie-data') {
-            $controllerName = $repository
-                ? $this->controllerBuilder->createWebRepositorySpatieData($modelData, $spatieData, $service, $options['overwrite'])
-                : $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $options['overwrite']);
+            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $options['overwrite']);
         } elseif ($options['pattern'] == 'normal') {
-            $controllerName = $repository
-                ? $this->controllerBuilder->createWebRepository($modelData, $requestName, $service, $options['overwrite'])
-                : $this->controllerBuilder->createWeb($modelData, $requestName, $options['overwrite']);
+            $controllerName = $this->controllerBuilder->createWeb($modelData, $requestName, $options['overwrite']);
         }
 
         $this->viewBuilder->create($modelData, $options['overwrite']);

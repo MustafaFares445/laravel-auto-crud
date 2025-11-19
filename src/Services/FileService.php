@@ -11,7 +11,12 @@ class FileService
 {
     public function createFromStub(array $modelData, string $stubType, string $basePath, string $suffix, bool $overwrite = false, ?callable $dataCallback = null): string
     {
-        $stubPath = __DIR__."/../Stubs/{$stubType}.stub";
+        // Check project stubs directory first, then fall back to vendor stubs
+        $projectStubPath = base_path("stubs/{$stubType}.stub");
+        $vendorStubPath = __DIR__."/../Stubs/{$stubType}.stub";
+        
+        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
+        
         $namespace = 'App\\'.str_replace('/', '\\', $basePath);
 
         if ($modelData['folders']) {

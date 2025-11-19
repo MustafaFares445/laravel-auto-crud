@@ -22,12 +22,13 @@ class GenerateAutoCrudCommand extends Command
     {--MP|model-path= : Set models path.}
     {--M|model=* : Select one or more of your models.}
     {--T|type=* : Select weather api, web or both.}
-    {--R|repository : Working with repository design pattern.}
+    {--S|service : Generate with service layer (no repository).}
+    {--F|filter : Generate filter builder and filter request.}
     {--O|overwrite : Overwrite the files if already exists.}
     {--P|pattern=normal : Supports Spatie-Data Pattern.}
     {--C|curl : Generate CURL Requests for API.}
     {--PM|postman : Generate Postman Collection for API.}
-    {--S|swagger-api : Generate Swagger API json for API.}';
+    {--SA|swagger-api : Generate Swagger API json for API.}';
 
     protected $description = 'A command to create auto CRUD for your models.';
 
@@ -136,7 +137,7 @@ class GenerateAutoCrudCommand extends Command
 
     private function forceAllBooleanOptions(): void
     {
-        $this->input->setOption('repository', true);
+        $this->input->setOption('service', true);
         $this->input->setOption('curl', true);
         $this->input->setOption('postman', true);
         $this->input->setOption('swagger-api', true);

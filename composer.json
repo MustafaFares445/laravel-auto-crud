@@ -1,5 +1,5 @@
 {
-    "name": "mrmarchone/laravel-auto-crud",
+    "name": "mustafafares/laravel-auto-crud",
     "description": "Laravel Auto CRUD helps you streamline development and save time.",
     "type": "library",
     "require": {
@@ -21,8 +21,8 @@
     },
     "authors": [
         {
-            "name": "Abdelrahman Muhammed",
-            "email": "mrmarchone@gmail.com"
+            "name": "Mustafa Fares",
+            "email": "mustafa.fares.dev@gmail.com"
         }
     ],
     "extra": {
