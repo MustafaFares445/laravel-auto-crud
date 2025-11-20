@@ -5,6 +5,9 @@ namespace {{ namespace }};
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;{{ mediaResourceImport }}
 
+/**
+ * @mixin {{ model }}
+ */
 class {{ class }} extends JsonResource
 {
     /**
