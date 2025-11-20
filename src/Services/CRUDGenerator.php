@@ -20,21 +20,19 @@ use function Laravel\Prompts\info;
 class CRUDGenerator
 {
     public function __construct(private ControllerBuilder $controllerBuilder,
-        private ResourceBuilder $resourceBuilder,
-        private RequestBuilder $requestBuilder,
-        private RouteBuilder $routeBuilder,
-        private ViewBuilder $viewBuilder,
-        private RepositoryBuilder $repositoryBuilder,
-        private ServiceBuilder $serviceBuilder,
-        private SpatieDataBuilder $spatieDataBuilder,
-        private FilterBuilderBuilder $filterBuilderBuilder)
+                                private ResourceBuilder $resourceBuilder,
+                                private RequestBuilder $requestBuilder,
+                                private RouteBuilder $routeBuilder,
+                                private ViewBuilder $viewBuilder,
+                                private ServiceBuilder $serviceBuilder,
+                                private SpatieDataBuilder $spatieDataBuilder,
+                                private FilterBuilderBuilder $filterBuilderBuilder)
     {
         $this->controllerBuilder = new ControllerBuilder;
         $this->resourceBuilder = new ResourceBuilder;
         $this->requestBuilder = new RequestBuilder;
         $this->routeBuilder = new RouteBuilder;
         $this->viewBuilder = new ViewBuilder;
-        $this->repositoryBuilder = new RepositoryBuilder;
         $this->serviceBuilder = new ServiceBuilder;
         $this->spatieDataBuilder = new SpatieDataBuilder;
         $this->filterBuilderBuilder = new FilterBuilderBuilder;
@@ -46,7 +44,7 @@ class CRUDGenerator
 
         $requestName = $spatieDataName = $service = null;
 
-        if ($options['pattern'] == 'spatie-data') {
+        if ($options['pattern'] === 'spatie-data') {
             $spatieDataName = $this->spatieDataBuilder->create($modelData, $options['overwrite']);
 
             // If using service with spatie-data, also create FormRequest
@@ -85,11 +83,11 @@ class CRUDGenerator
     {
         $controllerName = null;
 
-        if (in_array('api', $types)) {
+        if (in_array('api', $types, true)) {
             $controllerName = $this->generateAPIController($modelData, $data['requestName'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null);
         }
 
-        if (in_array('web', $types)) {
+        if (in_array('web', $types, true)) {
             $controllerName = $this->generateWebController($modelData, $data['requestName'], $data['service'], $options, $data['spatieData']);
         }
 
@@ -105,16 +103,16 @@ class CRUDGenerator
         $controllerName = null;
 
         // Always generate Resource for API controllers
-        $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite']);
+        $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite'], $options['pattern'] ?? 'normal', $spatieData);
 
-        if ($options['pattern'] == 'spatie-data') {
+        if ($options['pattern'] === 'spatie-data') {
             // If service with spatie-data, use FormRequest + Data class pattern
             if ($service && $requestName) {
                 $controllerName = $this->controllerBuilder->createAPIServiceSpatieData($modelData, $spatieData, $requestName, $service, $resourceName, $filterBuilder, $filterRequest, $options['overwrite']);
             } else {
                 $controllerName = $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $resourceName, $filterBuilder, $filterRequest, $options['overwrite']);
             }
-        } elseif ($options['pattern'] == 'normal') {
+        } elseif ($options['pattern'] === 'normal') {
             $controllerName = $this->controllerBuilder->createAPI($modelData, $resourceName, $requestName, $filterBuilder, $filterRequest, $options['overwrite']);
         }
 
@@ -129,9 +127,9 @@ class CRUDGenerator
     {
         $controllerName = null;
 
-        if ($options['pattern'] == 'spatie-data') {
+        if ($options['pattern'] === 'spatie-data') {
             $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $options['overwrite']);
-        } elseif ($options['pattern'] == 'normal') {
+        } elseif ($options['pattern'] === 'normal') {
             $controllerName = $this->controllerBuilder->createWeb($modelData, $requestName, $options['overwrite']);
         }
 

@@ -82,7 +82,9 @@ class SpatieDataBuilder extends BaseBuilder
             // Build constructor with properties
             $constructorProperties = [];
             foreach ($supportedData['properties'] ?? [] as $property => $validation) {
-                $constructorProperties[] = ($validation ? "        $validation\n        " : "        ") . $property;
+                // Remove semicolon from property if present (for constructor parameters)
+                $propertyWithoutSemicolon = rtrim($property, ';');
+                $constructorProperties[] = ($validation ? "        $validation\n        " : "        ") . $propertyWithoutSemicolon;
             }
 
             $constructor = "    public function __construct(\n";

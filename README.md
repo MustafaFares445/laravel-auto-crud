@@ -91,4 +91,4 @@ When using `--service --pattern=spatie-data --filter`, the command generates:
 - **Filter Support**: Advanced filtering with search and pagination
 
 ## License
-**Laravel Starter Kit** was created by **[Mustafa Fares](https://www.linkedin.com/in/mustafa-fares/)** Forking from **[Nuno Maduro](https://x.com/enunomaduro)** Package.
+**Laravel Starter Kit** was created by **[Mustafa Fares](https://www.linkedin.com/in/mustafa-fares/)** Forking from **[mrmarchone/laravel-auto-crud](https://github.com/mrmarchone/laravel-auto-crud)** Package.
