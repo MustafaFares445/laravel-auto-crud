@@ -13,7 +13,7 @@ trait TableColumnsTrait
 
     public function getAvailableColumns(array $modelData): array
     {
-        $table = $this->modelService->getFullModelNamespace($modelData);
+        $table = ModelService::getFullModelNamespace($modelData);
 
         return $this->tableColumnsService->getAvailableColumns($table);
     }

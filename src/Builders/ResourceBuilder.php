@@ -26,7 +26,7 @@ class ResourceBuilder extends BaseBuilder
         return $this->fileService->createFromStub($modelData, 'resource', 'Http/Resources', 'Resource', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
             $resourcesData = $this->getResourcesData($modelData, $model);
-            
+
             return [
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $modelData['modelName'],
@@ -48,27 +48,27 @@ class ResourceBuilder extends BaseBuilder
         // Add regular columns (excluding id, created_at, updated_at)
         foreach ($columns as $column) {
             $columnName = $column['name'];
-            
+
             // Skip id, created_at, updated_at as they're handled separately
             if (in_array($columnName, ['id', 'created_at', 'updated_at'])) {
                 continue;
             }
-            
+
             $camelCaseName = Str::camel($columnName);
             $data[$camelCaseName] = '$this->'.$columnName;
         }
 
         // Detect and add media fields
         $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
-        
+
         if (!empty($mediaFields)) {
             $mediaResourceImport = "\nuse App\Http\Resources\MediaResource;";
-            
+
             foreach ($mediaFields as $field) {
                 $fieldName = $field['name'];
                 $collection = $field['collectionName'];
                 $camelCaseName = Str::camel($fieldName);
-                
+
                 if ($field['isSingle']) {
                     // Single file: MediaResource::make($this->whenLoaded('media', fn() => $this->getFirstMedia('collection')))
                     $data[$camelCaseName] = "MediaResource::make(\$this->whenLoaded('media', fn() => \$this->getFirstMedia('{$collection}')))";
@@ -89,4 +89,3 @@ class ResourceBuilder extends BaseBuilder
         ];
     }
 }
-

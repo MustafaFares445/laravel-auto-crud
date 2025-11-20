@@ -15,6 +15,13 @@ class SpatieDataBuilder extends BaseBuilder
 
     private EnumBuilder $enumBuilder;
 
+    /**
+     * Track processed models to avoid infinite loops in recursive generation
+     *
+     * @var array<string>
+     */
+    private static array $processedModels = [];
+
     public function __construct()
     {
         parent::__construct();
@@ -25,24 +32,42 @@ class SpatieDataBuilder extends BaseBuilder
 
     public function create(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'spatie_data', 'Data', 'Data', $overwrite, function ($modelData) use ($overwrite) {
-            $supportedData = $this->getHelperData($modelData, $overwrite);
-            
-            // Add media fields and HasModelAttributes trait
-            $model = $this->getFullModelNamespace($modelData);
+        $model = $this->getFullModelNamespace($modelData);
+        $modelKey = $model;
+
+        // Track processed models to avoid infinite loops
+        if (in_array($modelKey, self::$processedModels, true)) {
+            // Return existing Data class namespace if already processed
+            $namespace = 'App\\Data';
+            if ($modelData['folders']) {
+                $namespace .= '\\'.str_replace('/', '\\', $modelData['folders']);
+            }
+            return $namespace.'\\'.$modelData['modelName'].'Data';
+        }
+
+        self::$processedModels[] = $modelKey;
+
+        return $this->fileService->createFromStub($modelData, 'spatie_data', 'Data', 'Data', $overwrite, function ($modelData) use ($overwrite, $model) {
+            $supportedData = $this->getHelperData($modelData, $overwrite, $model);
+
+            // Add model property - always add this
+            $modelClassName = $modelData['modelName'];
+            $modelNamespace = $this->getFullModelNamespace($modelData);
+
+            // Add namespaces
+            $supportedData['namespaces'][] = "use {$modelNamespace};";
+            $supportedData['namespaces'][] = 'use App\Traits\HasModelAttributes;';
+
+            // Build the model property string
+            $modelPropertyString = "/** @var class-string<{$modelClassName}> */\n    protected static string \$model = {$modelClassName}::class;";
+
+            // Add media fields if they exist
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
-            
+
             if (!empty($mediaFields)) {
-                // Add HasModelAttributes trait import
-                $supportedData['namespaces'][] = 'use App\Traits\HasModelAttributes;';
                 $supportedData['namespaces'][] = 'use Illuminate\Http\UploadedFile;';
-                
-                // Add File validation namespace
                 $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\File;';
-                
-                // Add trait usage
-                $supportedData['traitUsage'] = '    use HasModelAttributes;';
-                
+
                 // Add media properties
                 foreach ($mediaFields as $field) {
                     $typeHint = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::getTypeHint($field['isSingle']);
@@ -51,14 +76,30 @@ class SpatieDataBuilder extends BaseBuilder
                 }
             }
 
+            // Build the complete data section including model property, trait usage, and properties
+            $traitUsage = '    use HasModelAttributes;';
+
+            // Build constructor with properties
+            $constructorProperties = [];
+            foreach ($supportedData['properties'] ?? [] as $property => $validation) {
+                $constructorProperties[] = ($validation ? "        $validation\n        " : "        ") . $property;
+            }
+
+            $constructor = "    public function __construct(\n";
+            $constructor .= implode(",\n", $constructorProperties);
+            $constructor .= "\n    ) {}";
+
+            // Combine model property, trait usage, and constructor
+            $dataSection = $modelPropertyString . "\n\n" . $traitUsage . "\n\n" . $constructor;
+
             return [
                 '{{ namespaces }}' => SpatieDataTransformer::convertNamespacesToString($supportedData['namespaces']),
-                '{{ data }}' => SpatieDataTransformer::convertDataToString($supportedData['properties'] ?? [], $supportedData['traitUsage'] ?? ''),
+                '{{ data }}' => $dataSection,
             ];
         });
     }
 
-    private function getHelperData(array $modelData, $overwrite = false): array
+    private function getHelperData(array $modelData, $overwrite = false, ?string $modelClass = null): array
     {
         $columns = $this->getAvailableColumns($modelData);
         $properties = [];
@@ -66,6 +107,11 @@ class SpatieDataBuilder extends BaseBuilder
         $validationNamespace = 'use Spatie\LaravelData\Attributes\Validation\{{ validationNamespace }};';
 
         foreach ($columns as $column) {
+            // Skip model_id and model_type columns (polymorphic relationship columns)
+            if (in_array($column['name'], ['model_id', 'model_type'], true)) {
+                continue;
+            }
+
             $rules = [];
             $isNullable = $column['is_nullable'];
             $columnType = $column['type'];
@@ -163,4 +209,3 @@ class SpatieDataBuilder extends BaseBuilder
         return $properties;
     }
 }
-
