@@ -144,3 +144,4 @@ class CRUDGenerator
         return $controllerName;
     }
 }
+

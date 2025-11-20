@@ -144,3 +144,4 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('type', ['api', 'web']);
     }
 }
+

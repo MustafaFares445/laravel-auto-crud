@@ -13,7 +13,7 @@ class FileService
     {
         // Check project stubs directory first, then fall back to vendor stubs
         $projectStubPath = base_path("stubs/{$stubType}.stub");
-        $vendorStubPath = __DIR__."/../Stubs/{$stubType}.stub";
+        $vendorStubPath = base_path("vendor/mrmarchone/laravel-auto-crud/src/Stubs/{$stubType}.stub");
         
         $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
         
@@ -68,3 +68,4 @@ class FileService
         return str_replace(array_keys($replacements), array_values($replacements), file_get_contents($stubPath));
     }
 }
+

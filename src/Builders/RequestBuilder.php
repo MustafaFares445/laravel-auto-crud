@@ -146,3 +146,4 @@ class RequestBuilder extends BaseBuilder
         return $validationRules;
     }
 }
+

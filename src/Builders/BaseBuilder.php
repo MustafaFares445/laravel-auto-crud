@@ -20,3 +20,4 @@ abstract class BaseBuilder
         return $modelData['namespace'] ? $modelData['namespace'].'\\'.$modelData['modelName'] : $modelData['modelName'];
     }
 }
+

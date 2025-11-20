@@ -31,3 +31,4 @@ class SpatieDataTransformer
         return $string;
     }
 }
+
