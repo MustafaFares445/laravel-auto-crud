@@ -53,6 +53,9 @@ ASCII;
         echo "\n$asciiArt\n\n";
         echo "[+] Name: Abdelrahman Muhammed\n";
         echo "[+] Email: mrmarchone@gmail.com\n";
+
+        echo "[+] Name: Mustafa Fares\n";
+        echo "[+] Email: mustafa.fares.dev@gmail.com\n";
     }
 
     public static function askForType($inputType, ?array $types = []): void

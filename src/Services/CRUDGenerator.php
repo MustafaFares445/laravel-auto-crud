@@ -7,7 +7,6 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\FilterBuilderBuilder;
-use Mrmarchone\LaravelAutoCrud\Builders\RepositoryBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ResourceBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RouteBuilder;
