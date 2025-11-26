@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+namespace {{ namespace }};
+
+use {{ modelNamespace }};
+use {{ spatieDataNamespace }};
+use {{ serviceNamespace }};
+use {{ requestNamespace }};
+use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
+use Illuminate\Http\Response;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Throwable;
+
+class {{ class }}
+{
+    public function __construct(protected {{ service }} ${{ serviceVariable }}){}
+
+    public function index({{ filterRequest }} $request): AnonymousResourceCollection
+    {
+{{ indexMethodBody }}
+    }
+
+    /**
+     * @throws Throwable
+     */
+    public function store({{ request }} $request): {{ resource }}
+    {
+        ${{ modelVariable }} = $this->{{ serviceVariable }}->store({{ spatieData }}::from($request->validated()));
+
+        return {{ resource }}::make(${{ modelVariable }}->load('media'));
+    }
+
+    public function show({{ model }} ${{ modelVariable }}): {{ resource }}
+    {
+        return {{ resource }}::make(${{ modelVariable }}->load('media'));
+    }
+
+    /**
+     * @throws Throwable
+     */
+    public function update({{ request }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
+    {
+        $updated{{ model }} = $this->{{ serviceVariable }}->update({{ spatieData }}::from($request->validated()), ${{ modelVariable }});
+
+        return {{ resource }}::make($updated{{ model }}->load('media'));
+    }
+
+    public function destroy({{ model }} ${{ modelVariable }}): Response
+    {
+        ${{ modelVariable }}->delete();
+
+        return response()->noContent();
+    }
+}
+

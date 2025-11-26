@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ requestNamespace }};
+use {{ modelNamespace }};
+use Illuminate\Http\Request;
+
+final class {{ class }} extends BaseFilterBuilder
+{
+    public function __construct()
+    {
+        $this->query = {{ model }}::query();
+    }
+
+    public static function make(): self
+    {
+       return new self();
+    }
+
+    public function applyFilters({{ request }}|Request $request): self
+    {
+        $this->textSearch($request->input('search'));
+
+        return $this;
+    }
+{{ textSearchMethod }}
+}
+

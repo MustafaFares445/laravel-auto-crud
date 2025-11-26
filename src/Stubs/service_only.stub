@@ -1,0 +1,48 @@
+<?php
+namespace {{ namespace }};
+
+use {{ modelNamespace }};
+use {{ dataNamespace }};{{ mediaHelperImport }}
+use Exception;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use Throwable;
+
+class {{ class }}
+{
+    /**
+     * Validate {{ modelVariable }} data.
+     * Store to DB if there are no errors.
+     *
+     * @param {{ data }} $data
+     * @return {{ model }}
+     * @throws Throwable
+     */
+    public function store({{ data }} $data): {{ model }}
+    {
+        return DB::transaction(static function () use ($data) {
+            ${{ modelVariable }} = {{ model }}::create($data->onlyModelAttributes());
+{{ mediaStoreLogic }}
+            return ${{ modelVariable }};
+        });
+    }
+
+    /**
+     * Update {{ modelVariable }} data
+     * Store to DB if there are no errors.
+     *
+     * @param {{ data }} $data
+     * @param {{ model }} ${{ modelVariable }}
+     * @return {{ model }}
+     * @throws Throwable
+     */
+    public function update({{ data }} $data, {{ model }} ${{ modelVariable }}): {{ model }}
+    {
+        return DB::transaction(static function () use ($data, ${{ modelVariable }}) {
+            tap(${{ modelVariable }})->update($data->onlyModelAttributes());
+{{ mediaUpdateLogic }}
+            return ${{ modelVariable }};
+        });
+    }
+}
+
