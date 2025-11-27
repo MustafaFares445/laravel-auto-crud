@@ -65,7 +65,7 @@ class ResourceBuilder extends BaseBuilder
                 }
 
                 // Skip media fields as they're handled separately
-                if (in_array($propertyName, $mediaFieldNames)) {
+                if (in_array($propertyName, $mediaFieldNames, true)) {
                     continue;
                 }
 
