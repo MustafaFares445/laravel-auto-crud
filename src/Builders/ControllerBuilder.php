@@ -31,7 +31,8 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestImport = "\nuse {$filterRequest};";
                 $filterBuilderClass = end($filterBuilderParts);
                 $filterRequestClass = end($filterRequestParts);
-                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n        ->orderBy(\$request->validated('orderColumn') , \$request->validated('orderDirection'));\n    ->paginate(\$request->validated('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
+                // Spatie Query Builder Pattern
+                $indexMethodBody = "        \${$modelVariable}s = {$modelData['modelName']}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
             } else {
                 $modelClass = $modelData['modelName'];
                 $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
@@ -76,7 +77,8 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestImport = "\nuse {$filterRequest};";
                 $filterBuilderClass = end($filterBuilderParts);
                 $filterRequestClass = end($filterRequestParts);
-                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n        ->orderBy(\$request->validated('orderColumn') , \$request->validated('orderDirection'));\n    ->paginate(\$request->validated('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
+                // Spatie Query Builder Pattern
+                $indexMethodBody = "        \${$modelVariable}s = {$modelData['modelName']}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
             } else {
                 $modelClass = $modelData['modelName'];
                 $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
@@ -242,7 +244,8 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestImport = "\nuse {$filterRequest};";
                 $filterBuilderClass = end($filterBuilderParts);
                 $filterRequestClass = end($filterRequestParts);
-                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n        ->orderBy(\$request->validated('orderColumn') , \$request->validated('orderDirection'));\n    ->paginate(\$request->validated('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
+                // Spatie Query Builder Pattern
+                $indexMethodBody = "        \${$modelVariable}s = {$modelData['modelName']}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
             } else {
                 $modelClass = $modelData['modelName'];
                 $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";

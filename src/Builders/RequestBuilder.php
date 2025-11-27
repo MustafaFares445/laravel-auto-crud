@@ -32,28 +32,16 @@ class RequestBuilder extends BaseBuilder
     {
         return $this->fileService->createFromStub($modelData, 'spatie_data_request', 'Http/Requests', 'Request', $overwrite, function ($modelData) {
             $rules = $this->getRequestData($modelData);
-            
+
             // Add media field validation rules
             $model = $this->getFullModelNamespace($modelData);
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
-            
+
             foreach ($mediaFields as $field) {
                 $rules[$field['name']] = $field['validation'];
             }
-            
-            return ['{{ data }}' => HelperService::formatArrayToPhpSyntax($rules)];
-        });
-    }
 
-    public function createFilterRequest(array $modelData, bool $overwrite = false): string
-    {
-        return $this->fileService->createFromStub($modelData, 'filter_request', 'Http/Requests', 'FilterRequest', $overwrite, function ($modelData) {
-            return ['{{ data }}' => HelperService::formatArrayToPhpSyntax([
-                'orderColumn' => 'nullable|string|in:'.implode(',', array_keys($this->getAvailableColumns($modelData))),
-                'orderDirection' => 'nullable|string|in:asc,desc',
-                'search' => 'nullable|string|max:255',
-                'perPage' => 'nullable|integer|min:1|max:100',
-            ])];
+            return ['{{ data }}' => HelperService::formatArrayToPhpSyntax($rules)];
         });
     }
 
@@ -148,4 +136,3 @@ class RequestBuilder extends BaseBuilder
         return $validationRules;
     }
 }
-

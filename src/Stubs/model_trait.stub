@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use {{ traitNamespace }};
+
+class {{ class }} extends Model implements HasMedia
+{
+    use HasFactory, Notifiable, InteractsWithMedia, {{ traitName }};
+
+    protected $fillable = [
+        {{ fillable }}
+    ];
+
+    protected $casts = [
+        {{ casts }}
+    ];
+}

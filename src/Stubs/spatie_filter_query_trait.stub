@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Traits\FilterQueries;
+
+use {{ modelNamespace }};
+use Spatie\QueryBuilder\QueryBuilder;
+use Spatie\QueryBuilder\AllowedFilter;
+
+trait {{ class }}FilterQuery
+{
+    public static function getQuery(): QueryBuilder
+    {
+        return QueryBuilder::for({{ model }}::class)
+            ->allowedFilters([
+{{ allowedFilters }}
+            ])
+            ->allowedSorts([
+{{ allowedSorts }}
+            ])
+            ->defaultSort('-created_at');
+    }
+
+{{ scopes }}
+}

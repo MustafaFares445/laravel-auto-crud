@@ -12,7 +12,7 @@ use function Laravel\Prompts\multiselect;
 
 class ModelService
 {
-    public static function isModelExists(string $modelName, string $modelsPath): ?string
+    public static function isModelExists(string $modelName, string $modelsPath): \Closure
     {
         return self::getAllModels($modelsPath)
             ->filter(function ($fullNamespace) use ($modelName) {
