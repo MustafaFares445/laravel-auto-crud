@@ -49,6 +49,8 @@ class RequestBuilder extends BaseBuilder
     {
         return $this->fileService->createFromStub($modelData, 'filter_request', 'Http/Requests', 'FilterRequest', $overwrite, function ($modelData) {
             return ['{{ data }}' => HelperService::formatArrayToPhpSyntax([
+                'orderColumn' => 'nullable|string|in:'.implode(',', array_keys($this->getAvailableColumns($modelData))),
+                'orderDirection' => 'nullable|string|in:asc,desc',
                 'search' => 'nullable|string|max:255',
                 'perPage' => 'nullable|integer|min:1|max:100',
             ])];

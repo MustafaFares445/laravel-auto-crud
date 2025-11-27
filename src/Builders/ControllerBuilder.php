@@ -27,11 +27,11 @@ class ControllerBuilder extends BaseBuilder
             if ($filterBuilder && $filterRequest) {
                 $filterBuilderParts = explode('\\', $filterBuilder);
                 $filterRequestParts = explode('\\', $filterRequest);
-                $filterBuilderImport = "\nuse {$filterBuilder};";
+                $filterBuilderImport = "\nuse {$filterBuilder};";``;
                 $filterRequestImport = "\nuse {$filterRequest};";
                 $filterBuilderClass = end($filterBuilderParts);
                 $filterRequestClass = end($filterRequestParts);
-                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n            ->paginate(\$request->input('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
+                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n        ->orderBy(\$request->validated('orderColumn') , \$request->validated('orderDirection'));\n    ->paginate(\$request->validated('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
             } else {
                 $modelClass = $modelData['modelName'];
                 $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
@@ -76,7 +76,7 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestImport = "\nuse {$filterRequest};";
                 $filterBuilderClass = end($filterBuilderParts);
                 $filterRequestClass = end($filterRequestParts);
-                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n            ->paginate(\$request->input('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
+                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n        ->orderBy(\$request->validated('orderColumn') , \$request->validated('orderDirection'));\n    ->paginate(\$request->validated('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
             } else {
                 $modelClass = $modelData['modelName'];
                 $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
@@ -242,7 +242,7 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestImport = "\nuse {$filterRequest};";
                 $filterBuilderClass = end($filterBuilderParts);
                 $filterRequestClass = end($filterRequestParts);
-                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n            ->paginate(\$request->input('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
+                $indexMethodBody = "        \${$modelVariable}s = {$filterBuilderClass}::make()\n            ->applyFilters(\$request)\n        ->orderBy(\$request->validated('orderColumn') , \$request->validated('orderDirection'));\n    ->paginate(\$request->validated('perPage'));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
             } else {
                 $modelClass = $modelData['modelName'];
                 $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
