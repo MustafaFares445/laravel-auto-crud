@@ -6,7 +6,7 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
-use Mrmarchone\LaravelAutoCrud\Builders\FilterBuilderBuilder;
+
 use Mrmarchone\LaravelAutoCrud\Builders\SpatieFilterBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ResourceBuilder;
@@ -26,7 +26,7 @@ class CRUDGenerator
                                 private ViewBuilder $viewBuilder,
                                 private ServiceBuilder $serviceBuilder,
                                 private SpatieDataBuilder $spatieDataBuilder,
-                                private FilterBuilderBuilder $filterBuilderBuilder,
+
                                 private SpatieFilterBuilder $spatieFilterBuilder)
     {
         $this->controllerBuilder = new ControllerBuilder;
@@ -36,7 +36,7 @@ class CRUDGenerator
         $this->viewBuilder = new ViewBuilder;
         $this->serviceBuilder = new ServiceBuilder;
         $this->spatieDataBuilder = new SpatieDataBuilder;
-        $this->filterBuilderBuilder = new FilterBuilderBuilder;
+
         $this->spatieFilterBuilder = new SpatieFilterBuilder;
     }
 
@@ -68,8 +68,7 @@ class CRUDGenerator
                 $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
                 // TODO: Inject the trait into the model
             } else {
-                $filterBuilder = $this->filterBuilderBuilder->create($modelData, $options['overwrite']);
-                $filterRequest = $this->requestBuilder->createFilterRequest($modelData, $options['overwrite']);
+                throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
             }
         }
 

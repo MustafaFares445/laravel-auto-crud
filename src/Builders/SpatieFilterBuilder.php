@@ -6,11 +6,23 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
+use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 
 class SpatieFilterBuilder extends BaseBuilder
 {
     use TableColumnsTrait;
+    protected TableColumnsService $tableColumnsService;
+
+    protected ModelService $modelService;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->tableColumnsService = new TableColumnsService();
+        $this->modelService = new ModelService();
+    }
 
     public function createFilterRequest(array $modelData, bool $overwrite = false): string
     {

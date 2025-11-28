@@ -14,6 +14,8 @@ class RequestBuilder extends BaseBuilder
 {
     use TableColumnsTrait;
 
+    protected TableColumnsService $tableColumnsService;
+    protected ModelService $modelService;
     public function __construct()
     {
         parent::__construct();
