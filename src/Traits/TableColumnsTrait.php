@@ -7,6 +7,10 @@ use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 
 trait TableColumnsTrait
 {
+    protected TableColumnsService $tableColumnsService;
+
+    protected ModelService $modelService;
+
     public function getAvailableColumns(array $modelData): array
     {
         $table = ModelService::getFullModelNamespace($modelData);

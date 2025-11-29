@@ -8,7 +8,7 @@ use {{ modelNamespace }};
 use Spatie\QueryBuilder\QueryBuilder;
 use Spatie\QueryBuilder\AllowedFilter;
 
-trait {{ class }}FilterQuery
+trait {{ class }}
 {
     public static function getQuery(): QueryBuilder
     {

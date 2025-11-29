@@ -12,6 +12,23 @@ use function Laravel\Prompts\multiselect;
 
 class ModelService
 {
+    public static function isModelExists(string $modelName, string $modelsPath): ?string
+    {
+        return self::getAllModels($modelsPath)
+            ->filter(function ($fullNamespace) use ($modelName) {
+                if (! $fullNamespace) {
+                    return false;
+                }
+
+                // Check if the class name matches (without namespace)
+                $classParts = explode('\\', $fullNamespace);
+                $actualClassName = end($classParts);
+
+                return $actualClassName === $modelName;
+            })
+            ->first();
+    }
+
     public static function showModels(string $modelsPath): ?array
     {
         $models = self::getAllModels($modelsPath)
@@ -44,23 +61,6 @@ class ModelService
             'folders' => implode('/', $parts) !== 'App/Models' ? implode('/', $parts) : null,
             'namespace' => str_replace('/', '\\', implode('/', $parts)) ?: null,
         ];
-    }
-
-    public static function isModelExists(string $modelName, string $modelsPath): ?string
-    {
-        return self::getAllModels($modelsPath)
-            ->filter(function ($fullNamespace) use ($modelName) {
-                if (! $fullNamespace) {
-                    return false;
-                }
-
-                // Check if the class name matches (without namespace)
-                $classParts = explode('\\', $fullNamespace);
-                $actualClassName = end($classParts);
-
-                return $actualClassName === $modelName;
-            })
-            ->first();
     }
 
     public static function getFullModelNamespace(array $modelData, ?callable $modelFactory = null): string

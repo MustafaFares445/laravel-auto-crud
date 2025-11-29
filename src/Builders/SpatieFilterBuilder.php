@@ -137,21 +137,21 @@ class SpatieFilterBuilder extends BaseBuilder
     private function generateScopeCreatedAfter(): string
     {
         return <<<EOT
-    public function scopeCreatedAfter(\$query, \$date)
-    {
-        return \$query->where('created_at', '>=', \$date);
-    }
-EOT;
-    }
+            public function scopeCreatedAfter(\$query, \$date)
+            {
+                return \$query->where('created_at', '>=', \$date);
+            }
+        EOT;
+            }
 
-    private function generateScopeCreatedBefore(): string
-    {
-        return <<<EOT
-    public function scopeCreatedBefore(\$query, \$date)
-    {
-        return \$query->where('created_at', '<=', \$date);
-    }
-EOT;
+            private function generateScopeCreatedBefore(): string
+            {
+                return <<<EOT
+            public function scopeCreatedBefore(\$query, \$date)
+            {
+                return \$query->where('created_at', '<=', \$date);
+            }
+        EOT;
     }
 
     private function generateScopeSearch(array $searchableColumns): string
@@ -162,27 +162,29 @@ EOT;
 
         $conditions = [];
         foreach ($searchableColumns as $column) {
-            $conditions[] = "                ->orWhere('{$column}', 'LIKE', \"%{\$term}%\")";
+            $conditions[] = "->orWhere('{$column}', 'LIKE', \"%\$term%\");";
         }
-        // Remove the first 'orWhere' and replace it with 'where'
-        $firstCondition = array_shift($conditions);
-        $firstCondition = str_replace('->orWhere', '->where', $firstCondition);
-        array_unshift($conditions, $firstCondition);
 
-        $conditionsString = implode("\n", $conditions);
+        if (!empty($conditions)) {
+            $conditions[0] = str_replace('->orWhere', '->where', $conditions[0]);
+        }
+
+        $conditions = array_map(static fn($c) => "\$q" . $c, $conditions);
+
+        $conditionsString = implode("\n                ", $conditions);
 
         return <<<EOT
-
-    public function scopeSearch(\$query, \$term)
-    {
-        if (empty(\$term)) {
-            return \$query;
-        }
-
-        return \$query->where(function (\$q) use (\$term) {
-{$conditionsString}
-        });
-    }
-EOT;
+        
+            public function scopeSearch(\$query, \$term)
+            {
+                if (empty(\$term)) {
+                    return \$query;
+                }
+        
+                return \$query->where(function (\$q) use (\$term) {
+                        {$conditionsString}
+                });
+            }
+        EOT;
     }
 }

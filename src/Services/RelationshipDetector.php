@@ -23,7 +23,7 @@ class RelationshipDetector
      * Detect relationships from a model class
      *
      * @param string $modelClass Full class name of the model
-     * @return array Arrasty of relationship definitions
+     * @return array Array of relationship definitions
      */
     public static function detectRelationships(string $modelClass): array
     {
