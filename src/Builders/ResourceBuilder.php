@@ -14,6 +14,9 @@ class ResourceBuilder extends BaseBuilder
 {
     use TableColumnsTrait;
 
+    protected ModelService $modelService;
+    protected TableColumnsService $tableColumnsService;
+
     public function __construct()
     {
         parent::__construct();
@@ -50,7 +53,7 @@ class ResourceBuilder extends BaseBuilder
         // Get media field names for filtering
         $mediaFieldNames = [];
         foreach ($mediaFields as $field) {
-            $mediaFieldNames[] = $field['name'];
+            $mediaFieldNames[] = Str::camel($field['name']);
         }
 
         // If using spatie-data pattern, read properties from Data class
@@ -65,12 +68,13 @@ class ResourceBuilder extends BaseBuilder
                 }
 
                 // Skip media fields as they're handled separately
-                if (in_array($propertyName, $mediaFieldNames)) {
+                if (in_array($propertyName, $mediaFieldNames, true)) {
                     continue;
                 }
 
                 $camelCaseName = Str::camel($propertyName);
-                $data[$camelCaseName] = '$this->'.$propertyName;
+                $snakeCaseName = Str::snake($propertyName);
+                $data[$camelCaseName] = '$this->'.$snakeCaseName;
             }
         } else {
             // Use database columns (original behavior)

@@ -6,7 +6,8 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
-use Mrmarchone\LaravelAutoCrud\Builders\FilterBuilderBuilder;
+
+use Mrmarchone\LaravelAutoCrud\Builders\SpatieFilterBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ResourceBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RouteBuilder;
@@ -25,7 +26,8 @@ class CRUDGenerator
                                 private ViewBuilder $viewBuilder,
                                 private ServiceBuilder $serviceBuilder,
                                 private SpatieDataBuilder $spatieDataBuilder,
-                                private FilterBuilderBuilder $filterBuilderBuilder)
+
+                                private SpatieFilterBuilder $spatieFilterBuilder)
     {
         $this->controllerBuilder = new ControllerBuilder;
         $this->resourceBuilder = new ResourceBuilder;
@@ -34,7 +36,8 @@ class CRUDGenerator
         $this->viewBuilder = new ViewBuilder;
         $this->serviceBuilder = new ServiceBuilder;
         $this->spatieDataBuilder = new SpatieDataBuilder;
-        $this->filterBuilderBuilder = new FilterBuilderBuilder;
+
+        $this->spatieFilterBuilder = new SpatieFilterBuilder;
     }
 
     public function generate($modelData, array $options): void
@@ -60,8 +63,13 @@ class CRUDGenerator
 
         $filterBuilder = $filterRequest = null;
         if ($options['filter'] ?? false) {
-            $filterBuilder = $this->filterBuilderBuilder->create($modelData, $options['overwrite']);
-            $filterRequest = $this->requestBuilder->createFilterRequest($modelData, $options['overwrite']);
+            if ($options['pattern'] === 'spatie-data') {
+                $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite']);
+                $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
+                // TODO: Inject the trait into the model
+            } else {
+                throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
+            }
         }
 
         $data = [
@@ -141,4 +149,3 @@ class CRUDGenerator
         return $controllerName;
     }
 }
-

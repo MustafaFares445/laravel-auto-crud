@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
+use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
@@ -13,6 +14,8 @@ class SpatieDataBuilder extends BaseBuilder
 {
     use TableColumnsTrait;
 
+    protected ModelService $modelService;
+    protected TableColumnsService $tableColumnsService;
     private EnumBuilder $enumBuilder;
 
     /**
@@ -71,7 +74,8 @@ class SpatieDataBuilder extends BaseBuilder
                 // Add media properties
                 foreach ($mediaFields as $field) {
                     $typeHint = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::getTypeHint($field['isSingle']);
-                    $property = "public {$typeHint} \${$field['name']};";
+                    $propertyName = Str::camel($field['name']);
+                    $property = "public {$typeHint} \${$propertyName};";
                     $supportedData['properties'][$property] = '#[File]';
                 }
             }
@@ -109,8 +113,10 @@ class SpatieDataBuilder extends BaseBuilder
         $validationNamespace = 'use Spatie\LaravelData\Attributes\Validation\{{ validationNamespace }};';
 
         foreach ($columns as $column) {
+            $columnName = $column['name'];
+            $propertyName = Str::camel($columnName);
             // Skip model_id and model_type columns (polymorphic relationship columns)
-            if (in_array($column['name'], ['model_id', 'model_type'], true)) {
+            if (in_array($columnName, ['model_id', 'model_type'], true)) {
                 continue;
             }
 
@@ -121,7 +127,7 @@ class SpatieDataBuilder extends BaseBuilder
             $isUnique = $column['is_unique'];
             $allowedValues = $column['allowed_values'];
             $validation = '#[{{ validation }}]';
-            $property = 'public '.($isNullable ? '?' : '').'{{ type }} $'.$column['name'].';';
+            $property = 'public '.($isNullable ? '?' : '').'{{ type }} $'.$propertyName.';';
 
             // Handle column types
             switch ($columnType) {
@@ -199,7 +205,6 @@ class SpatieDataBuilder extends BaseBuilder
             // Handle unique columns
             if ($isUnique) {
                 $table = $column['table'];
-                $columnName = $column['name'];
                 $rules[] = "Unique('$table', '$columnName')";
                 $validationNamespaces[] = str_replace('{{ validationNamespace }}', 'Unique', $validationNamespace);
             }

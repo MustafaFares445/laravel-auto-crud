@@ -142,11 +142,11 @@ class SpatieFilterBuilder extends BaseBuilder
                 return \$query->where('created_at', '>=', \$date);
             }
         EOT;
-            }
+    }
 
-            private function generateScopeCreatedBefore(): string
-            {
-                return <<<EOT
+    private function generateScopeCreatedBefore(): string
+    {
+        return <<<EOT
             public function scopeCreatedBefore(\$query, \$date)
             {
                 return \$query->where('created_at', '<=', \$date);
@@ -174,13 +174,13 @@ class SpatieFilterBuilder extends BaseBuilder
         $conditionsString = implode("\n                ", $conditions);
 
         return <<<EOT
-        
+
             public function scopeSearch(\$query, \$term)
             {
                 if (empty(\$term)) {
                     return \$query;
                 }
-        
+
                 return \$query->where(function (\$q) use (\$term) {
                         {$conditionsString}
                 });
