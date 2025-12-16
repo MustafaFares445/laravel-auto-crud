@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
+use ReflectionClass;
+
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\info;
 
 class SpatieFilterBuilder extends BaseBuilder
 {
     use TableColumnsTrait;
+
     protected TableColumnsService $tableColumnsService;
 
     protected ModelService $modelService;
@@ -84,7 +90,12 @@ class SpatieFilterBuilder extends BaseBuilder
 
     public function createFilterQueryTrait(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'spatie_filter_query_trait', 'Traits/FilterQueries', 'FilterQuery', $overwrite, function ($modelData) {
+        $this->ensureSearchTermEscaperExists($overwrite);
+
+        $modelClass = $this->getFullModelNamespace($modelData);
+        $hasScoutSearch = $this->modelHasScoutSearch($modelClass);
+
+        return $this->fileService->createFromStub($modelData, 'spatie_filter_query_trait', 'Traits/FilterQueries', 'FilterQuery', $overwrite, function ($modelData) use ($hasScoutSearch) {
             $columns = $this->getAvailableColumns($modelData);
             $allowedFilters = [];
             $allowedSorts = [];
@@ -122,7 +133,7 @@ class SpatieFilterBuilder extends BaseBuilder
             // Generate scopes
             $scopes[] = $this->generateScopeCreatedAfter();
             $scopes[] = $this->generateScopeCreatedBefore();
-            $scopes[] = $this->generateScopeSearch($searchableColumns);
+            $scopes[] = $this->generateScopeSearch($modelData, $searchableColumns, $hasScoutSearch);
 
             return [
                 '{{ modelNamespace }}' => $this->getFullModelNamespace($modelData),
@@ -132,6 +143,49 @@ class SpatieFilterBuilder extends BaseBuilder
                 '{{ scopes }}' => implode("\n", $scopes),
             ];
         });
+    }
+
+    private function ensureSearchTermEscaperExists(bool $overwrite = false): void
+    {
+        $filePath = app_path('Helpers/SearchTermEscaper.php');
+
+        if (file_exists($filePath) && ! $overwrite) {
+            return;
+        }
+
+        if (file_exists($filePath)) {
+            $shouldOverwrite = confirm(
+                label: 'SearchTermEscaper helper already exists, do you want to overwrite it? ' . $filePath
+            );
+            if (! $shouldOverwrite) {
+                return;
+            }
+        }
+
+        File::ensureDirectoryExists(dirname($filePath), 0777, true);
+
+        $projectStubPath = base_path('stubs/search_term_escaper.stub');
+        $vendorStubPath = base_path('vendor/mustafafares/laravel-auto-crud/src/Stubs/search_term_escaper.stub');
+        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
+
+        File::copy($stubPath, $filePath);
+
+        info("Created: $filePath");
+    }
+
+    private function modelHasScoutSearch(string $modelClass): bool
+    {
+        try {
+            if (! class_exists($modelClass)) {
+                return false;
+            }
+
+            $reflection = new ReflectionClass($modelClass);
+
+            return $reflection->hasMethod('toSearchableArray');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function generateScopeCreatedAfter(): string
@@ -154,37 +208,79 @@ class SpatieFilterBuilder extends BaseBuilder
         EOT;
     }
 
-    private function generateScopeSearch(array $searchableColumns): string
+    private function generateScopeSearch(array $modelData, array $searchableColumns, bool $hasScoutSearch): string
+    {
+        if ($hasScoutSearch) {
+            return $this->generateScoutScopeSearch($modelData);
+        }
+
+        return $this->generateDatabaseScopeSearch($searchableColumns);
+    }
+
+    private function generateScoutScopeSearch(array $modelData): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+
+        return <<<EOT
+
+    public function scopeSearch(\$query, \$term): Builder
+    {
+        if (empty(\$term)) {
+            return \$query;
+        }
+
+        \${$modelVariable}Ids = {$modelName}::search(\$term)->keys();
+
+        return \$query->when(
+            \${$modelVariable}Ids->isNotEmpty(),
+            fn (Builder \$q) => \$q->whereIn('id', \${$modelVariable}Ids)
+        );
+    }
+EOT;
+    }
+
+    private function generateDatabaseScopeSearch(array $searchableColumns): string
     {
         if (empty($searchableColumns)) {
-            return '';
+            return <<<EOT
+
+    public function scopeSearch(\$query, \$term): Builder
+    {
+        return \$query;
+    }
+EOT;
         }
 
         $conditions = [];
+        $isFirst = true;
+
         foreach ($searchableColumns as $column) {
-            $conditions[] = "->orWhere('{$column}', 'LIKE', \"%\$term%\");";
+            if ($isFirst) {
+                $conditions[] = "\$q->whereRaw(\"{$column} LIKE ? ESCAPE '!'\", [\$likeTerm])";
+                $isFirst = false;
+            } else {
+                $conditions[] = "->orWhereRaw(\"{$column} LIKE ? ESCAPE '!'\", [\$likeTerm])";
+            }
         }
-
-        if (!empty($conditions)) {
-            $conditions[0] = str_replace('->orWhere', '->where', $conditions[0]);
-        }
-
-        $conditions = array_map(static fn($c) => "\$q" . $c, $conditions);
 
         $conditionsString = implode("\n                ", $conditions);
 
         return <<<EOT
 
-            public function scopeSearch(\$query, \$term)
-            {
-                if (empty(\$term)) {
-                    return \$query;
-                }
+    public function scopeSearch(\$query, \$term): Builder
+    {
+        if (empty(\$term)) {
+            return \$query;
+        }
 
-                return \$query->where(function (\$q) use (\$term) {
-                        {$conditionsString}
-                });
-            }
-        EOT;
+        \$likeTerm = SearchTermEscaper::escape(\$term);
+
+        return \$query->where(function (Builder \$q) use (\$likeTerm) {
+            {$conditionsString};
+        });
+    }
+EOT;
     }
 }
+

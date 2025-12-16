@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Enums;
+
+enum PermissionType: string
+{
+    case Index = 'index';
+    case Create = 'create';
+    case Update = 'update';
+    case Delete = 'delete';
+}

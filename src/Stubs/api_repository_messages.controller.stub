@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use App\Enums\ResponseMessages;
+use App\Http\Controllers\Controller;
+use {{ requestNamespace }};
+use {{ resourceNamespace }};
+use {{ serviceNamespace }};
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
+
+class {{ class }} extends Controller
+{
+    public function __construct(protected {{ service }} ${{ serviceVariable }}) {}
+
+    public function index(): AnonymousResourceCollection
+    {
+        return {{ resource }}::collection($this->{{ serviceVariable }}->getAll())
+            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+    }
+
+    public function store({{ request }} $request): JsonResponse
+    {
+        $result = $this->{{ serviceVariable }}->save($request->validated());
+
+        return {{ resource }}::make($result)
+            ->additional(['message' => __(ResponseMessages::CREATED->value)])
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function show(int $id): {{ resource }}
+    {
+        return {{ resource }}::make($this->{{ serviceVariable }}->getById($id))
+            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+    }
+
+    public function update({{ request }} $request, int $id): {{ resource }}
+    {
+        $result = $this->{{ serviceVariable }}->update($request->validated(), $id);
+
+        return {{ resource }}::make($result)
+            ->additional(['message' => __(ResponseMessages::UPDATED->value)]);
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $this->{{ serviceVariable }}->deleteById($id);
+
+        return response()->json(['message' => __(ResponseMessages::DELETED->value)], Response::HTTP_OK);
+    }
+}

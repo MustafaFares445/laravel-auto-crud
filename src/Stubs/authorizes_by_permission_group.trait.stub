@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Traits;
+
+use App\Enums\PermissionGroup;
+use App\Enums\PermissionType;
+use App\Helpers\PermissionNameResolver;
+use App\Models\User;
+
+trait AuthorizesByPermissionGroup
+{
+    abstract protected function permissionGroup(): PermissionGroup;
+
+    protected function authorizeByGroup(User $user, PermissionType $type): bool
+    {
+        if ($user->hasRole(config('permission.dashboard_role'))) {
+            return true;
+        }
+
+        return $user->can(PermissionNameResolver::resolve($this->permissionGroup(), $type));
+    }
+}

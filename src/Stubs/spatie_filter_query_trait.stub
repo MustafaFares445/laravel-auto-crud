@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Traits\FilterQueries;
 
 use {{ modelNamespace }};
-use Spatie\QueryBuilder\QueryBuilder;
+use App\Helpers\SearchTermEscaper;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
 
 trait {{ class }}
 {

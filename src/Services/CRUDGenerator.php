@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Services;
 
+use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
-
+use Mrmarchone\LaravelAutoCrud\Builders\PolicyBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\SpatieFilterBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ResourceBuilder;
@@ -15,20 +16,22 @@ use Mrmarchone\LaravelAutoCrud\Builders\ServiceBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\SpatieDataBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ViewBuilder;
 
+use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 
 class CRUDGenerator
 {
-    public function __construct(private ControllerBuilder $controllerBuilder,
-                                private ResourceBuilder $resourceBuilder,
-                                private RequestBuilder $requestBuilder,
-                                private RouteBuilder $routeBuilder,
-                                private ViewBuilder $viewBuilder,
-                                private ServiceBuilder $serviceBuilder,
-                                private SpatieDataBuilder $spatieDataBuilder,
-
-                                private SpatieFilterBuilder $spatieFilterBuilder)
-    {
+    public function __construct(
+        private ControllerBuilder $controllerBuilder,
+        private ResourceBuilder $resourceBuilder,
+        private RequestBuilder $requestBuilder,
+        private RouteBuilder $routeBuilder,
+        private ViewBuilder $viewBuilder,
+        private ServiceBuilder $serviceBuilder,
+        private SpatieDataBuilder $spatieDataBuilder,
+        private SpatieFilterBuilder $spatieFilterBuilder,
+        private PolicyBuilder $policyBuilder,
+    ) {
         $this->controllerBuilder = new ControllerBuilder;
         $this->resourceBuilder = new ResourceBuilder;
         $this->requestBuilder = new RequestBuilder;
@@ -36,8 +39,8 @@ class CRUDGenerator
         $this->viewBuilder = new ViewBuilder;
         $this->serviceBuilder = new ServiceBuilder;
         $this->spatieDataBuilder = new SpatieDataBuilder;
-
         $this->spatieFilterBuilder = new SpatieFilterBuilder;
+        $this->policyBuilder = new PolicyBuilder;
     }
 
     public function generate($modelData, array $options): void
@@ -72,6 +75,14 @@ class CRUDGenerator
             }
         }
 
+        if (($options['response-messages'] ?? false) && in_array('api', $checkForType, true)) {
+            $this->generateResponseMessagesEnum($options['overwrite']);
+        }
+
+        if ($options['policy'] ?? false) {
+            $this->policyBuilder->create($modelData, $options['overwrite']);
+        }
+
         $data = [
             'requestName' => $requestName ?? '',
             'service' => $service ?? '',
@@ -84,6 +95,30 @@ class CRUDGenerator
         $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType);
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
+    }
+
+    private function generateResponseMessagesEnum(bool $overwrite = false): void
+    {
+        $filePath = app_path('Enums/ResponseMessages.php');
+
+        if (file_exists($filePath) && ! $overwrite) {
+            $shouldOverwrite = confirm(
+                label: 'ResponseMessages enum already exists, do you want to overwrite it? '.$filePath
+            );
+            if (! $shouldOverwrite) {
+                return;
+            }
+        }
+
+        File::ensureDirectoryExists(dirname($filePath), 0777, true);
+
+        $projectStubPath = base_path('stubs/response_messages.enum.stub');
+        $vendorStubPath = base_path('vendor/mustafafares/laravel-auto-crud/src/Stubs/response_messages.enum.stub');
+        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
+
+        File::copy($stubPath, $filePath);
+
+        info("Created: $filePath");
     }
 
     private function generateController(array $types, array $modelData, array $data, array $options): string
@@ -112,15 +147,23 @@ class CRUDGenerator
         // Always generate Resource for API controllers
         $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite'], $options['pattern'] ?? 'normal', $spatieData);
 
+        $controllerOptions = [
+            'filterBuilder' => $filterBuilder,
+            'filterRequest' => $filterRequest,
+            'overwrite' => $options['overwrite'] ?? false,
+            'response-messages' => $options['response-messages'] ?? false,
+            'no-pagination' => $options['no-pagination'] ?? false,
+        ];
+
         if ($options['pattern'] === 'spatie-data') {
             // If service with spatie-data, use FormRequest + Data class pattern
             if ($service && $requestName) {
-                $controllerName = $this->controllerBuilder->createAPIServiceSpatieData($modelData, $spatieData, $requestName, $service, $resourceName, $filterBuilder, $filterRequest, $options['overwrite']);
+                $controllerName = $this->controllerBuilder->createAPIServiceSpatieData($modelData, $spatieData, $requestName, $service, $resourceName, $controllerOptions);
             } else {
-                $controllerName = $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $resourceName, $filterBuilder, $filterRequest, $options['overwrite']);
+                $controllerName = $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $resourceName, $controllerOptions);
             }
         } elseif ($options['pattern'] === 'normal') {
-            $controllerName = $this->controllerBuilder->createAPI($modelData, $resourceName, $requestName, $filterBuilder, $filterRequest, $options['overwrite']);
+            $controllerName = $this->controllerBuilder->createAPI($modelData, $resourceName, $requestName, $controllerOptions);
         }
 
         if (! $controllerName) {

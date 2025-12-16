@@ -6,12 +6,21 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
+use ReflectionClass;
 
 class ControllerBuilder extends BaseBuilder
 {
-    public function createAPI(array $modelData, string $resource, string $request, ?string $filterBuilder = null, ?string $filterRequest = null, bool $overwrite = false): string
+    public function createAPI(array $modelData, string $resource, string $request, array $options = []): string
     {
-        return $this->fileService->createFromStub($modelData, 'api.controller', 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $request, $filterBuilder, $filterRequest) {
+        $filterBuilder = $options['filterBuilder'] ?? null;
+        $filterRequest = $options['filterRequest'] ?? null;
+        $overwrite = $options['overwrite'] ?? false;
+        $useResponseMessages = $options['response-messages'] ?? false;
+        $noPagination = $options['no-pagination'] ?? false;
+
+        $stubName = $useResponseMessages ? 'api_messages.controller' : 'api.controller';
+
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $request, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
             $model = $this->getFullModelNamespace($modelData);
             $resourceName = explode('\\', $resource);
             $requestName = explode('\\', $request);
@@ -20,23 +29,23 @@ class ControllerBuilder extends BaseBuilder
             $filterRequestImport = '';
             $filterBuilderClass = 'Request';
             $filterRequestClass = 'Request';
-            $indexMethodBody = '';
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
+            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)])" : '';
 
-            if ($filterBuilder && $filterRequest) {
-                $filterBuilderParts = explode('\\', $filterBuilder);
-                $filterRequestParts = explode('\\', $filterRequest);
-                $filterBuilderImport = "\nuse {$filterBuilder};";``;
-                $filterRequestImport = "\nuse {$filterRequest};";
-                $filterBuilderClass = end($filterBuilderParts);
-                $filterRequestClass = end($filterRequestParts);
-                // Spatie Query Builder Pattern
-                $indexMethodBody = "        \${$modelVariable}s = {$modelData['modelName']}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
-            } else {
-                $modelClass = $modelData['modelName'];
-                $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
-            }
+            $indexMethodBody = $this->generateIndexMethodBody(
+                $modelData['modelName'],
+                $modelVariable,
+                $resourceClass,
+                $additionalMessage,
+                $filterBuilder,
+                $filterRequest,
+                $noPagination,
+                $filterBuilderImport,
+                $filterRequestImport,
+                $filterBuilderClass,
+                $filterRequestClass
+            );
 
             return [
                 '{{ requestNamespace }}' => $request,
@@ -55,9 +64,17 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createAPISpatieData(array $modelData, string $spatieData, string $resource, ?string $filterBuilder = null, ?string $filterRequest = null, bool $overwrite = false): string
+    public function createAPISpatieData(array $modelData, string $spatieData, string $resource, array $options = []): string
     {
-        return $this->fileService->createFromStub($modelData, 'api_spatie_data.controller', 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($spatieData, $resource, $filterBuilder, $filterRequest) {
+        $filterBuilder = $options['filterBuilder'] ?? null;
+        $filterRequest = $options['filterRequest'] ?? null;
+        $overwrite = $options['overwrite'] ?? false;
+        $useResponseMessages = $options['response-messages'] ?? false;
+        $noPagination = $options['no-pagination'] ?? false;
+
+        $stubName = $useResponseMessages ? 'api_spatie_data_messages.controller' : 'api_spatie_data.controller';
+
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($spatieData, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $resourceName = explode('\\', $resource);
@@ -66,23 +83,23 @@ class ControllerBuilder extends BaseBuilder
             $filterRequestImport = '';
             $filterBuilderClass = 'Request';
             $filterRequestClass = 'Request';
-            $indexMethodBody = '';
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
+            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)])" : '';
 
-            if ($filterBuilder && $filterRequest) {
-                $filterBuilderParts = explode('\\', $filterBuilder);
-                $filterRequestParts = explode('\\', $filterRequest);
-                $filterBuilderImport = "\nuse {$filterBuilder};";
-                $filterRequestImport = "\nuse {$filterRequest};";
-                $filterBuilderClass = end($filterBuilderParts);
-                $filterRequestClass = end($filterRequestParts);
-                // Spatie Query Builder Pattern
-                $indexMethodBody = "        \${$modelVariable}s = {$modelData['modelName']}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
-            } else {
-                $modelClass = $modelData['modelName'];
-                $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
-            }
+            $indexMethodBody = $this->generateIndexMethodBody(
+                $modelData['modelName'],
+                $modelVariable,
+                $resourceClass,
+                $additionalMessage,
+                $filterBuilder,
+                $filterRequest,
+                $noPagination,
+                $filterBuilderImport,
+                $filterRequestImport,
+                $filterBuilderClass,
+                $filterRequestClass
+            );
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
@@ -101,9 +118,14 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createAPIRepository(array $modelData, string $resource, string $request, string $service, bool $overwrite = false): string
+    public function createAPIRepository(array $modelData, string $resource, string $request, string $service, array $options = []): string
     {
-        return $this->fileService->createFromStub($modelData, 'api_repository.controller', 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $request, $service) {
+        $overwrite = $options['overwrite'] ?? false;
+        $useResponseMessages = $options['response-messages'] ?? false;
+
+        $stubName = $useResponseMessages ? 'api_repository_messages.controller' : 'api_repository.controller';
+
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $request, $service) {
             $resourceName = explode('\\', $resource);
             $requestName = explode('\\', $request);
             $serviceName = explode('\\', $service);
@@ -220,9 +242,17 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createAPIServiceSpatieData(array $modelData, string $spatieData, string $request, string $service, string $resource, ?string $filterBuilder = null, ?string $filterRequest = null, bool $overwrite = false): string
+    public function createAPIServiceSpatieData(array $modelData, string $spatieData, string $request, string $service, string $resource, array $options = []): string
     {
-        return $this->fileService->createFromStub($modelData, 'api_service_spatie_data.controller', 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($spatieData, $request, $service, $resource, $filterBuilder, $filterRequest) {
+        $filterBuilder = $options['filterBuilder'] ?? null;
+        $filterRequest = $options['filterRequest'] ?? null;
+        $overwrite = $options['overwrite'] ?? false;
+        $useResponseMessages = $options['response-messages'] ?? false;
+        $noPagination = $options['no-pagination'] ?? false;
+
+        $stubName = $useResponseMessages ? 'api_service_spatie_data_messages.controller' : 'api_service_spatie_data.controller';
+
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($spatieData, $request, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $requestName = explode('\\', $request);
@@ -233,23 +263,24 @@ class ControllerBuilder extends BaseBuilder
             $filterRequestImport = '';
             $filterBuilderClass = 'Request';
             $filterRequestClass = 'Request';
-            $indexMethodBody = '';
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
+            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)])" : '';
+            $loadRelations = $this->getLoadRelations($model);
 
-            if ($filterBuilder && $filterRequest) {
-                $filterBuilderParts = explode('\\', $filterBuilder);
-                $filterRequestParts = explode('\\', $filterRequest);
-                $filterBuilderImport = "\nuse {$filterBuilder};";
-                $filterRequestImport = "\nuse {$filterRequest};";
-                $filterBuilderClass = end($filterBuilderParts);
-                $filterRequestClass = end($filterRequestParts);
-                // Spatie Query Builder Pattern
-                $indexMethodBody = "        \${$modelVariable}s = {$modelData['modelName']}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s);";
-            } else {
-                $modelClass = $modelData['modelName'];
-                $indexMethodBody = "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10));";
-            }
+            $indexMethodBody = $this->generateIndexMethodBody(
+                $modelData['modelName'],
+                $modelVariable,
+                $resourceClass,
+                $additionalMessage,
+                $filterBuilder,
+                $filterRequest,
+                $noPagination,
+                $filterBuilderImport,
+                $filterRequestImport,
+                $filterBuilderClass,
+                $filterRequestClass
+            );
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
@@ -269,8 +300,76 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterBuilder }}' => $filterBuilderClass,
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
+                '{{ loadRelations }}' => $loadRelations,
             ];
         });
     }
-}
 
+    private function generateIndexMethodBody(
+        string $modelClass,
+        string $modelVariable,
+        string $resourceClass,
+        string $additionalMessage,
+        ?string $filterBuilder,
+        ?string $filterRequest,
+        bool $noPagination,
+        string &$filterBuilderImport,
+        string &$filterRequestImport,
+        string &$filterBuilderClass,
+        string &$filterRequestClass
+    ): string {
+        if ($filterBuilder && $filterRequest) {
+            $filterBuilderParts = explode('\\', $filterBuilder);
+            $filterRequestParts = explode('\\', $filterRequest);
+            $filterBuilderImport = "\nuse {$filterBuilder};";
+            $filterRequestImport = "\nuse {$filterRequest};";
+            $filterBuilderClass = end($filterBuilderParts);
+            $filterRequestClass = end($filterRequestParts);
+
+            if ($noPagination) {
+                return "        \${$modelVariable}s = {$modelClass}::getQuery()->get();\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
+            }
+
+            return "        \${$modelVariable}s = {$modelClass}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
+        }
+
+        if ($noPagination) {
+            return "        return {$resourceClass}::collection({$modelClass}::all()){$additionalMessage};";
+        }
+
+        return "        return {$resourceClass}::collection({$modelClass}::latest()->paginate(10)){$additionalMessage};";
+    }
+
+    private function modelHasMedia(string $modelClass): bool
+    {
+        try {
+            if (! class_exists($modelClass)) {
+                return false;
+            }
+
+            $reflection = new ReflectionClass($modelClass);
+            $traits = $reflection->getTraitNames();
+
+            foreach ($traits as $trait) {
+                if (str_contains($trait, 'InteractsWithMedia') ||
+                    str_contains($trait, 'HasMediaConversions') ||
+                    str_contains($trait, 'HasMedia')) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function getLoadRelations(string $modelClass): string
+    {
+        if ($this->modelHasMedia($modelClass)) {
+            return "->load('media')";
+        }
+
+        return '';
+    }
+}

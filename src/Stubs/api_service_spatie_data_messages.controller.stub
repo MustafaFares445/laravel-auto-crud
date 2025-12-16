@@ -1,20 +1,24 @@
 <?php
 
 declare(strict_types=1);
+
 namespace {{ namespace }};
 
+use App\Enums\ResponseMessages;
 use {{ modelNamespace }};
 use {{ spatieDataNamespace }};
 use {{ serviceNamespace }};
 use {{ requestNamespace }};
 use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
-use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class {{ class }}
 {
-    public function __construct(protected {{ service }} ${{ serviceVariable }}){}
+    public function __construct(protected {{ service }} ${{ serviceVariable }}) {}
 
     public function index({{ filterRequest }} $request): AnonymousResourceCollection
     {
@@ -24,16 +28,20 @@ class {{ class }}
     /**
      * @throws Throwable
      */
-    public function store({{ request }} $request): {{ resource }}
+    public function store({{ request }} $request): JsonResponse
     {
         ${{ modelVariable }} = $this->{{ serviceVariable }}->store({{ spatieData }}::from($request->validated()));
 
-        return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }});
+        return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }})
+            ->additional(['message' => __(ResponseMessages::CREATED->value)])
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
     }
 
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
-        return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }});
+        return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }})
+            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
     }
 
     /**
@@ -43,14 +51,15 @@ class {{ class }}
     {
         $updated{{ model }} = $this->{{ serviceVariable }}->update({{ spatieData }}::from($request->validated()), ${{ modelVariable }});
 
-        return {{ resource }}::make($updated{{ model }}{{ loadRelations }});
+        return {{ resource }}::make($updated{{ model }}{{ loadRelations }})
+            ->additional(['message' => __(ResponseMessages::UPDATED->value)]);
     }
 
-    public function destroy({{ model }} ${{ modelVariable }}): Response
+    public function destroy({{ model }} ${{ modelVariable }}): {{ resource }}
     {
         ${{ modelVariable }}->delete();
 
-        return response()->noContent();
+        return {{ resource }}::make(${{ modelVariable }})
+            ->additional(['message' => __(ResponseMessages::DELETED->value)]);
     }
 }
-

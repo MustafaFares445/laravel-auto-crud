@@ -12,25 +12,27 @@ use function Laravel\Prompts\multiselect;
 
 class ModelService
 {
-    public static function showModels(string $modelsPath): ?array
+    public static function getAvailableModels(string $modelsPath): array
     {
-        $models = self::getAllModels($modelsPath)
+        return self::getAllModels($modelsPath)
             ->filter(function ($fullNamespace) {
                 if (! $fullNamespace) {
                     return false;
                 }
 
-                // Ensure the class exists and is an instance of Model
                 if (! class_exists($fullNamespace)) {
                     return false;
                 }
 
                 return is_subclass_of($fullNamespace, Model::class);
             })
-            ->values() // Reset array keys
+            ->values()
             ->toArray();
+    }
 
-        $models = array_values($models);
+    public static function showModels(string $modelsPath): ?array
+    {
+        $models = self::getAvailableModels($modelsPath);
 
         return count($models) ? multiselect(label: 'Select your model, use your space-bar to select.', options: $models) : null;
     }

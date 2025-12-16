@@ -1,0 +1,14 @@
+<?php
+
+namespace App\Enums;
+
+enum ResponseMessages: string
+{
+    case RETRIEVED = 'data retrieved successfully.';
+
+    case CREATED = 'data created successfully.';
+
+    case UPDATED = 'data updated successfully.';
+
+    case DELETED = 'data deleted successfully.';
+}

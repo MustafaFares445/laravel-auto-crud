@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use App\Enums\ResponseMessages;
+use App\Http\Controllers\Controller;
+use {{ spatieDataNamespace }};
+use {{ resourceNamespace }};
+use {{ modelNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
+
+class {{ class }} extends Controller
+{
+    public function index({{ filterRequest }} $request): AnonymousResourceCollection
+    {
+{{ indexMethodBody }}
+    }
+
+    public function store({{ spatieData }} $data): JsonResponse
+    {
+        ${{ modelVariable }} = {{ model }}::create($data->all());
+
+        return {{ resource }}::make(${{ modelVariable }})
+            ->additional(['message' => __(ResponseMessages::CREATED->value)])
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function show({{ model }} ${{ modelVariable }}): {{ resource }}
+    {
+        return {{ resource }}::make(${{ modelVariable }})
+            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+    }
+
+    public function update({{ spatieData }} $data, {{ model }} ${{ modelVariable }}): {{ resource }}
+    {
+        ${{ modelVariable }}->update($data->all());
+
+        return {{ resource }}::make(${{ modelVariable }})
+            ->additional(['message' => __(ResponseMessages::UPDATED->value)]);
+    }
+
+    public function destroy({{ model }} ${{ modelVariable }}): {{ resource }}
+    {
+        ${{ modelVariable }}->delete();
+
+        return {{ resource }}::make(${{ modelVariable }})
+            ->additional(['message' => __(ResponseMessages::DELETED->value)]);
+    }
+}

@@ -5,18 +5,31 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
+use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use ReflectionClass;
 use Throwable;
 
 class FilterBuilderBuilder extends BaseBuilder
 {
+    use TableColumnsTrait;
+
+    protected TableColumnsService $tableColumnsService;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->tableColumnsService = new TableColumnsService();
+    }
+
     public function create(array $modelData, bool $overwrite = false): string
     {
         return $this->fileService->createFromStub($modelData, 'filter_builder', 'FilterBuilders', 'FilterBuilder', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
             $requestClass = 'App\\Http\\Requests\\' . $modelData['modelName'] . 'FilterRequest';
-            
-            $textSearchMethod = $this->generateTextSearchMethod($modelData, $model);
+
+            $hasScoutSearch = $this->modelHasScoutSearch($model);
+            $textSearchMethod = $this->generateTextSearchMethod($modelData, $model, $hasScoutSearch);
 
             return [
                 '{{ modelNamespace }}' => $model,
@@ -29,22 +42,38 @@ class FilterBuilderBuilder extends BaseBuilder
         });
     }
 
-    private function generateTextSearchMethod(array $modelData, string $modelClass): string
+    private function modelHasScoutSearch(string $modelClass): bool
     {
         try {
-            if (!class_exists($modelClass)) {
-                return '';
+            if (! class_exists($modelClass)) {
+                return false;
             }
 
             $reflection = new ReflectionClass($modelClass);
-            $searchableProperties = [];
 
-            if ($reflection->hasMethod('toSearchableArray')) {
-                $searchableProperties = $this->extractSearchableProperties($reflection);
-            }
+            return $reflection->hasMethod('toSearchableArray');
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function generateTextSearchMethod(array $modelData, string $modelClass, bool $hasScoutSearch): string
+    {
+        if ($hasScoutSearch) {
+            return $this->generateScoutTextSearchMethod($modelData, $modelClass);
+        }
+
+        return $this->generateDatabaseTextSearchMethod($modelData);
+    }
+
+    private function generateScoutTextSearchMethod(array $modelData, string $modelClass): string
+    {
+        try {
+            $reflection = new ReflectionClass($modelClass);
+            $searchableProperties = $this->extractSearchableProperties($reflection);
 
             if (empty($searchableProperties)) {
-                return '';
+                return $this->generateDatabaseTextSearchMethod($modelData);
             }
 
             $modelName = $modelData['modelName'];
@@ -64,9 +93,60 @@ class FilterBuilderBuilder extends BaseBuilder
             $code .= "{$indent}}\n";
 
             return $code;
-        } catch (Throwable $e) {
-            return '';
+        } catch (Throwable) {
+            return $this->generateDatabaseTextSearchMethod($modelData);
         }
+    }
+
+    private function generateDatabaseTextSearchMethod(array $modelData): string
+    {
+        $columns = $this->getAvailableColumns($modelData);
+        $searchableColumns = [];
+
+        foreach ($columns as $column) {
+            if (in_array($column['type'], ['string', 'varchar', 'text', 'longtext', 'mediumtext', 'char', 'email'])) {
+                $searchableColumns[] = $column['name'];
+            }
+        }
+
+        if (empty($searchableColumns)) {
+            $indent = '    ';
+            $code = "\n{$indent}public function textSearch(?string \$text): self\n";
+            $code .= "{$indent}{\n";
+            $code .= "{$indent}    return \$this;\n";
+            $code .= "{$indent}}\n";
+
+            return $code;
+        }
+
+        $indent = '    ';
+        $conditions = [];
+        $isFirst = true;
+
+        foreach ($searchableColumns as $column) {
+            if ($isFirst) {
+                $conditions[] = "\$q->whereRaw(\"{$column} LIKE ? ESCAPE '!'\", [\$likeTerm])";
+                $isFirst = false;
+            } else {
+                $conditions[] = "->orWhereRaw(\"{$column} LIKE ? ESCAPE '!'\", [\$likeTerm])";
+            }
+        }
+
+        $conditionsString = implode("\n{$indent}            ", $conditions);
+
+        $code = "\n{$indent}public function textSearch(?string \$text): self\n";
+        $code .= "{$indent}{\n";
+        $code .= "{$indent}    if (empty(\$text)) {\n";
+        $code .= "{$indent}        return \$this;\n";
+        $code .= "{$indent}    }\n\n";
+        $code .= "{$indent}    \$likeTerm = \\App\\Helpers\\SearchTermEscaper::escape(\$text);\n\n";
+        $code .= "{$indent}    \$this->query->where(function (\$q) use (\$likeTerm) {\n";
+        $code .= "{$indent}        {$conditionsString};\n";
+        $code .= "{$indent}    });\n\n";
+        $code .= "{$indent}    return \$this;\n";
+        $code .= "{$indent}}\n";
+
+        return $code;
     }
 
     private function extractSearchableProperties(ReflectionClass $reflection): array
@@ -110,10 +190,11 @@ class FilterBuilderBuilder extends BaseBuilder
                     return ! in_array($prop, ['created_at', 'updated_at', 'deleted_at'], true);
                 });
             }
-        } catch (Throwable $e) {
+        } catch (Throwable) {
         }
 
         return array_values($properties);
     }
 }
+
 
