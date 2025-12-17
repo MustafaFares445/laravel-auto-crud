@@ -1,11 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace {{ namespace }};
 
+use Mrmarchone\LaravelAutoCrud\Traits\HasModelAttributes;
 use Spatie\LaravelData\Data;
 {{ namespaces }}
 
 class {{ class }} extends Data
 {
+    use HasModelAttributes;
+
 {{ data }}
 }

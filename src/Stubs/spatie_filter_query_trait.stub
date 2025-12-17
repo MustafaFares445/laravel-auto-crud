@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Traits\FilterQueries;
 
 use {{ modelNamespace }};
-use App\Helpers\SearchTermEscaper;
 use Illuminate\Database\Eloquent\Builder;
+use Mrmarchone\LaravelAutoCrud\Helpers\SearchTermEscaper;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 

@@ -90,8 +90,6 @@ class SpatieFilterBuilder extends BaseBuilder
 
     public function createFilterQueryTrait(array $modelData, bool $overwrite = false): string
     {
-        $this->ensureSearchTermEscaperExists($overwrite);
-
         $modelClass = $this->getFullModelNamespace($modelData);
         $hasScoutSearch = $this->modelHasScoutSearch($modelClass);
 
@@ -143,34 +141,6 @@ class SpatieFilterBuilder extends BaseBuilder
                 '{{ scopes }}' => implode("\n", $scopes),
             ];
         });
-    }
-
-    private function ensureSearchTermEscaperExists(bool $overwrite = false): void
-    {
-        $filePath = app_path('Helpers/SearchTermEscaper.php');
-
-        if (file_exists($filePath) && ! $overwrite) {
-            return;
-        }
-
-        if (file_exists($filePath)) {
-            $shouldOverwrite = confirm(
-                label: 'SearchTermEscaper helper already exists, do you want to overwrite it? ' . $filePath
-            );
-            if (! $shouldOverwrite) {
-                return;
-            }
-        }
-
-        File::ensureDirectoryExists(dirname($filePath), 0777, true);
-
-        $projectStubPath = base_path('stubs/search_term_escaper.stub');
-        $vendorStubPath = base_path('vendor/mustafafares/laravel-auto-crud/src/Stubs/search_term_escaper.stub');
-        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
-
-        File::copy($stubPath, $filePath);
-
-        info("Created: $filePath");
     }
 
     private function modelHasScoutSearch(string $modelClass): bool

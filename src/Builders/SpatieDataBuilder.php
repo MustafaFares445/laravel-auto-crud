@@ -59,7 +59,6 @@ class SpatieDataBuilder extends BaseBuilder
 
             // Add namespaces
             $supportedData['namespaces'][] = "use {$modelNamespace};";
-            $supportedData['namespaces'][] = 'use App\Traits\HasModelAttributes;';
 
             // Build the model property string
             $modelPropertyString = "/** @var class-string<{$modelClassName}> */\n    protected static string \$model = {$modelClassName}::class;";
@@ -80,9 +79,6 @@ class SpatieDataBuilder extends BaseBuilder
                 }
             }
 
-            // Build the complete data section including model property, trait usage, and properties
-            $traitUsage = '    use HasModelAttributes;';
-
             // Build constructor with properties
             $constructorProperties = [];
             foreach ($supportedData['properties'] ?? [] as $property => $validation) {
@@ -95,8 +91,8 @@ class SpatieDataBuilder extends BaseBuilder
             $constructor .= implode(",\n", $constructorProperties);
             $constructor .= "\n    ) {}";
 
-            // Combine model property, trait usage, and constructor
-            $dataSection = $modelPropertyString . "\n\n" . $traitUsage . "\n\n" . $constructor;
+            // Combine model property and constructor
+            $dataSection = $modelPropertyString . "\n\n" . $constructor;
 
             return [
                 '{{ namespaces }}' => SpatieDataTransformer::convertNamespacesToString($supportedData['namespaces']),

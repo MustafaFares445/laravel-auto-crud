@@ -139,7 +139,7 @@ class FilterBuilderBuilder extends BaseBuilder
         $code .= "{$indent}    if (empty(\$text)) {\n";
         $code .= "{$indent}        return \$this;\n";
         $code .= "{$indent}    }\n\n";
-        $code .= "{$indent}    \$likeTerm = \\App\\Helpers\\SearchTermEscaper::escape(\$text);\n\n";
+        $code .= "{$indent}    \$likeTerm = \\Mrmarchone\\LaravelAutoCrud\\Helpers\\SearchTermEscaper::escape(\$text);\n\n";
         $code .= "{$indent}    \$this->query->where(function (\$q) use (\$likeTerm) {\n";
         $code .= "{$indent}        {$conditionsString};\n";
         $code .= "{$indent}    });\n\n";
