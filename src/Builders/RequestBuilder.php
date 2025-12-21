@@ -7,6 +7,7 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 
@@ -50,8 +51,18 @@ class RequestBuilder extends BaseBuilder
     private function getRequestData(array $modelData): array
     {
         $columns = $this->getAvailableColumns($modelData);
+        $model = $this->getFullModelNamespace($modelData);
 
         $validationRules = [];
+
+        // Add relationship validation rules
+        $relationships = RelationshipDetector::detectRelationships($model);
+        $relationshipRules = RelationshipDetector::getRelationshipValidationRules($relationships);
+
+        foreach ($relationshipRules as $field => $rules) {
+            $camelCaseName = Str::camel($field);
+            $validationRules[$camelCaseName] = implode('|', $rules);
+        }
 
         foreach ($columns as $column) {
             if ($column['is_translatable'] ?? false) {

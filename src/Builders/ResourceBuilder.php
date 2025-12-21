@@ -7,6 +7,7 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 
@@ -116,6 +117,54 @@ class ResourceBuilder extends BaseBuilder
                     // Multiple files: MediaResource::collection($this->whenLoaded('media', fn() => $this->getMedia('collection')))
                     $data[$camelCaseName] = "MediaResource::collection(\$this->whenLoaded('media', fn() => \$this->getMedia('{$collection}')))";
                 }
+            }
+        }
+
+        // Add relationship data
+        $relationships = RelationshipDetector::detectRelationships($model);
+        foreach ($relationships as $relationship) {
+            $relationshipName = $relationship['name'];
+            $relationshipType = $relationship['type'];
+            $camelCaseName = Str::camel($relationshipName);
+
+            switch ($relationshipType) {
+                case 'belongsTo':
+                    // For belongsTo, include the related model when loaded
+                    $relatedModel = $relationship['related_model'] ?? null;
+                    if ($relatedModel) {
+                        $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
+                        $relatedResourceName = $relatedModelName . 'Resource';
+                        $data[$camelCaseName] = "new {$relatedResourceName}(\$this->whenLoaded('{$relationshipName}'))";
+                    }
+                    break;
+
+                case 'hasOne':
+                    // For hasOne, include single resource when loaded
+                    $relatedModel = $relationship['related_model'] ?? null;
+                    if ($relatedModel) {
+                        $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
+                        $relatedResourceName = $relatedModelName . 'Resource';
+                        $data[$camelCaseName] = "new {$relatedResourceName}(\$this->whenLoaded('{$relationshipName}'))";
+                    }
+                    break;
+
+                case 'hasMany':
+                case 'belongsToMany':
+                case 'morphMany':
+                case 'morphToMany':
+                    // For collections, use Resource::collection()
+                    $relatedModel = $relationship['related_model'] ?? null;
+                    if ($relatedModel) {
+                        $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
+                        $relatedResourceName = $relatedModelName . 'Resource';
+                        $data[$camelCaseName] = "{$relatedResourceName}::collection(\$this->whenLoaded('{$relationshipName}'))";
+                    }
+                    break;
+
+                case 'morphTo':
+                    // For morphTo, include polymorphic relationship when loaded
+                    $data[$camelCaseName] = "\$this->whenLoaded('{$relationshipName}')";
+                    break;
             }
         }
 

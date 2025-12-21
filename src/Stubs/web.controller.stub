@@ -27,11 +27,13 @@ class {{ class }} extends Controller
 
     public function show({{ model }} ${{ modelVariable }}): \Illuminate\Contracts\View\View
     {
+        ${{ modelVariable }}{{ belongsToLoadRelations }};
         return view('{{ viewPath }}.show', compact('{{ modelVariable }}'));
     }
 
     public function edit({{ model }} ${{ modelVariable }}): \Illuminate\Contracts\View\View
     {
+        ${{ modelVariable }}{{ belongsToLoadRelations }};
         return view('{{ viewPath }}.edit', compact('{{ modelVariable }}'));
     }
 

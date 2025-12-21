@@ -6,6 +6,7 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use Mrmarchone\LaravelAutoCrud\Transformers\SpatieDataTransformer;
@@ -77,6 +78,32 @@ class SpatieDataBuilder extends BaseBuilder
                     $property = "public {$typeHint} \${$propertyName};";
                     $supportedData['properties'][$property] = '#[File]';
                 }
+            }
+
+            // Add relationship properties
+            $relationships = RelationshipDetector::detectRelationships($model);
+            $relationshipProperties = RelationshipDetector::getRelationshipProperties($relationships);
+
+            foreach ($relationshipProperties as $relProperty) {
+                $property = $relProperty['property'];
+                $validation = $relProperty['validation'];
+                $relatedModel = $relProperty['related_model'] ?? null;
+
+                // Add Exists validation for belongsTo relationships
+                if ($relatedModel && str_contains($property, 'public ?int $') && str_contains($property, '_id')) {
+                    $tableName = $this->getTableNameFromModel($relatedModel);
+                    if ($tableName) {
+                        $validation = "#[Exists('{$tableName}', 'id')]";
+                        $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\Exists;';
+                    }
+                }
+
+                // Add Json validation namespace if needed
+                if (str_contains($validation, 'Json')) {
+                    $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\Json;';
+                }
+
+                $supportedData['properties'][$property] = $validation;
             }
 
             // Build constructor with properties
@@ -210,4 +237,32 @@ class SpatieDataBuilder extends BaseBuilder
         $properties['namespaces'] = array_unique($validationNamespaces);
 
         return $properties;
-    }}
+    }
+
+    /**
+     * Get table name from model class
+     *
+     * @param string $modelClass Full class name of the model
+     * @return string Table name
+     */
+    private function getTableNameFromModel(string $modelClass): string
+    {
+        if (!class_exists($modelClass)) {
+            return '';
+        }
+
+        try {
+            $modelInstance = new $modelClass();
+            if ($modelInstance instanceof \Illuminate\Database\Eloquent\Model) {
+                return $modelInstance->getTable();
+            }
+        } catch (\Exception $e) {
+            // If we can't instantiate, try to infer from class name
+            $parts = explode('\\', $modelClass);
+            $modelName = end($parts);
+            return Str::snake(Str::plural($modelName));
+        }
+
+        return '';
+    }
+}

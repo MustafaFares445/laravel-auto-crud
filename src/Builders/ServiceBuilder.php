@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
+use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
+
 class ServiceBuilder extends BaseBuilder
 {
     public function create(array $modelData, string $repository, bool $overwrite = false): string
@@ -50,13 +52,43 @@ class ServiceBuilder extends BaseBuilder
                 }
             }
             
-            // Add empty line before return if there's media logic
-            if ($mediaStoreLogic) {
+            // Detect relationships and generate syncing logic
+            $relationships = RelationshipDetector::detectRelationships($model);
+            $relationshipStoreLogic = '';
+            $relationshipUpdateLogic = '';
+            
+            foreach ($relationships as $relationship) {
+                if ($relationship['type'] === 'belongsToMany') {
+                    $relatedModel = $relationship['related_model'] ?? null;
+                    if ($relatedModel) {
+                        $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
+                        $propertyName = strtolower($relatedModelName) . '_ids';
+                        $relationshipName = $relationship['name'];
+                        
+                        $relationshipStoreLogic .= "\n            // Sync {$relationshipName} relationship";
+                        $relationshipStoreLogic .= "\n            if (isset(\$data->{$propertyName})) {";
+                        $relationshipStoreLogic .= "\n                \${$modelVariable}->{$relationshipName}()->sync(\$data->{$propertyName} ?? []);";
+                        $relationshipStoreLogic .= "\n            }";
+                        
+                        $relationshipUpdateLogic .= "\n            // Sync {$relationshipName} relationship";
+                        $relationshipUpdateLogic .= "\n            if (isset(\$data->{$propertyName})) {";
+                        $relationshipUpdateLogic .= "\n                \${$modelVariable}->{$relationshipName}()->sync(\$data->{$propertyName} ?? []);";
+                        $relationshipUpdateLogic .= "\n            }";
+                    }
+                }
+            }
+            
+            // Add empty line before return if there's media or relationship logic
+            if ($mediaStoreLogic || $relationshipStoreLogic) {
                 $mediaStoreLogic .= "\n";
             }
-            if ($mediaUpdateLogic) {
+            if ($mediaUpdateLogic || $relationshipUpdateLogic) {
                 $mediaUpdateLogic .= "\n";
             }
+            
+            // Combine media and relationship logic
+            $storeLogic = $mediaStoreLogic . $relationshipStoreLogic;
+            $updateLogic = $mediaUpdateLogic . $relationshipUpdateLogic;
 
             return [
                 '{{ modelNamespace }}' => $model,
@@ -65,8 +97,8 @@ class ServiceBuilder extends BaseBuilder
                 '{{ data }}' => $modelData['modelName'] . 'Data',
                 '{{ modelVariable }}' => $modelVariable,
                 '{{ mediaHelperImport }}' => $mediaHelperImport,
-                '{{ mediaStoreLogic }}' => $mediaStoreLogic,
-                '{{ mediaUpdateLogic }}' => $mediaUpdateLogic,
+                '{{ mediaStoreLogic }}' => $storeLogic,
+                '{{ mediaUpdateLogic }}' => $updateLogic,
             ];
         });
     }

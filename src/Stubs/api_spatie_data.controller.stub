@@ -27,6 +27,7 @@ class {{ class }} extends Controller
 
     public function show({{ model }} ${{ modelVariable }}): {{ spatieData }}
     {
+        ${{ modelVariable }}{{ belongsToLoadRelations }};
         return {{ spatieData }}::from(${{ modelVariable }});
     }
 

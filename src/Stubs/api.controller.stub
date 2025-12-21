@@ -29,6 +29,7 @@ class {{ class }} extends Controller
 
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
+        ${{ modelVariable }}{{ belongsToLoadRelations }};
         return {{ resource }}::make(${{ modelVariable }});
     }
 

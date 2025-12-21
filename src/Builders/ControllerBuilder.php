@@ -6,6 +6,7 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
+use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use ReflectionClass;
 
 class ControllerBuilder extends BaseBuilder
@@ -32,6 +33,7 @@ class ControllerBuilder extends BaseBuilder
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
             $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
+            $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -60,6 +62,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterBuilder }}' => $filterBuilderClass,
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
+                '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
             ];
         });
     }
@@ -86,6 +89,7 @@ class ControllerBuilder extends BaseBuilder
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
             $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
+            $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -114,6 +118,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterBuilder }}' => $filterBuilderClass,
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
+                '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
             ];
         });
     }
@@ -163,6 +168,7 @@ class ControllerBuilder extends BaseBuilder
         return $this->fileService->createFromStub($modelData, 'web.controller', 'Http/Controllers', 'Controller', $overwrite, function ($modelData) use ($request) {
             $model = $this->getFullModelNamespace($modelData);
             $requestName = explode('\\', $request);
+            $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
 
             return [
                 '{{ requestNamespace }}' => $request,
@@ -173,6 +179,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
+                '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
             ];
         });
     }
@@ -205,6 +212,7 @@ class ControllerBuilder extends BaseBuilder
         return $this->fileService->createFromStub($modelData, 'web_spatie_data.controller', 'Http/Controllers', 'Controller', $overwrite, function ($modelData) use ($spatieData) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
+            $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
@@ -215,6 +223,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
+                '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
             ];
         });
     }
@@ -267,6 +276,7 @@ class ControllerBuilder extends BaseBuilder
             $resourceClass = end($resourceName);
             $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
             $loadRelations = $this->getLoadRelations($model);
+            $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -301,6 +311,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
                 '{{ loadRelations }}' => $loadRelations,
+                '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
             ];
         });
     }
@@ -364,12 +375,58 @@ class ControllerBuilder extends BaseBuilder
         }
     }
 
-    private function getLoadRelations(string $modelClass): string
+    private function getLoadRelations(string $modelClass, bool $includeBelongsTo = true): string
     {
+        $loadRelations = [];
+        
+        // Always load media if model has media
         if ($this->modelHasMedia($modelClass)) {
-            return "->load('media')";
+            $loadRelations[] = 'media';
         }
+        
+        // Load relationships
+        $relationships = RelationshipDetector::detectRelationships($modelClass);
+        $eagerLoadRelations = RelationshipDetector::getEagerLoadRelationships($relationships, $includeBelongsTo);
+        
+        $loadRelations = array_merge($loadRelations, $eagerLoadRelations);
+        
+        if (empty($loadRelations)) {
+            return '';
+        }
+        
+        $relationsList = "'" . implode("', '", $loadRelations) . "'";
+        return "->load({$relationsList})";
+    }
 
-        return '';
+    /**
+     * Get belongsTo relationships eager load string for show endpoint
+     */
+    private function getBelongsToLoadRelations(string $modelClass): string
+    {
+        $relationships = RelationshipDetector::detectRelationships($modelClass);
+        $belongsToRelations = RelationshipDetector::getBelongsToRelationships($relationships);
+        
+        if (empty($belongsToRelations)) {
+            // Still check for media
+            if ($this->modelHasMedia($modelClass)) {
+                return "->load('media')";
+            }
+            return '';
+        }
+        
+        $loadRelations = [];
+        
+        // Always load media if model has media
+        if ($this->modelHasMedia($modelClass)) {
+            $loadRelations[] = 'media';
+        }
+        
+        // Add belongsTo relationships
+        foreach ($belongsToRelations as $relationship) {
+            $loadRelations[] = $relationship['name'];
+        }
+        
+        $relationsList = "'" . implode("', '", $loadRelations) . "'";
+        return "->load({$relationsList})";
     }
 }

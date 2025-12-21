@@ -33,6 +33,7 @@ class {{ class }}
 
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
+        ${{ modelVariable }}{{ belongsToLoadRelations }};
         return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }});
     }
 

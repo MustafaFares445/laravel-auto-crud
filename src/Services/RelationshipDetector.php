@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -255,10 +256,146 @@ class RelationshipDetector
     /**
      * Get model name from full class name
      */
-    private static function getModelNameFromClass(string $class): string
+    public static function getModelNameFromClass(string $class): string
     {
         $parts = explode('\\', $class);
         return end($parts);
+    }
+
+    /**
+     * Get only belongsTo relationships
+     *
+     * @param array $relationships Array of relationship definitions
+     * @return array Array of belongsTo relationships
+     */
+    public static function getBelongsToRelationships(array $relationships): array
+    {
+        return array_filter($relationships, fn($rel) => $rel['type'] === 'belongsTo');
+    }
+
+    /**
+     * Get relationships for eager loading
+     *
+     * @param array $relationships Array of relationship definitions
+     * @param bool $includeBelongsTo Whether to include belongsTo relationships
+     * @return array Array of relationship names for eager loading
+     */
+    public static function getEagerLoadRelationships(array $relationships, bool $includeBelongsTo = true): array
+    {
+        $eagerLoad = [];
+
+        foreach ($relationships as $relationship) {
+            if ($relationship['type'] === 'belongsTo' && $includeBelongsTo) {
+                $eagerLoad[] = $relationship['name'];
+            } elseif (in_array($relationship['type'], ['hasOne', 'hasMany', 'belongsToMany', 'morphOne', 'morphMany', 'morphToMany'], true)) {
+                $eagerLoad[] = $relationship['name'];
+            }
+        }
+
+        return $eagerLoad;
+    }
+
+    /**
+     * Generate eager load string for relationships
+     *
+     * @param array $relationships Array of relationship definitions
+     * @param bool $includeBelongsTo Whether to include belongsTo relationships
+     * @return string Eager load string (e.g., "->load('user', 'posts')" or "->with(['user', 'posts'])")
+     */
+    public static function getEagerLoadString(array $relationships, bool $includeBelongsTo = true, bool $useWith = false): string
+    {
+        $eagerLoad = self::getEagerLoadRelationships($relationships, $includeBelongsTo);
+
+        if (empty($eagerLoad)) {
+            return '';
+        }
+
+        if ($useWith) {
+            $relationshipsList = "'" . implode("', '", $eagerLoad) . "'";
+            return "->with([{$relationshipsList}])";
+        }
+
+        $relationshipsList = "'" . implode("', '", $eagerLoad) . "'";
+        return "->load({$relationshipsList})";
+    }
+
+    /**
+     * Get validation rules for relationships
+     *
+     * @param array $relationships Array of relationship definitions
+     * @return array Array of validation rules keyed by field name
+     */
+    public static function getRelationshipValidationRules(array $relationships): array
+    {
+        $rules = [];
+
+        foreach ($relationships as $relationship) {
+            switch ($relationship['type']) {
+                case 'belongsTo':
+                    if (isset($relationship['foreign_key']) && isset($relationship['related_model'])) {
+                        $relatedModel = $relationship['related_model'];
+                        $tableName = self::getTableNameFromModel($relatedModel);
+                        $foreignKey = $relationship['foreign_key'];
+                        $rules[$foreignKey] = ['nullable', 'integer', "exists:{$tableName},id"];
+                    }
+                    break;
+
+                case 'belongsToMany':
+                    if (isset($relationship['related_model'])) {
+                        $relatedModel = $relationship['related_model'];
+                        $tableName = self::getTableNameFromModel($relatedModel);
+                        $relatedModelName = self::getModelNameFromClass($relatedModel);
+                        $propertyName = strtolower($relatedModelName) . '_ids';
+                        $rules[$propertyName] = ['nullable', 'array'];
+                        $rules[$propertyName . '.*'] = ["integer", "exists:{$tableName},id"];
+                    }
+                    break;
+
+                case 'morphTo':
+                    if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
+                        $rules[$relationship['morphable_id']] = ['nullable', 'integer'];
+                        $rules[$relationship['morphable_type']] = ['nullable', 'string'];
+                    }
+                    break;
+
+                case 'morphOne':
+                case 'morphMany':
+                case 'morphToMany':
+                    if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
+                        $rules[$relationship['morphable_id']] = ['nullable', 'integer'];
+                        $rules[$relationship['morphable_type']] = ['nullable', 'string'];
+                    }
+                    break;
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Get table name from model class
+     *
+     * @param string $modelClass Full class name of the model
+     * @return string Table name
+     */
+    private static function getTableNameFromModel(string $modelClass): string
+    {
+        if (!class_exists($modelClass)) {
+            return '';
+        }
+
+        try {
+            $modelInstance = new $modelClass();
+            if ($modelInstance instanceof Model) {
+                return $modelInstance->getTable();
+            }
+        } catch (\Exception $e) {
+            // If we can't instantiate, try to infer from class name
+            $modelName = self::getModelNameFromClass($modelClass);
+            return Str::snake(Str::plural($modelName));
+        }
+
+        return '';
     }
 }
 
