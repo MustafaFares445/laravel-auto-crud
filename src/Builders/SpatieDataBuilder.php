@@ -94,17 +94,26 @@ class SpatieDataBuilder extends BaseBuilder
                     $tableName = $this->getTableNameFromModel($relatedModel);
                     if ($tableName) {
                         $validation = "#[Exists('{$tableName}', 'id')]";
-                        $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\Exists;';
+                        $existsNamespace = 'use Spatie\LaravelData\Attributes\Validation\Exists;';
+                        if (!in_array($existsNamespace, $supportedData['namespaces'], true)) {
+                            $supportedData['namespaces'][] = $existsNamespace;
+                        }
                     }
                 }
 
                 // Add Json validation namespace if needed
                 if (str_contains($validation, 'Json')) {
-                    $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\Json;';
+                    $jsonNamespace = 'use Spatie\LaravelData\Attributes\Validation\Json;';
+                    if (!in_array($jsonNamespace, $supportedData['namespaces'], true)) {
+                        $supportedData['namespaces'][] = $jsonNamespace;
+                    }
                 }
 
                 $supportedData['properties'][$property] = $validation;
             }
+
+            // Ensure namespaces are unique
+            $supportedData['namespaces'] = array_unique($supportedData['namespaces']);
 
             // Build constructor with properties
             $constructorProperties = [];
