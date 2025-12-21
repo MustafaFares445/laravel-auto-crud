@@ -94,7 +94,16 @@ class SpatieFilterBuilder extends BaseBuilder
         $hasScoutSearch = $this->modelHasScoutSearch($modelClass);
 
         return $this->fileService->createFromStub($modelData, 'spatie_filter_query_trait', 'Traits/FilterQueries', 'FilterQuery', $overwrite, function ($modelData) use ($hasScoutSearch) {
-            $columns = $this->getAvailableColumns($modelData);
+            try {
+                $columns = $this->getAvailableColumns($modelData);
+            } catch (\Throwable) {
+                $columns = [];
+            }
+
+            if (empty($columns)) {
+                $columns = $this->fallbackColumnMetadata($modelData);
+            }
+
             $allowedFilters = [];
             $allowedSorts = [];
             $searchableColumns = [];
@@ -118,9 +127,13 @@ class SpatieFilterBuilder extends BaseBuilder
                 $allowedSorts[] = "                '{$columnName}',";
 
                 // 3. Searchable Columns (for scopeSearch)
-                if (in_array($column['type'], ['string', 'varchar', 'text', 'longtext', 'mediumtext', 'char', 'email'])) {
+                if ($this->isSearchableColumnType($column['type'])) {
                     $searchableColumns[] = $columnName;
                 }
+            }
+
+            if (empty($searchableColumns)) {
+                $searchableColumns = $this->collectSearchableColumns($this->fallbackColumnMetadata($modelData));
             }
 
             // Add custom scope filters
@@ -251,6 +264,61 @@ EOT;
         });
     }
 EOT;
+    }
+
+    private function fallbackColumnMetadata(array $modelData): array
+    {
+        $modelClass = $this->getFullModelNamespace($modelData);
+
+        if (! class_exists($modelClass)) {
+            return [];
+        }
+
+        try {
+            $model = new $modelClass;
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $fromFillable = method_exists($model, 'getFillable') ? $model->getFillable() : [];
+        $fromCasts = method_exists($model, 'getCasts') ? array_keys($model->getCasts()) : [];
+
+        $columns = array_unique(array_merge($fromFillable, $fromCasts));
+
+        return array_values(array_map(fn ($name) => [
+            'name' => $name,
+            'type' => 'string',
+        ], array_filter($columns, fn ($name) => ! in_array($name, ['created_at', 'updated_at', 'deleted_at'], true))));
+    }
+
+    private function collectSearchableColumns(array $columns): array
+    {
+        $searchableColumns = [];
+
+        foreach ($columns as $column) {
+            if ($this->isSearchableColumnType($column['type'])) {
+                $searchableColumns[] = $column['name'];
+            }
+        }
+
+        return array_values(array_unique($searchableColumns));
+    }
+
+    private function isSearchableColumnType(string $type): bool
+    {
+        return in_array($type, [
+            'string',
+            'varchar',
+            'text',
+            'longtext',
+            'mediumtext',
+            'char',
+            'email',
+            'enum',
+            'json',
+            'jsonb',
+            'array',
+        ], true);
     }
 }
 

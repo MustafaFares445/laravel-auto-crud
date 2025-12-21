@@ -31,7 +31,7 @@ class ControllerBuilder extends BaseBuilder
             $filterRequestClass = 'Request';
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
-            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)])" : '';
+            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -85,7 +85,7 @@ class ControllerBuilder extends BaseBuilder
             $filterRequestClass = 'Request';
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
-            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)])" : '';
+            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -265,7 +265,7 @@ class ControllerBuilder extends BaseBuilder
             $filterRequestClass = 'Request';
             $modelVariable = lcfirst($modelData['modelName']);
             $resourceClass = end($resourceName);
-            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)])" : '';
+            $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
             $loadRelations = $this->getLoadRelations($model);
 
             $indexMethodBody = $this->generateIndexMethodBody(

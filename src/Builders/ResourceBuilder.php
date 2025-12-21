@@ -56,6 +56,13 @@ class ResourceBuilder extends BaseBuilder
             $mediaFieldNames[] = Str::camel($field['name']);
         }
 
+        // Get database columns (needed for translatable info even if using spatie-data)
+        $columns = $this->getAvailableColumns($modelData);
+        $columnsByName = [];
+        foreach ($columns as $column) {
+            $columnsByName[$column['name']] = $column;
+        }
+
         // If using spatie-data pattern, read properties from Data class
         if ($pattern === 'spatie-data' && !empty($spatieData)) {
             $properties = $this->getPropertiesFromDataClass($spatieData);
@@ -74,12 +81,15 @@ class ResourceBuilder extends BaseBuilder
 
                 $camelCaseName = Str::camel($propertyName);
                 $snakeCaseName = Str::snake($propertyName);
-                $data[$camelCaseName] = '$this->'.$snakeCaseName;
+                
+                if (isset($columnsByName[$snakeCaseName]) && ($columnsByName[$snakeCaseName]['is_translatable'] ?? false)) {
+                    $data[$camelCaseName] = "\$this->getTranslation('{$snakeCaseName}', request()->header('Accept-Language', app()->getLocale()))";
+                } else {
+                    $data[$camelCaseName] = '$this->'.$snakeCaseName;
+                }
             }
         } else {
             // Use database columns (original behavior)
-            $columns = $this->getAvailableColumns($modelData);
-
             // Add regular columns (excluding id, created_at, updated_at)
             foreach ($columns as $column) {
                 $columnName = $column['name'];
@@ -90,7 +100,11 @@ class ResourceBuilder extends BaseBuilder
                 }
 
                 $camelCaseName = Str::camel($columnName);
-                $data[$camelCaseName] = '$this->'.$columnName;
+                if ($column['is_translatable'] ?? false) {
+                    $data[$camelCaseName] = "\$this->getTranslation('{$columnName}', request()->header('Accept-Language', app()->getLocale()))";
+                } else {
+                    $data[$camelCaseName] = '$this->'.$columnName;
+                }
             }
         }
 

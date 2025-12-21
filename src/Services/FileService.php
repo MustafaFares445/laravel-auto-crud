@@ -17,7 +17,9 @@ class FileService
         
         $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
         
-        $namespace = 'App\\'.str_replace('/', '\\', $basePath);
+        $isTest = str_starts_with($basePath, 'tests');
+        $namespace = $isTest ? 'Tests\\' : 'App\\';
+        $namespace .= str_replace('/', '\\', $isTest ? $basePath : $basePath);
 
         if ($modelData['folders']) {
             $namespace .= '\\'.str_replace('/', '\\', $modelData['folders']);
@@ -50,11 +52,17 @@ class FileService
 
     private function generateFilePath(array $modelData, string $basePath, string $suffix): string
     {
+        $isTest = str_starts_with($basePath, 'tests');
+        
         if ($modelData['folders']) {
-            return app_path("{$basePath}/{$modelData['folders']}/{$modelData['modelName']}{$suffix}.php");
+            return $isTest 
+                ? base_path("{$basePath}/{$modelData['folders']}/{$modelData['modelName']}{$suffix}.php")
+                : app_path("{$basePath}/{$modelData['folders']}/{$modelData['modelName']}{$suffix}.php");
         }
 
-        return app_path("{$basePath}/{$modelData['modelName']}{$suffix}.php");
+        return $isTest
+            ? base_path("{$basePath}/{$modelData['modelName']}{$suffix}.php")
+            : app_path("{$basePath}/{$modelData['modelName']}{$suffix}.php");
     }
 
     private function generateContent(string $stubPath, array $modelData, string $namespace, string $suffix, array $data = []): string
@@ -68,4 +76,3 @@ class FileService
         return str_replace(array_keys($replacements), array_values($replacements), file_get_contents($stubPath));
     }
 }
-

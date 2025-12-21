@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use App\Enums\ResponseMessages;
+use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
 use App\Http\Controllers\Controller;
 use {{ requestNamespace }};
 use {{ resourceNamespace }};
@@ -18,7 +18,7 @@ class {{ class }} extends Controller
     public function index(): AnonymousResourceCollection
     {
         return {{ resource }}::collection({{ model }}::latest()->paginate(10))
-            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+            ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
     public function store({{ request }} $request): JsonResponse
@@ -26,7 +26,7 @@ class {{ class }} extends Controller
         ${{ modelVariable }} = {{ model }}::create($request->validated());
 
         return {{ resource }}::make(${{ modelVariable }})
-            ->additional(['message' => __(ResponseMessages::CREATED->value)])
+            ->additional(['message' => ResponseMessages::CREATED->message()])
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }
@@ -34,7 +34,7 @@ class {{ class }} extends Controller
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
         return {{ resource }}::make(${{ modelVariable }})
-            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+            ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
     public function update({{ request }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
@@ -42,7 +42,7 @@ class {{ class }} extends Controller
         ${{ modelVariable }}->update($request->validated());
 
         return {{ resource }}::make(${{ modelVariable }})
-            ->additional(['message' => __(ResponseMessages::UPDATED->value)]);
+            ->additional(['message' => ResponseMessages::UPDATED->message()]);
     }
 
     public function destroy({{ model }} ${{ modelVariable }}): {{ resource }}
@@ -50,6 +50,6 @@ class {{ class }} extends Controller
         ${{ modelVariable }}->delete();
 
         return {{ resource }}::make(${{ modelVariable }})
-            ->additional(['message' => __(ResponseMessages::DELETED->value)]);
+            ->additional(['message' => ResponseMessages::DELETED->message()]);
     }
 }

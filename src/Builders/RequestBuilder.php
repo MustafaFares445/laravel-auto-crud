@@ -54,83 +54,87 @@ class RequestBuilder extends BaseBuilder
         $validationRules = [];
 
         foreach ($columns as $column) {
-            $rules = [];
-            $columnType = $column['type'];
-            $maxLength = $column['max_length'];
-            $isUnique = $column['is_unique'];
-            $allowedValues = $column['allowed_values'];
-            // Handle column types
-            switch ($columnType) {
-                case 'string':
-                case 'char':
-                case 'varchar':
-                    $rules[] = 'string';
-                    if ($maxLength) {
-                        $rules[] = 'max:'.$maxLength;
-                    }
-                    break;
+            if ($column['is_translatable'] ?? false) {
+                $rules = ['array'];
+            } else {
+                $rules = [];
+                $columnType = $column['type'];
+                $maxLength = $column['max_length'];
+                $isUnique = $column['is_unique'];
+                $allowedValues = $column['allowed_values'];
+                // Handle column types
+                switch ($columnType) {
+                    case 'string':
+                    case 'char':
+                    case 'varchar':
+                        $rules[] = 'string';
+                        if ($maxLength) {
+                            $rules[] = 'max:'.$maxLength;
+                        }
+                        break;
 
-                case 'integer':
-                case 'int':
-                case 'bigint':
-                case 'smallint':
-                case 'tinyint':
-                    $rules[] = 'integer';
-                    if (str_contains($columnType, 'unsigned')) {
-                        $rules[] = 'min:0';
-                    }
-                    break;
+                    case 'integer':
+                    case 'int':
+                    case 'bigint':
+                    case 'smallint':
+                    case 'tinyint':
+                        $rules[] = 'integer';
+                        if (str_contains($columnType, 'unsigned')) {
+                            $rules[] = 'min:0';
+                        }
+                        break;
 
-                case 'boolean':
-                    $rules[] = 'boolean';
-                    break;
+                    case 'boolean':
+                        $rules[] = 'boolean';
+                        break;
 
-                case 'date':
-                case 'datetime':
-                case 'timestamp':
-                    $rules[] = 'date';
-                    break;
+                    case 'date':
+                    case 'datetime':
+                    case 'timestamp':
+                        $rules[] = 'date';
+                        break;
 
-                case 'text':
-                case 'longtext':
-                case 'mediumtext':
-                    $rules[] = 'string';
-                    break;
+                    case 'text':
+                    case 'longtext':
+                    case 'mediumtext':
+                        $rules[] = 'string';
+                        break;
 
-                case 'decimal':
-                case 'float':
-                case 'double':
-                    $rules[] = 'numeric';
-                    break;
+                    case 'decimal':
+                    case 'float':
+                    case 'double':
+                        $rules[] = 'numeric';
+                        break;
 
-                case 'enum':
-                    if (! empty($allowedValues)) {
-                        $rules[] = 'in:'.implode(',', $allowedValues);
-                    }
-                    break;
+                    case 'enum':
+                        if (! empty($allowedValues)) {
+                            $rules[] = 'in:'.implode(',', $allowedValues);
+                        }
+                        break;
 
-                case 'json':
-                    $rules[] = 'json';
-                    break;
+                    case 'json':
+                        $rules[] = 'json';
+                        break;
 
-                case 'binary':
-                case 'blob':
-                    $rules[] = 'string'; // Handle binary data as string for simplicity
-                    break;
+                    case 'binary':
+                    case 'blob':
+                        $rules[] = 'string'; // Handle binary data as string for simplicity
+                        break;
 
-                default:
-                    $rules[] = 'string'; // Default fallback
-                    break;
+                    default:
+                        $rules[] = 'string'; // Default fallback
+                        break;
+                }
+
+                $columnName = $column['name'];
+
+                // Handle unique columns
+                if ($isUnique) {
+                    $rules[] = 'unique:'.$column['table'].','.$columnName;
+                }
             }
 
-            $columnName = $column['name'];
-            $camelCaseName = Str::camel($columnName);
-
-            // Handle unique columns
-            if ($isUnique) {
-                $rules[] = 'unique:'.$column['table'].','.$columnName;
-            }
-
+            $camelCaseName = Str::camel($column['name']);
             // Add rules to the validation array with camelCase key
             $validationRules[$camelCaseName] = implode('|', $rules);
         }

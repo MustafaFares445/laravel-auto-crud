@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+uses(TestCase::class, RefreshDatabase::class);
+
+it('escapes percent and underscore characters when searching {{ modelPlural }}', function () {
+    $matchingModel = {{ model }}::factory()->create([
+        '{{ searchField }}' => 'Special%_Name',
+    ]);
+
+    $nonMatchingModel = {{ model }}::factory()->create([
+        '{{ searchField }}' => 'Special Name',
+    ]);
+
+    $results = {{ model }}::search('Special%')->pluck('id');
+
+    expect($results)->toContain($matchingModel->id);
+    expect($results)->not->toContain($nonMatchingModel->id);
+
+    $results = {{ model }}::search('Special_')->pluck('id');
+
+    expect($results)->toContain($matchingModel->id);
+    expect($results)->not->toContain($nonMatchingModel->id);
+});

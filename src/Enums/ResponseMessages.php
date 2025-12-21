@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Enums;
+namespace Mrmarchone\LaravelAutoCrud\Enums;
 
 enum ResponseMessages: string
 {

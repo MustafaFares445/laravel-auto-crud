@@ -100,23 +100,20 @@ class FilterBuilderBuilder extends BaseBuilder
 
     private function generateDatabaseTextSearchMethod(array $modelData): string
     {
-        $columns = $this->getAvailableColumns($modelData);
-        $searchableColumns = [];
-
-        foreach ($columns as $column) {
-            if (in_array($column['type'], ['string', 'varchar', 'text', 'longtext', 'mediumtext', 'char', 'email'])) {
-                $searchableColumns[] = $column['name'];
-            }
+        try {
+            $columns = $this->getAvailableColumns($modelData);
+        } catch (Throwable) {
+            return $this->emptyTextSearchMethod();
         }
 
-        if (empty($searchableColumns)) {
-            $indent = '    ';
-            $code = "\n{$indent}public function textSearch(?string \$text): self\n";
-            $code .= "{$indent}{\n";
-            $code .= "{$indent}    return \$this;\n";
-            $code .= "{$indent}}\n";
+        $searchableColumns = $this->collectSearchableColumns($columns);
 
-            return $code;
+        if (empty($searchableColumns)) {
+            $searchableColumns = $this->fallbackSearchableColumns($modelData);
+
+            if (empty($searchableColumns)) {
+                return $this->emptyTextSearchMethod();
+            }
         }
 
         $indent = '    ';
@@ -147,6 +144,71 @@ class FilterBuilderBuilder extends BaseBuilder
         $code .= "{$indent}}\n";
 
         return $code;
+    }
+
+    private function emptyTextSearchMethod(): string
+    {
+        $indent = '    ';
+
+        return "\n{$indent}public function textSearch(?string \$text): self\n"
+            . "{$indent}{\n"
+            . "{$indent}    return \$this;\n"
+            . "{$indent}}\n";
+    }
+
+    private function collectSearchableColumns(array $columns): array
+    {
+        $searchableColumns = [];
+
+        foreach ($columns as $column) {
+            if ($this->isSearchableColumnType($column['type'])) {
+                $searchableColumns[] = $column['name'];
+            }
+        }
+
+        return array_values(array_unique($searchableColumns));
+    }
+
+    private function fallbackSearchableColumns(array $modelData): array
+    {
+        $modelClass = $this->getFullModelNamespace($modelData);
+
+        if (! class_exists($modelClass)) {
+            return [];
+        }
+
+        try {
+            $model = new $modelClass;
+        } catch (Throwable) {
+            return [];
+        }
+
+        $fromFillable = method_exists($model, 'getFillable') ? $model->getFillable() : [];
+        $fromCasts = method_exists($model, 'getCasts') ? array_keys($model->getCasts()) : [];
+
+        $candidates = array_unique(array_merge($fromFillable, $fromCasts));
+
+        return array_values(array_filter(
+            $candidates,
+            fn ($column) => ! in_array($column, ['id', 'created_at', 'updated_at', 'deleted_at'], true)
+        ));
+    }
+
+    private function isSearchableColumnType(string $type): bool
+    {
+        return in_array($type, [
+            'string',
+            'varchar',
+            'text',
+            'longtext',
+            'mediumtext',
+            'char',
+            'email',
+            'enum',
+            'json',
+            'jsonb',
+            'array',
+        ], true);
     }
 
     private function extractSearchableProperties(ReflectionClass $reflection): array

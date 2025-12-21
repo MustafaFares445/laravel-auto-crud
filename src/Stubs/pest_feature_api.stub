@@ -1,0 +1,54 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use App\Models\User;
+use {{ responseMessagesNamespace }};
+use Laravel\Sanctum\Sanctum;
+
+beforeEach(function () {
+    $this->seed({{ seederClass }}::class);
+    $user = User::factory()->create();
+    // Assuming the first user gets all permissions from seeder or similar logic
+    Sanctum::actingAs($user);
+});
+
+it('lists {{ modelPlural }}', function () {
+    {{ model }}::factory()->count(3)->create();
+
+    $response = $this->getJson('{{ routePath }}');
+
+    $response->assertOk()->assertJsonPath('message', ResponseMessages::RETRIEVED->message());
+    expect($response->json('data'))->toBeArray();
+});
+
+it('creates, shows, updates and deletes a {{ modelVariable }}', function () {
+    $payload = [
+{{ createPayload }}
+    ];
+
+    $create = $this->postJson('{{ routePath }}', $payload);
+    $create->assertCreated()->assertJsonPath('message', ResponseMessages::CREATED->message());
+    $id = $create->json('data.id');
+    $this->assertDatabaseHas('{{ tableName }}', ['id' => $id]);
+
+    $show = $this->getJson("{{ routePath }}/{$id}");
+    $show->assertOk()
+        ->assertJsonPath('message', ResponseMessages::RETRIEVED->message());
+
+    $updatePayload = [
+{{ updatePayload }}
+    ];
+
+    $update = $this->putJson("{{ routePath }}/{$id}", $updatePayload);
+    $update->assertOk()
+        ->assertJsonPath('message', ResponseMessages::UPDATED->message());
+
+    $delete = $this->deleteJson("{{ routePath }}/{$id}");
+    $delete->assertOk()
+        ->assertJsonPath('message', ResponseMessages::DELETED->message());
+    
+    $this->assertDatabaseMissing('{{ tableName }}', ['id' => $id]);
+});
+{{ authorizationTests }}{{ extraTests }}

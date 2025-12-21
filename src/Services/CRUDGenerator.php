@@ -7,6 +7,8 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
+use Mrmarchone\LaravelAutoCrud\Builders\FactoryBuilder;
+use Mrmarchone\LaravelAutoCrud\Builders\PestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\PolicyBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\SpatieFilterBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
@@ -31,6 +33,9 @@ class CRUDGenerator
         private SpatieDataBuilder $spatieDataBuilder,
         private SpatieFilterBuilder $spatieFilterBuilder,
         private PolicyBuilder $policyBuilder,
+        private PestBuilder $pestBuilder,
+        private FactoryBuilder $factoryBuilder,
+        private ModelTraitService $modelTraitService,
     ) {
         $this->controllerBuilder = new ControllerBuilder;
         $this->resourceBuilder = new ResourceBuilder;
@@ -41,11 +46,30 @@ class CRUDGenerator
         $this->spatieDataBuilder = new SpatieDataBuilder;
         $this->spatieFilterBuilder = new SpatieFilterBuilder;
         $this->policyBuilder = new PolicyBuilder;
+        $this->pestBuilder = new PestBuilder;
+        $this->factoryBuilder = new FactoryBuilder;
+        $this->modelTraitService = new ModelTraitService;
     }
 
     public function generate($modelData, array $options): void
     {
         $checkForType = $options['type'];
+
+        // Inject traits if needed
+        $traits = [];
+        if ($options['factory'] ?? false) {
+            $traits[] = 'Illuminate\Database\Eloquent\Factories\HasFactory';
+        }
+        if ($options['filter'] ?? false) {
+            $traits[] = 'App\Traits\FilterQueries\\' . $modelData['modelName'] . 'FilterQuery';
+        }
+
+        if (!empty($traits)) {
+            $modelPath = base_path($modelData['path'] ?? 'app/Models/' . $modelData['modelName'] . '.php');
+            if (File::exists($modelPath)) {
+                $this->modelTraitService->injectTraits($modelPath, $traits);
+            }
+        }
 
         $requestName = $spatieDataName = $service = null;
 
@@ -69,7 +93,6 @@ class CRUDGenerator
             if ($options['pattern'] === 'spatie-data') {
                 $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite']);
                 $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
-                // TODO: Inject the trait into the model
             } else {
                 throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
             }
@@ -81,6 +104,14 @@ class CRUDGenerator
 
         if ($options['policy'] ?? false) {
             $this->policyBuilder->create($modelData, $options['overwrite']);
+        }
+
+        if ($options['factory'] ?? false) {
+            $this->factoryBuilder->create($modelData, $options['overwrite']);
+        }
+
+        if ($options['pest'] ?? false) {
+            $this->pestBuilder->createFeatureTest($modelData, $options['overwrite'], (bool) ($options['policy'] ?? false));
         }
 
         $data = [

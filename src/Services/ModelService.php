@@ -65,15 +65,20 @@ class ModelService
             ->first();
     }
 
-    public static function getFullModelNamespace(array $modelData, ?callable $modelFactory = null): string
+    public static function getFullModelNamespace(array $modelData): string
     {
         if (isset($modelData['namespace']) && $modelData['namespace']) {
-            $modelName = $modelData['namespace'].'\\'.$modelData['modelName'];
-        } else {
-            $modelName = $modelData['modelName'];
+            return $modelData['namespace'].'\\'.$modelData['modelName'];
         }
 
-        // استخدم الـ Factory إذا تم تمريره، وإلا أنشئ الكائن بالطريقة العادية
+        return $modelData['modelName'];
+    }
+
+    public static function getTableName(array $modelData, ?callable $modelFactory = null): string
+    {
+        $modelName = self::getFullModelNamespace($modelData);
+
+        // Use the Factory if provided, otherwise create the object normally
         $model = $modelFactory ? $modelFactory($modelName) : new $modelName;
 
         if (is_subclass_of($model, Model::class)) {

@@ -8,13 +8,14 @@ class PermissionNameResolver
 {
     public static function resolve(string $group, string $action): string
     {
-        $actionName = match ($action) {
+        $mappings = config('laravel_auto_crud.permission_mappings', [
             'view' => 'view',
             'create' => 'create',
             'update' => 'edit',
             'delete' => 'delete',
-            default => str_replace('_', ' ', $action),
-        };
+        ]);
+
+        $actionName = $mappings[$action] ?? str_replace('_', ' ', $action);
 
         return $actionName . ' ' . $group;
     }

@@ -210,5 +210,4 @@ class SpatieDataBuilder extends BaseBuilder
         $properties['namespaces'] = array_unique($validationNamespaces);
 
         return $properties;
-    }
-}
+    }}

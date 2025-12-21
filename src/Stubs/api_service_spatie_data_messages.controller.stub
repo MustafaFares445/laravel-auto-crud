@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use App\Enums\ResponseMessages;
+use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
 use {{ modelNamespace }};
 use {{ spatieDataNamespace }};
 use {{ serviceNamespace }};
@@ -33,7 +33,7 @@ class {{ class }}
         ${{ modelVariable }} = $this->{{ serviceVariable }}->store({{ spatieData }}::from($request->validated()));
 
         return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }})
-            ->additional(['message' => __(ResponseMessages::CREATED->value)])
+            ->additional(['message' => ResponseMessages::CREATED->message()])
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }
@@ -41,7 +41,7 @@ class {{ class }}
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
         return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }})
-            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+            ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
     /**
@@ -52,7 +52,7 @@ class {{ class }}
         $updated{{ model }} = $this->{{ serviceVariable }}->update({{ spatieData }}::from($request->validated()), ${{ modelVariable }});
 
         return {{ resource }}::make($updated{{ model }}{{ loadRelations }})
-            ->additional(['message' => __(ResponseMessages::UPDATED->value)]);
+            ->additional(['message' => ResponseMessages::UPDATED->message()]);
     }
 
     public function destroy({{ model }} ${{ modelVariable }}): {{ resource }}
@@ -60,6 +60,6 @@ class {{ class }}
         ${{ modelVariable }}->delete();
 
         return {{ resource }}::make(${{ modelVariable }})
-            ->additional(['message' => __(ResponseMessages::DELETED->value)]);
+            ->additional(['message' => ResponseMessages::DELETED->message()]);
     }
 }

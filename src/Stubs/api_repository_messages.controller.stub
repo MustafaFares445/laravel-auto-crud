@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use App\Enums\ResponseMessages;
+use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
 use App\Http\Controllers\Controller;
 use {{ requestNamespace }};
 use {{ resourceNamespace }};
@@ -20,7 +20,7 @@ class {{ class }} extends Controller
     public function index(): AnonymousResourceCollection
     {
         return {{ resource }}::collection($this->{{ serviceVariable }}->getAll())
-            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+            ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
     public function store({{ request }} $request): JsonResponse
@@ -28,7 +28,7 @@ class {{ class }} extends Controller
         $result = $this->{{ serviceVariable }}->save($request->validated());
 
         return {{ resource }}::make($result)
-            ->additional(['message' => __(ResponseMessages::CREATED->value)])
+            ->additional(['message' => ResponseMessages::CREATED->message()])
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }
@@ -36,7 +36,7 @@ class {{ class }} extends Controller
     public function show(int $id): {{ resource }}
     {
         return {{ resource }}::make($this->{{ serviceVariable }}->getById($id))
-            ->additional(['message' => __(ResponseMessages::RETRIEVED->value)]);
+            ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
     public function update({{ request }} $request, int $id): {{ resource }}
@@ -44,13 +44,13 @@ class {{ class }} extends Controller
         $result = $this->{{ serviceVariable }}->update($request->validated(), $id);
 
         return {{ resource }}::make($result)
-            ->additional(['message' => __(ResponseMessages::UPDATED->value)]);
+            ->additional(['message' => ResponseMessages::UPDATED->message()]);
     }
 
     public function destroy(int $id): JsonResponse
     {
         $this->{{ serviceVariable }}->deleteById($id);
 
-        return response()->json(['message' => __(ResponseMessages::DELETED->value)], Response::HTTP_OK);
+        return response()->json(['message' => ResponseMessages::DELETED->message()], Response::HTTP_OK);
     }
 }

@@ -4,6 +4,7 @@ namespace Mrmarchone\LaravelAutoCrud;
 
 use Illuminate\Support\ServiceProvider;
 use Mrmarchone\LaravelAutoCrud\Console\Commands\GenerateAutoCrudCommand;
+use Mrmarchone\LaravelAutoCrud\Console\Commands\GenerateTestsCommand;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 
 class LaravelAutoCrudServiceProvider extends ServiceProvider
@@ -25,6 +26,7 @@ class LaravelAutoCrudServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 GenerateAutoCrudCommand::class,
+                GenerateTestsCommand::class,
             ]);
         }
     }

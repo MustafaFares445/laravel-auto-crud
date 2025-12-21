@@ -1,94 +1,224 @@
+# Laravel Auto CRUD
 
-## Auto-CRUD Generation
+A powerful Laravel package that automatically generates complete CRUD scaffolding including controllers, requests, resources, services, policies, factories, routes, views, and Pest tests for your Eloquent models.
 
-This project includes an auto-CRUD generation system that can automatically create controllers, services, requests, resources, and filter builders for your models.
+## Table of Contents
 
-### Basic Usage
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Basic Usage](#basic-usage)
+- [Commands](#commands)
+- [Available Options](#available-options)
+- [Features](#features)
+- [Generated Files](#generated-files)
+- [Examples](#examples)
+- [License](#license)
+
+## Installation
+
+Install the package via Composer:
+
+```bash
+composer require mustafafares/laravel-auto-crud
+```
+
+Publish the configuration file:
+
+```bash
+php artisan vendor:publish --tag=auto-crud-config
+```
+
+This will create a `config/laravel_auto_crud.php` file where you can customize package settings.
+
+## Configuration
+
+After publishing the config file, you can customize the following settings in `config/laravel_auto_crud.php`:
+
+### Default Configuration
+
+```php
+return [
+    // Fallback path for models (used when --model-path is not specified)
+    'fallback_models_path' => 'app/Models/',
+
+    // Response messages for API endpoints
+    'response_messages' => [
+        'retrieved' => 'data retrieved successfully.',
+        'created' => 'data created successfully.',
+        'updated' => 'data updated successfully.',
+        'deleted' => 'data deleted successfully.',
+    ],
+
+    // Permission mappings for policy authorization
+    'permission_mappings' => [
+        'view' => 'view',
+        'create' => 'create',
+        'update' => 'edit',
+        'delete' => 'delete',
+    ],
+
+    // Test generation settings
+    'test_settings' => [
+        'seeder_class' => 'Database\\Seeders\\RolesAndPermissionsSeeder',
+        'include_authorization_tests' => true,
+    ],
+];
+```
+
+## Basic Usage
+
+### Interactive Mode
+
+Run the command without options to enter interactive mode:
+
+```bash
+php artisan auto-crud:generate
+```
+
+This will guide you through:
+- Model selection (Searchable)
+- Controller type selection (API/Web)
+- Data pattern selection (Normal/Spatie Data)
+- Feature selection (Service, Policy, Factory, Tests, etc. - Searchable)
+- Documentation generation options
+
+**Note**: Most prompts are now searchable. Just start typing to filter options!
+
+### Command Line Mode
+
+Generate CRUD for a specific model:
 
 ```bash
 php artisan auto-crud:generate --model=User
 ```
 
-### Available Options
+Generate for multiple models:
 
-- `--service` or `-S` - Generate with service layer (no repository pattern)
-- `--filter` or `-F` - Generate filter builder and filter request for advanced filtering
-- `--pattern=spatie-data` or `-P=spatie-data` - Use Spatie Laravel Data pattern (requires FormRequest + Data class)
-- `--type=api` or `-T=api` - Generate API controller (default: api)
-- `--type=web` or `-T=web` - Generate web controller
-- `--type=both` or `-T=both` - Generate both API and web controllers
-- `--overwrite` or `-O` - Overwrite existing files
-- `--model=ModelName` or `-M=ModelName` - Specify model(s) to generate CRUD for
-- `--model-path=path` or `-MP=path` - Set custom models path
-
-### Examples
-
-**Generate CRUD with service layer and Spatie Data pattern:**
 ```bash
-php artisan auto-crud:generate --service --pattern=spatie-data --model=User
+php artisan auto-crud:generate --model=User --model=Post --model=Category
 ```
 
-**Generate CRUD with filter builder:**
+## Commands
+
+### `auto-crud:generate`
+
+Main command for generating CRUD scaffolding.
+
+**Signature:**
 ```bash
-php artisan auto-crud:generate --service --pattern=spatie-data --filter --model=User
+php artisan auto-crud:generate
+    {--A|all : Generate all files without overwriting existing files}
+    {--FA|force-all : Generate all files and overwrite existing files}
+    {--M|model=* : Specify model name(s) to generate CRUD for}
+    {--MP|model-path= : Custom path to models directory}
+    {--T|type=* : Output type: "api", "web", or both}
+    {--S|service : Include a Service class for business logic}
+    {--F|filter : Include Spatie Query Builder filter support (requires --pattern=spatie-data)}
+    {--O|overwrite : Overwrite existing files without confirmation}
+    {--P|pattern=normal : Data pattern: "normal" or "spatie-data"}
+    {--RM|response-messages : Add ResponseMessages enum for standardized API responses}
+    {--NP|no-pagination : Use Model::all() instead of pagination in index method}
+    {--PO|policy : Generate Policy class with permission-based authorization}
+    {--FC|factory : Generate Model Factory}
+    {--C|curl : Generate cURL command examples for API endpoints}
+    {--PM|postman : Generate Postman collection JSON file}
+    {--SA|swagger-api : Generate Swagger/OpenAPI specification}
+    {--PT|pest : Generate Pest test files (Feature)}
 ```
 
-**Generate with all options:**
+### `auto-crud:generate-tests`
+
+Generate Pest tests for existing models without generating CRUD files.
+
+**Signature:**
 ```bash
-php artisan auto-crud:generate --service --pattern=spatie-data --filter --model=User --overwrite
+php artisan auto-crud:generate-tests
+    {--M|model=* : Specify model name(s) to generate tests for}
+    {--MP|model-path= : Custom path to models directory}
+    {--O|overwrite : Overwrite existing test files}
 ```
 
-### Generated Files
+## Features
 
-When using `--service --pattern=spatie-data --filter`, the command generates:
+### 1. Automatic Media Detection
+The package automatically detects if your model uses media traits (`InteractsWithMedia`, `HasMediaConversions`, `HasMedia`) and generates appropriate code for handling media uploads.
 
-1. **UserService** (`app/Services/UserService.php`)
-    - Contains `store()` and `update()` methods only
-    - Uses `DB::transaction()` for data safety
-    - Handles media uploads automatically if model uses `HasMediaConversions` trait
-    - Accepts `UserData` objects instead of arrays
+### 2. Type Safety with Spatie Data
+When using `--pattern=spatie-data`, the package generates type-safe Data Transfer Objects (DTOs) using Spatie Laravel Data.
 
-2. **UserRequest** (`app/Http/Requests/UserRequest.php`)
-    - FormRequest for validation
-    - Properties in camelCase
-    - Includes media validation rules automatically
+### 3. Transaction Safety
+All store/update operations in Service classes are wrapped in `DB::transaction()` for data integrity.
 
-3. **UserFilterRequest** (`app/Http/Requests/UserFilterRequest.php`) - *when using `--filter`*
-    - Validation for `search` and `perPage` parameters
+### 4. Dynamic Permission System
+The package generates policies with dynamic permission resolution. Permission names are resolved using configurable mappings.
 
-4. **UserFilterBuilder** (`app/FilterBuilders/UserFilterBuilder.php`) - *when using `--filter`*
-    - Extends `BaseFilterBuilder`
-    - Includes `textSearch()` method if model has searchable properties
-    - Used in controller's `index()` method
+### 5. Standardized Response Messages
+With `--response-messages`, the package generates a `ResponseMessages` enum that provides consistent API response messages.
 
-5. **UserData** (`app/Data/UserData.php`)
-    - Spatie Laravel Data class
-    - Includes `HasModelAttributes` trait
-    - Automatically includes media properties if model uses media trait
+### 6. Pest Test Generation
+The `--pest` option generates comprehensive Pest feature tests:
+- **Location**: Generated in `tests/Feature/{ModelName}/EndpointsTest.php`.
+- **Coverage**: Full CRUD lifecycle, including filtering, sorting, and searching.
+- **Authorization**: Automatic policy testing when policies are present.
 
-6. **UserResource** (`app/Http/Resources/UserResource.php`)
-    - API Resource for responses
-    - Includes `@mixin` PHPDoc tag
-    - Always includes `id`, `createdAt`, `updatedAt`
-    - Automatically handles media collections
-    - Properties in camelCase
+### 7. Smart Factory Generation
+The `--factory` option generates model factories by intelligently mapping database column types to appropriate Faker methods.
 
-7. **UserController** (`app/Http/Controllers/API/UserController.php`)
-    - No base controller extension
-    - No try-catch blocks (Laravel handles exceptions)
-    - Uses Resources for responses
-    - Index method uses FilterBuilder when `--filter` is enabled
-    - Loads media relations automatically
-    - Destroy returns `response()->noContent()` (204 status)
+### 8. Translatable Support
+Full support for Spatie Translatable models:
+- **Resources**: Automatically return translated values based on the `Accept-Language` header.
+- **Factories**: Generates translatable dummy data.
+- **Tests**: Validates translatable fields in CRUD operations.
 
-### Features
+### 9. Automatic Trait Injection
+The package automatically adds necessary traits (`HasFactory`, `FilterQuery`) to your models if they are missing during generation.
 
-- **Automatic Media Detection**: Detects media fields from model traits and generates appropriate code
-- **Type Safety**: Uses Data classes with proper type hints
-- **Transaction Safety**: All store/update operations wrapped in DB transactions
-- **CamelCase Properties**: All request and resource properties use camelCase
-- **Media Support**: Automatically handles single and multiple file uploads
-- **Filter Support**: Advanced filtering with search and pagination
+### 10. Searchable Prompts
+All terminal selection prompts are now searchable, making it much easier to select models and features in large projects.
+
+## Generated Files
+
+### Standard CRUD Files
+1. **Controller** (`app/Http/Controllers/API/ModelNameController.php`)
+2. **Form Request** (`app/Http/Requests/ModelNameRequest.php`)
+3. **API Resource** (`app/Http/Resources/ModelNameResource.php`)
+4. **Routes** (`routes/api.php` or `routes/web.php`)
+5. **Service** (`app/Services/ModelNameService.php`)
+6. **Policy** (`app/Policies/ModelNamePolicy.php`)
+7. **Factory** (`database/factories/ModelNameFactory.php`)
+
+### Spatie Data Pattern Files
+8. **Data Class** (`app/Data/ModelNameData.php`)
+9. **Filter Request** (`app/Http/Requests/ModelNameFilterRequest.php`)
+10. **Filter Builder** (`app/FilterBuilders/ModelNameFilterBuilder.php`)
+
+### Response Messages
+11. **ResponseMessages Enum** (`app/Enums/ResponseMessages.php`)
+
+### Test Files
+12. **Feature Test** (`tests/Feature/ModelName/EndpointsTest.php`)
+
+## Examples
+
+### Example 1: Basic CRUD Generation
+```bash
+php artisan auto-crud:generate --model=User --type=api
+```
+
+### Example 2: Full-Featured CRUD
+```bash
+php artisan auto-crud:generate \
+  --model=Post \
+  --service \
+  --policy \
+  --factory \
+  --response-messages \
+  --pattern=spatie-data \
+  --pest
+```
 
 ## License
-**Laravel Starter Kit** was created by **[Mustafa Fares](https://www.linkedin.com/in/mustafa-fares/)** Forking from **[mrmarchone/laravel-auto-crud](https://github.com/mrmarchone/laravel-auto-crud)** Package.
+
+**Laravel Auto CRUD** was created by **[Mustafa Fares](https://www.linkedin.com/in/mustafa-fares/)** forking from **[mrmarchone/laravel-auto-crud](https://github.com/mrmarchone/laravel-auto-crud)** Package.
+
+Licensed under the MIT License.

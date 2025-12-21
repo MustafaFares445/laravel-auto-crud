@@ -36,7 +36,9 @@ class GenerateAutoCrudCommand extends Command
     {--PO|policy : Generate Policy class with permission-based authorization}
     {--C|curl : Generate cURL command examples for API endpoints}
     {--PM|postman : Generate Postman collection JSON file}
-    {--SA|swagger-api : Generate Swagger/OpenAPI specification}';
+    {--SA|swagger-api : Generate Swagger/OpenAPI specification}
+    {--PT|pest : Generate Pest test files (Feature and Unit)}
+    {--FC|factory : Generate Model Factory}';
 
     protected $description = 'Generate complete CRUD scaffolding (Controller, Request, Resource, Routes, Service) for Eloquent models';
 
@@ -84,78 +86,132 @@ class GenerateAutoCrudCommand extends Command
             return;
         }
 
-        $selectedModels = multiselect(
-            label: '📦 Select the model(s) to generate CRUD for',
-            options: $availableModels,
-            required: true,
-            hint: 'Use space to select, enter to confirm'
+        [$modelOptions, $modelLookup] = $this->indexedOptions(
+            array_combine($availableModels, $availableModels),
+            includeAll: true,
+            allLabel: '✨ All Models'
         );
+        $selectedModelIndexes = multiselect(
+            label: '📦 Select the model(s) to generate CRUD for',
+            options: $modelOptions,
+            required: true,
+            hint: 'Type number(s) or use space to select, enter to confirm'
+        );
+        $selectedModels = $this->collectSelections($modelLookup, $selectedModelIndexes);
+
+        // Handle "All" selection
+        if (in_array('all', $selectedModels)) {
+            $selectedModels = $availableModels;
+        }
 
         // Step 2: Select Controller Type
-        $controllerTypes = multiselect(
-            label: '🌐 What type of controller do you want to generate?',
-            options: [
+        [$controllerOptions, $controllerLookup] = $this->indexedOptions(
+            [
                 'api' => 'API Controller (JSON responses)',
                 'web' => 'Web Controller (Blade views)',
             ],
-            default: ['api'],
-            required: true,
-            hint: 'Select one or both'
+            includeAll: true,
+            allLabel: '✨ Both (API + Web)'
         );
+        $controllerDefaults = $this->defaultIndexes($controllerLookup, ['api']);
+        $controllerTypeIndexes = multiselect(
+            label: '🌐 What type of controller do you want to generate?',
+            options: $controllerOptions,
+            default: $controllerDefaults,
+            required: true,
+            hint: 'Type number to jump, space to select, enter to confirm'
+        );
+        $controllerTypes = $this->collectSelections($controllerLookup, $controllerTypeIndexes);
+
+        // Handle "All" selection
+        if (in_array('all', $controllerTypes)) {
+            $controllerTypes = ['api', 'web'];
+        }
 
         // Step 3: Select Data Pattern
-        $pattern = select(
+        [$patternOptions, $patternLookup] = $this->indexedOptions([
+            'normal' => 'Normal - Standard Laravel Form Requests',
+            'spatie-data' => 'Spatie Data - Use spatie/laravel-data DTOs',
+        ]);
+        $patternDefault = $this->defaultIndexes($patternLookup, ['normal'])[0] ?? array_key_first($patternOptions);
+        $selectedPatternIndex = select(
             label: '📋 Which data pattern do you want to use?',
-            options: [
-                'normal' => 'Normal - Standard Laravel Form Requests',
-                'spatie-data' => 'Spatie Data - Use spatie/laravel-data DTOs',
-            ],
-            default: 'normal',
-            hint: 'Spatie Data provides type-safe DTOs and validation'
+            options: $patternOptions,
+            default: $patternDefault,
+            hint: 'Type number to select, enter to confirm'
         );
+        $pattern = $patternLookup[$selectedPatternIndex];
 
         // Step 4: Select Index Method Style
-        $usePagination = select(
+        [$paginationOptions, $paginationLookup] = $this->indexedOptions([
+            'pagination' => 'Pagination - Return paginated results (recommended)',
+            'all' => 'Get All - Return all records using Model::all()',
+        ]);
+        $paginationDefault = $this->defaultIndexes($paginationLookup, ['pagination'])[0] ?? array_key_first($paginationOptions);
+        $selectedPaginationIndex = select(
             label: '📄 How should the index method return data?',
-            options: [
-                'pagination' => 'Pagination - Return paginated results (recommended for large datasets)',
-                'all' => 'Get All - Return all records using Model::all()',
-            ],
-            default: 'pagination',
-            hint: 'Pagination is recommended for better performance'
+            options: $paginationOptions,
+            default: $paginationDefault,
+            hint: 'Type number to select, enter to confirm'
         );
+        $usePagination = $paginationLookup[$selectedPaginationIndex];
 
         // Step 5: Select Features
         $featureOptions = [
+            'all' => '✨ All Features',
             'service' => '🔧 Service Layer - Extract business logic to service classes',
             'response-messages' => '💬 Response Messages - Add ResponseMessages enum for standardized API responses',
             'policy' => '🔐 Policy - Generate Policy class with permission-based authorization',
+            'pest' => '🧪 Pest Tests - Generate Pest test files (Feature and Unit)',
+            'factory' => '🏭 Factory - Generate Model Factory',
         ];
 
         if ($pattern === 'spatie-data') {
             $featureOptions['filter'] = '🔍 Filters - Add Spatie Query Builder filter support';
         }
 
-        $selectedFeatures = multiselect(
-            label: '⚡ Select additional features',
-            options: $featureOptions,
-            default: [],
-            hint: 'Optional - press enter to skip'
+        [$featurePromptOptions, $featureLookup] = $this->indexedOptions(
+            $featureOptions,
+            includeAll: true,
+            allLabel: '✨ All Features'
         );
+        $selectedFeatureIndexes = multiselect(
+            label: '⚡ Select additional features',
+            options: $featurePromptOptions,
+            default: [],
+            hint: 'Type number to jump, space to select, enter to confirm (optional)'
+        );
+        $selectedFeatures = $this->collectSelections($featureLookup, $selectedFeatureIndexes);
+
+        // Handle "All" selection
+        if (in_array('all', $selectedFeatures)) {
+            $selectedFeatures = array_keys(array_filter($featureOptions, fn($key) => $key !== 'all', ARRAY_FILTER_USE_KEY));
+        }
 
         // Step 6: Select Documentation (only for API)
         $selectedDocs = [];
         if (in_array('api', $controllerTypes)) {
-            $selectedDocs = multiselect(
-                label: '📚 Generate API documentation?',
-                options: [
+            [$docsPromptOptions, $docsLookup] = $this->indexedOptions(
+                [
                     'curl' => '🖥️  cURL - Command-line examples',
                     'postman' => '📮 Postman - Collection JSON file',
                     'swagger-api' => '📖 Swagger - OpenAPI specification',
                 ],
-                default: [],
-                hint: 'Optional - press enter to skip'
+                includeAll: true,
+                allLabel: '✨ All Documentation'
             );
+            $selectedDocsIndexes = multiselect(
+                label: '📚 Generate API documentation?',
+                options: $docsPromptOptions,
+                default: [],
+                hint: 'Type number to jump, space to select, enter to confirm (optional)'
+            );
+            $selectedDocs = $this->collectSelections($docsLookup, $selectedDocsIndexes);
+
+            // Handle "All" selection
+            if (in_array('all', $selectedDocs)) {
+                $selectedDocs = ['curl', 'postman', 'swagger-api'];
+            }
         }
 
         // Step 6: Overwrite confirmation
@@ -183,6 +239,8 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('filter', in_array('filter', $selectedFeatures));
         $this->input->setOption('response-messages', in_array('response-messages', $selectedFeatures));
         $this->input->setOption('policy', in_array('policy', $selectedFeatures));
+        $this->input->setOption('pest', in_array('pest', $selectedFeatures));
+        $this->input->setOption('factory', in_array('factory', $selectedFeatures));
         $this->input->setOption('curl', in_array('curl', $selectedDocs));
         $this->input->setOption('postman', in_array('postman', $selectedDocs));
         $this->input->setOption('swagger-api', in_array('swagger-api', $selectedDocs));
@@ -267,7 +325,7 @@ class GenerateAutoCrudCommand extends Command
     {
         foreach ($models as $model) {
             $modelData = ModelService::resolveModelName($model);
-            $table = ModelService::getFullModelNamespace($modelData, fn($modelName) => new $modelName);
+            $table = ModelService::getTableName($modelData, fn($modelName) => new $modelName);
 
             if (! $this->databaseValidatorService->checkTableExists($table)) {
                 $createFiles = confirm(
@@ -297,6 +355,8 @@ class GenerateAutoCrudCommand extends Command
             || $this->option('filter')
             || $this->option('response-messages')
             || $this->option('policy')
+            || $this->option('pest')
+            || $this->option('factory')
             || $this->option('no-pagination')
             || $this->option('curl')
             || $this->option('postman')
@@ -333,10 +393,56 @@ class GenerateAutoCrudCommand extends Command
         return true;
     }
 
+    private function indexedOptions(array $options, bool $includeAll = false, string $allKey = 'all', ?string $allLabel = null): array
+    {
+        $indexedOptions = [];
+        $lookup = [];
+        $index = 1;
+
+        if ($includeAll) {
+            $indexedOptions[$index] = $allLabel ?? 'All';
+            $lookup[$index] = $allKey;
+            $index++;
+        }
+
+        foreach ($options as $key => $label) {
+            if (is_int($key)) {
+                $key = $label;
+            }
+
+            $indexedOptions[$index] = $label;
+            $lookup[$index] = $key;
+            $index++;
+        }
+
+        return [$indexedOptions, $lookup];
+    }
+
+    private function collectSelections(array $lookup, array $selectedIndexes): array
+    {
+        return array_values(array_intersect_key($lookup, array_flip($selectedIndexes)));
+    }
+
+    private function defaultIndexes(array $lookup, array $desired): array
+    {
+        $reverseLookup = array_flip($lookup);
+        $defaults = [];
+
+        foreach ($desired as $value) {
+            if (isset($reverseLookup[$value])) {
+                $defaults[] = $reverseLookup[$value];
+            }
+        }
+
+        return $defaults;
+    }
+
     private function forceAllBooleanOptions(): void
     {
         $this->input->setOption('service', true);
         $this->input->setOption('policy', true);
+        $this->input->setOption('pest', true);
+        $this->input->setOption('factory', true);
         $this->input->setOption('curl', true);
         $this->input->setOption('postman', true);
         $this->input->setOption('swagger-api', true);

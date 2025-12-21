@@ -41,7 +41,29 @@ test('handleModelsPath ensures trailing slash', function () {
     expect(ModelService::handleModelsPath('app/Models/'))->toBe('app/Models/');
 });
 
-it('returns table name when model has namespace and is valid', function () {
+it('returns full namespace when model has namespace', function () {
+    $modelData = [
+        'namespace' => 'App\\Models',
+        'modelName' => 'TestModel',
+    ];
+
+    $result = ModelService::getFullModelNamespace($modelData);
+
+    expect($result)->toBe('App\\Models\\TestModel');
+});
+
+it('returns model name when model has no namespace', function () {
+    $modelData = [
+        'namespace' => '',
+        'modelName' => 'TestModelNoNamespace',
+    ];
+
+    $result = ModelService::getFullModelNamespace($modelData);
+
+    expect($result)->toBe('TestModelNoNamespace');
+});
+
+it('returns table name using getTableName when model is valid', function () {
     // Create an anonymous class extending Model
     $mockModel = new class extends Model
     {
@@ -51,37 +73,14 @@ it('returns table name when model has namespace and is valid', function () {
         }
     };
 
-    // Mock the class creation
     $modelData = [
         'namespace' => 'App\\Models',
-        'modelName' => 'TestModel',
+        'modelName' => 'TestTableModel',
     ];
 
-    // Mock the class existence
-    class_alias(get_class($mockModel), 'App\\Models\\TestModel');
+    class_alias(get_class($mockModel), 'App\\Models\\TestTableModel');
 
-    $result = ModelService::getFullModelNamespace($modelData);
-
-    expect($result)->toBe('mock_table');
-});
-
-it('returns table name when model has no namespace and is valid', function () {
-    $mockModel = new class extends Model
-    {
-        public function getTable()
-        {
-            return 'mock_table';
-        }
-    };
-
-    $modelData = [
-        'namespace' => '',
-        'modelName' => 'TestModelNoNamespace',
-    ];
-
-    class_alias(get_class($mockModel), 'TestModelNoNamespace');
-
-    $result = ModelService::getFullModelNamespace($modelData);
+    $result = ModelService::getTableName($modelData);
 
     expect($result)->toBe('mock_table');
 });

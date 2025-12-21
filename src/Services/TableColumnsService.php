@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class TableColumnsService
 {
-    public function getAvailableColumns(string $table, array $excludeColumns = ['created_at', 'updated_at']): array
+    public function getAvailableColumns(string $table, array $excludeColumns = ['created_at', 'updated_at'], ?string $modelClass = null): array
     {
         $columns = Schema::getColumnListing($table);
 
@@ -26,11 +26,33 @@ class TableColumnsService
                     continue;
                 }
 
+                $columnDetails['is_translatable'] = $this->isTranslatable($column, $modelClass);
                 $output[] = $columnDetails;
             }
         }
 
         return $output;
+    }
+
+    private function isTranslatable(string $column, ?string $modelClass): bool
+    {
+        if (!$modelClass || !class_exists($modelClass)) {
+            return false;
+        }
+
+        try {
+            $model = new $modelClass;
+            if (property_exists($model, 'translatable')) {
+                return in_array($column, $model->translatable);
+            }
+            if (method_exists($model, 'getTranslatableAttributes')) {
+                return in_array($column, $model->getTranslatableAttributes());
+            }
+        } catch (\Throwable $e) {
+            // Ignore errors
+        }
+
+        return false;
     }
 
     private function getColumnDetails(string $driver, string $table, string $column): array
@@ -58,6 +80,7 @@ class TableColumnsService
         $isNullable = ($columnInfo->Null === 'YES');
         $maxLength = isset($columnInfo->Type) && preg_match('/\((\d+)\)/', $columnInfo->Type, $matches) ? $matches[1] : null;
 
+        $allowedValues = [];
         if (str_starts_with($columnInfo->Type, 'enum')) {
             preg_match("/^enum\((.+)\)$/", $columnInfo->Type, $matches);
             $allowedValues = isset($matches[1]) ? str_getcsv(str_replace("'", '', $matches[1])) : [];
@@ -69,7 +92,7 @@ class TableColumnsService
             'is_nullable' => $isNullable,
             'type' => Schema::getColumnType($table, $column),
             'max_length' => $maxLength,
-            'allowed_values' => $allowedValues ?? [],
+            'allowed_values' => $allowedValues,
             'name' => $column,
             'table' => $table,
         ];
@@ -108,6 +131,7 @@ class TableColumnsService
         $isNullable = ($columnInfo->is_nullable === 'YES');
         $maxLength = $columnInfo->character_maximum_length ?? null;
 
+        $allowedValues = [];
         if (str_starts_with($columnInfo->udt_name, '_')) {
             preg_match('/^_(.+)$/', $columnInfo->udt_name, $matches);
             $allowedValues = isset($matches[1]) ? str_getcsv(str_replace("'", '', $matches[1])) : [];
@@ -119,7 +143,7 @@ class TableColumnsService
             'is_nullable' => $isNullable,
             'type' => Schema::getColumnType($table, $column),
             'max_length' => $maxLength,
-            'allowed_values' => $allowedValues ?? [],
+            'allowed_values' => $allowedValues,
             'name' => $column,
             'table' => $table,
         ];
