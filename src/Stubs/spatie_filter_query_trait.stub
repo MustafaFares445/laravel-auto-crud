@@ -8,6 +8,7 @@ use {{ modelNamespace }};
 use Illuminate\Database\Eloquent\Builder;
 use Mrmarchone\LaravelAutoCrud\Helpers\SearchTermEscaper;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedSort;
 use Spatie\QueryBuilder\QueryBuilder;
 
 trait {{ class }}

@@ -120,11 +120,19 @@ class SpatieFilterBuilder extends BaseBuilder
                 } elseif ($columnName === 'email_verified_at') {
                     $allowedFilters[] = "                AllowedFilter::exact('{$columnName}'),";
                 } elseif ($columnName !== 'created_at' && $columnName !== 'updated_at') {
-                    $allowedFilters[] = "                AllowedFilter::partial('{$columnName}'),";
+                    if ($camelCaseName !== $columnName) {
+                        $allowedFilters[] = "                AllowedFilter::partial('{$camelCaseName}', '{$columnName}'),";
+                    } else {
+                        $allowedFilters[] = "                AllowedFilter::partial('{$camelCaseName}'),";
+                    }
                 }
 
                 // 2. Allowed Sorts
-                $allowedSorts[] = "                '{$columnName}',";
+                if ($camelCaseName !== $columnName) {
+                    $allowedSorts[] = "                AllowedSort::field('{$camelCaseName}', '{$columnName}'),";
+                } else {
+                    $allowedSorts[] = "                AllowedSort::field('{$camelCaseName}'),";
+                }
 
                 // 3. Searchable Columns (for scopeSearch)
                 if ($this->isSearchableColumnType($column['type'])) {
@@ -137,8 +145,8 @@ class SpatieFilterBuilder extends BaseBuilder
             }
 
             // Add custom scope filters
-            $allowedFilters[] = "                AllowedFilter::scope('created_after'),";
-            $allowedFilters[] = "                AllowedFilter::scope('created_before'),";
+            $allowedFilters[] = "                AllowedFilter::scope('createdAfter'),";
+            $allowedFilters[] = "                AllowedFilter::scope('createdBefore'),";
             $allowedFilters[] = "                AllowedFilter::scope('search'),";
 
             // Generate scopes
