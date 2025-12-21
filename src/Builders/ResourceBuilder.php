@@ -82,11 +82,7 @@ class ResourceBuilder extends BaseBuilder
                 $camelCaseName = Str::camel($propertyName);
                 $snakeCaseName = Str::snake($propertyName);
                 
-                if (isset($columnsByName[$snakeCaseName]) && ($columnsByName[$snakeCaseName]['is_translatable'] ?? false)) {
-                    $data[$camelCaseName] = "\$this->getTranslation('{$snakeCaseName}', request()->header('Accept-Language', app()->getLocale()))";
-                } else {
-                    $data[$camelCaseName] = '$this->'.$snakeCaseName;
-                }
+                $data[$camelCaseName] = '$this->'.$snakeCaseName;
             }
         } else {
             // Use database columns (original behavior)
@@ -100,11 +96,7 @@ class ResourceBuilder extends BaseBuilder
                 }
 
                 $camelCaseName = Str::camel($columnName);
-                if ($column['is_translatable'] ?? false) {
-                    $data[$camelCaseName] = "\$this->getTranslation('{$columnName}', request()->header('Accept-Language', app()->getLocale()))";
-                } else {
-                    $data[$camelCaseName] = '$this->'.$columnName;
-                }
+                $data[$camelCaseName] = '$this->'.$columnName;
             }
         }
 

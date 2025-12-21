@@ -35,10 +35,23 @@ class PestBuilder extends BaseBuilder
 
             $authorizationTests = '';
             if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {
-                $authorizationTests = "\n" . "it('forbids unauthorized access to " . Str::plural(Str::snake($modelData['modelName'], ' ')) . "', function () {
-    Sanctum::actingAs(User::factory()->create());
+                $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+                $authPayload = $this->generatePayload($columns);
 
-    \$this->getJson('" . '/api/' . Str::plural(Str::snake($modelData['modelName'])) . "')->assertForbidden();
+                $authorizationTests = "\n" . "it('forbids unauthorized access to " . Str::plural(Str::snake($modelData['modelName'], ' ')) . " CRUD operations', function () {
+    \$user = User::factory()->create();
+    \$model = {$modelData['modelName']}::factory()->create();
+    Sanctum::actingAs(\$user);
+
+    \$this->postJson('{$routePath}', [
+{$authPayload}
+    ])->assertForbidden();
+
+    \$this->putJson(\"{$routePath}/\" . \$model->id, [
+{$authPayload}
+    ])->assertForbidden();
+
+    \$this->deleteJson(\"{$routePath}/\" . \$model->id)->assertForbidden();
 });";
             }
 
