@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
+use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 
 class ServiceBuilder extends BaseBuilder
@@ -62,7 +63,7 @@ class ServiceBuilder extends BaseBuilder
                     $relatedModel = $relationship['related_model'] ?? null;
                     if ($relatedModel) {
                         $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
-                        $propertyName = strtolower($relatedModelName) . '_ids';
+                        $propertyName = Str::camel(strtolower($relatedModelName) . '_ids');
                         $relationshipName = $relationship['name'];
                         
                         $relationshipStoreLogic .= "\n            // Sync {$relationshipName} relationship";

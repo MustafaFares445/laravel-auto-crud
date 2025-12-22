@@ -185,10 +185,13 @@ class RelationshipDetector
             switch ($relationship['type']) {
                 case 'belongsTo':
                     if (isset($relationship['foreign_key'])) {
+                        $foreignKey = $relationship['foreign_key'];
+                        $propertyName = Str::camel($foreignKey);
                         $properties[] = [
-                            'property' => 'public ?int $' . $relationship['foreign_key'] . ';',
+                            'property' => 'public ?int $' . $propertyName . ';',
                             'validation' => '',
                             'related_model' => $relationship['related_model'] ?? null,
+                            'foreign_key' => $foreignKey,
                         ];
                     }
                     break;
@@ -197,10 +200,13 @@ class RelationshipDetector
                 case 'hasMany':
                     // For inverse relationships, add foreign key if it exists on this model
                     if (isset($relationship['foreign_key']) && str_contains($relationship['foreign_key'], '_id')) {
+                        $foreignKey = $relationship['foreign_key'];
+                        $propertyName = Str::camel($foreignKey);
                         $properties[] = [
-                            'property' => 'public ?int $' . $relationship['foreign_key'] . ';',
+                            'property' => 'public ?int $' . $propertyName . ';',
                             'validation' => '',
                             'related_model' => $relationship['related_model'] ?? null,
+                            'foreign_key' => $foreignKey,
                         ];
                     }
                     break;
@@ -208,7 +214,7 @@ class RelationshipDetector
                 case 'belongsToMany':
                     // For many-to-many, add array property for IDs
                     $relatedModelName = self::getModelNameFromClass($relationship['related_model'] ?? '');
-                    $propertyName = strtolower($relatedModelName) . '_ids';
+                    $propertyName = Str::camel(strtolower($relatedModelName) . '_ids');
                     $properties[] = [
                         'property' => 'public ?array $' . $propertyName . ';',
                         'validation' => '#[Json]',
@@ -218,13 +224,16 @@ class RelationshipDetector
 
                 case 'morphTo':
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
+                        $morphableId = $relationship['morphable_id'];
+                        $morphableType = $relationship['morphable_type'];
                         $properties[] = [
-                            'property' => 'public ?int $' . $relationship['morphable_id'] . ';',
+                            'property' => 'public ?int $' . Str::camel($morphableId) . ';',
                             'validation' => '',
                             'related_model' => null,
+                            'foreign_key' => $morphableId,
                         ];
                         $properties[] = [
-                            'property' => 'public ?string $' . $relationship['morphable_type'] . ';',
+                            'property' => 'public ?string $' . Str::camel($morphableType) . ';',
                             'validation' => '',
                             'related_model' => null,
                         ];
@@ -235,13 +244,16 @@ class RelationshipDetector
                 case 'morphMany':
                 case 'morphToMany':
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
+                        $morphableId = $relationship['morphable_id'];
+                        $morphableType = $relationship['morphable_type'];
                         $properties[] = [
-                            'property' => 'public ?int $' . $relationship['morphable_id'] . ';',
+                            'property' => 'public ?int $' . Str::camel($morphableId) . ';',
                             'validation' => '',
                             'related_model' => $relationship['related_model'] ?? null,
+                            'foreign_key' => $morphableId,
                         ];
                         $properties[] = [
-                            'property' => 'public ?string $' . $relationship['morphable_type'] . ';',
+                            'property' => 'public ?string $' . Str::camel($morphableType) . ';',
                             'validation' => '',
                             'related_model' => null,
                         ];
@@ -336,7 +348,8 @@ class RelationshipDetector
                         $relatedModel = $relationship['related_model'];
                         $tableName = self::getTableNameFromModel($relatedModel);
                         $foreignKey = $relationship['foreign_key'];
-                        $rules[$foreignKey] = ['nullable', 'integer', "exists:{$tableName},id"];
+                        $propertyName = Str::camel($foreignKey);
+                        $rules[$propertyName] = ['nullable', 'integer', "exists:{$tableName},id"];
                     }
                     break;
 
@@ -345,7 +358,7 @@ class RelationshipDetector
                         $relatedModel = $relationship['related_model'];
                         $tableName = self::getTableNameFromModel($relatedModel);
                         $relatedModelName = self::getModelNameFromClass($relatedModel);
-                        $propertyName = strtolower($relatedModelName) . '_ids';
+                        $propertyName = Str::camel(strtolower($relatedModelName) . '_ids');
                         $rules[$propertyName] = ['nullable', 'array'];
                         $rules[$propertyName . '.*'] = ["integer", "exists:{$tableName},id"];
                     }
@@ -353,8 +366,10 @@ class RelationshipDetector
 
                 case 'morphTo':
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
-                        $rules[$relationship['morphable_id']] = ['nullable', 'integer'];
-                        $rules[$relationship['morphable_type']] = ['nullable', 'string'];
+                        $morphableId = $relationship['morphable_id'];
+                        $morphableType = $relationship['morphable_type'];
+                        $rules[Str::camel($morphableId)] = ['nullable', 'integer'];
+                        $rules[Str::camel($morphableType)] = ['nullable', 'string'];
                     }
                     break;
 
@@ -362,8 +377,10 @@ class RelationshipDetector
                 case 'morphMany':
                 case 'morphToMany':
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
-                        $rules[$relationship['morphable_id']] = ['nullable', 'integer'];
-                        $rules[$relationship['morphable_type']] = ['nullable', 'string'];
+                        $morphableId = $relationship['morphable_id'];
+                        $morphableType = $relationship['morphable_type'];
+                        $rules[Str::camel($morphableId)] = ['nullable', 'integer'];
+                        $rules[Str::camel($morphableType)] = ['nullable', 'string'];
                     }
                     break;
             }

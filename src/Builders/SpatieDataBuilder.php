@@ -88,11 +88,14 @@ class SpatieDataBuilder extends BaseBuilder
                 $property = $relProperty['property'];
                 $validation = $relProperty['validation'];
                 $relatedModel = $relProperty['related_model'] ?? null;
+                $foreignKey = $relProperty['foreign_key'] ?? null;
 
                 // Add Exists validation for belongsTo relationships
-                if ($relatedModel && str_contains($property, 'public ?int $') && str_contains($property, '_id')) {
+                // Check if it's an integer property (belongsTo) and has a related model
+                if ($relatedModel && str_contains($property, 'public ?int $')) {
                     $tableName = $this->getTableNameFromModel($relatedModel);
                     if ($tableName) {
+                        // Exists validation checks if the value exists in the related table's id column
                         $validation = "#[Exists('{$tableName}', 'id')]";
                         $existsNamespace = 'use Spatie\LaravelData\Attributes\Validation\Exists;';
                         if (!in_array($existsNamespace, $supportedData['namespaces'], true)) {

@@ -341,7 +341,7 @@ class ControllerBuilder extends BaseBuilder
                 return "        \${$modelVariable}s = {$modelClass}::getQuery()->get();\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
             }
 
-            return "        \${$modelVariable}s = {$modelClass}::getQuery()\n            ->paginate(\$request->get('per_page', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
+            return "        \${$modelVariable}s = {$modelClass}::getQuery()\n            ->paginate(\$request->get('perPage', 20));\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
         }
 
         if ($noPagination) {

@@ -60,8 +60,8 @@ class RequestBuilder extends BaseBuilder
         $relationshipRules = RelationshipDetector::getRelationshipValidationRules($relationships);
 
         foreach ($relationshipRules as $field => $rules) {
-            $camelCaseName = Str::camel($field);
-            $validationRules[$camelCaseName] = implode('|', $rules);
+            // Field names are already in camelCase from getRelationshipValidationRules
+            $validationRules[$field] = implode('|', $rules);
         }
 
         foreach ($columns as $column) {
