@@ -198,6 +198,59 @@ All terminal selection prompts are now searchable, making it much easier to sele
 ### Test Files
 12. **Feature Test** (`tests/Feature/ModelName/EndpointsTest.php`)
 
+## Helper Files
+
+The package includes several helper classes that are automatically used in generated code to provide common functionality:
+
+### MediaHelper
+
+Located at `Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper`, this helper provides static methods for handling media uploads with Spatie Media Library:
+
+- **`uploadMedia()`**: Handles single or multiple file uploads to a media collection
+- **`updateMedia()`**: Updates media by clearing existing collection and uploading new files
+- **`deleteCollection()`**: Deletes all media in a collection
+- **`deleteMedia()`**: Deletes a specific media item after verifying ownership
+- **`deleteManyMedia()`**: Deletes multiple media items with ownership verification
+
+**Usage in generated controllers:**
+```php
+use Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper;
+
+// Upload media
+MediaHelper::uploadMedia($request->file('image'), $model, 'images');
+
+// Update media
+MediaHelper::updateMedia($request->file('image'), $model, 'images');
+```
+
+### PermissionNameResolver
+
+Located at `Mrmarchone\LaravelAutoCrud\Helpers\PermissionNameResolver`, this helper resolves permission names based on configurable mappings:
+
+- **`resolve()`**: Resolves permission names using mappings from `config/laravel_auto_crud.php`
+
+**Usage in generated policies:**
+```php
+use Mrmarchone\LaravelAutoCrud\Helpers\PermissionNameResolver;
+
+$permission = PermissionNameResolver::resolve('users', 'create');
+// Returns: "create users" (based on config mappings)
+```
+
+### SearchTermEscaper
+
+Located at `Mrmarchone\LaravelAutoCrud\Helpers\SearchTermEscaper`, this helper safely escapes search terms for SQL LIKE queries:
+
+- **`escape()`**: Escapes special characters (`%`, `_`, and escape character) in search terms to prevent SQL injection
+
+**Usage in generated services:**
+```php
+use Mrmarchone\LaravelAutoCrud\Helpers\SearchTermEscaper;
+
+$escapedTerm = SearchTermEscaper::escape($searchTerm);
+// Returns: "%escaped%search%term%" with special characters properly escaped
+```
+
 ## Examples
 
 ### Example 1: Basic CRUD Generation

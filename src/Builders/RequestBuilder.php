@@ -19,6 +19,9 @@ class RequestBuilder extends BaseBuilder
     protected ModelService $modelService;
     protected EnumBuilder $enumBuilder;
     
+    /**
+     * Initialize the RequestBuilder with required services.
+     */
     public function __construct()
     {
         parent::__construct();
@@ -27,6 +30,17 @@ class RequestBuilder extends BaseBuilder
         $this->enumBuilder = new EnumBuilder;
     }
 
+    /**
+     * Create Store and Update request classes for a model.
+     *
+     * Generates two separate FormRequest classes:
+     * - {Model}StoreRequest: For validating data when creating new records
+     * - {Model}UpdateRequest: For validating data when updating existing records
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request files
+     * @return array Returns array with 'store' and 'update' keys containing file paths
+     */
     public function create(array $modelData, bool $overwrite = false): array
     {
         $storeRequestPath = $this->createStoreRequest($modelData, $overwrite);
@@ -38,6 +52,16 @@ class RequestBuilder extends BaseBuilder
         ];
     }
 
+    /**
+     * Create Store and Update request classes for Spatie Data pattern.
+     *
+     * Similar to create() but includes media field validation rules
+     * for models using Spatie Media Library.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request files
+     * @return array Returns array with 'store' and 'update' keys containing file paths
+     */
     public function createForSpatieData(array $modelData, bool $overwrite = false): array
     {
         $storeRequestPath = $this->createSpatieDataStoreRequest($modelData, $overwrite);
@@ -49,6 +73,13 @@ class RequestBuilder extends BaseBuilder
         ];
     }
 
+    /**
+     * Create a StoreRequest class for standard CRUD operations.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created StoreRequest file
+     */
     protected function createStoreRequest(array $modelData, bool $overwrite = false): string
     {
         return $this->fileService->createFromStub($modelData, 'store_request', 'Http/Requests', 'StoreRequest', $overwrite, function ($modelData) {
@@ -60,6 +91,15 @@ class RequestBuilder extends BaseBuilder
         });
     }
 
+    /**
+     * Create an UpdateRequest class for standard CRUD operations.
+     *
+     * Update requests use 'sometimes' rule so fields are only validated if present.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created UpdateRequest file
+     */
     protected function createUpdateRequest(array $modelData, bool $overwrite = false): string
     {
         return $this->fileService->createFromStub($modelData, 'update_request', 'Http/Requests', 'UpdateRequest', $overwrite, function ($modelData) {
@@ -71,6 +111,15 @@ class RequestBuilder extends BaseBuilder
         });
     }
 
+    /**
+     * Create a StoreRequest class for Spatie Data pattern with media support.
+     *
+     * Includes media field validation rules for models using Spatie Media Library.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created StoreRequest file
+     */
     protected function createSpatieDataStoreRequest(array $modelData, bool $overwrite = false): string
     {
         return $this->fileService->createFromStub($modelData, 'spatie_data_store_request', 'Http/Requests', 'StoreRequest', $overwrite, function ($modelData) {
