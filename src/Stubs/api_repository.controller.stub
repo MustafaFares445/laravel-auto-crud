@@ -3,7 +3,8 @@
 namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
-use {{ requestNamespace }};
+use {{ storeRequestNamespace }};
+use {{ updateRequestNamespace }};
 use {{ resourceNamespace }};
 use {{ serviceNamespace }};
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class {{ class }} extends Controller
         return {{ resource }}::collection($this->{{ serviceVariable }}->getAll());
     }
 
-    public function store({{ request }} $request): {{ resource }}|\Illuminate\Http\JsonResponse
+    public function store({{ storeRequest }} $request): {{ resource }}|\Illuminate\Http\JsonResponse
     {
         try {
             return new {{ resource }}($this->{{ serviceVariable }}->save($request->validated()));
@@ -47,7 +48,7 @@ class {{ class }} extends Controller
         return {{ resource }}::make($this->{{ serviceVariable }}->getById($id));
     }
 
-    public function update({{ request }} $request, int $id): {{ resource }}|\Illuminate\Http\JsonResponse
+    public function update({{ updateRequest }} $request, int $id): {{ resource }}|\Illuminate\Http\JsonResponse
     {
         try {
             return new {{ resource }}($this->{{ serviceVariable }}->update($request->validated(), $id));

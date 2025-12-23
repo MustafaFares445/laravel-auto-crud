@@ -3,7 +3,8 @@
 namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
-use {{ requestNamespace }};
+use {{ storeRequestNamespace }};
+use {{ updateRequestNamespace }};
 use {{ modelNamespace }};
 
 class {{ class }} extends Controller
@@ -19,7 +20,7 @@ class {{ class }} extends Controller
         return view('{{ viewPath }}.create');
     }
 
-    public function store({{ request }} $request): \Illuminate\Http\RedirectResponse
+    public function store({{ storeRequest }} $request): \Illuminate\Http\RedirectResponse
     {
         {{ model }}::create($request->validated());
         return redirect()->route('{{ routeName }}.index')->with('success', 'Created successfully');
@@ -37,7 +38,7 @@ class {{ class }} extends Controller
         return view('{{ viewPath }}.edit', compact('{{ modelVariable }}'));
     }
 
-    public function update({{ request }} $request, {{ model }} ${{ modelVariable }}): \Illuminate\Http\RedirectResponse
+    public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): \Illuminate\Http\RedirectResponse
     {
         ${{ modelVariable }}->update($request->validated());
         return redirect()->route('{{ routeName }}.index')->with('success', 'Updated successfully');

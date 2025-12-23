@@ -3,7 +3,8 @@
 namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
-use {{ requestNamespace }};
+use {{ storeRequestNamespace }};
+use {{ updateRequestNamespace }};
 use {{ resourceNamespace }};
 use {{ modelNamespace }};
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class {{ class }} extends Controller
         return {{ resource }}::collection({{ model }}::latest()->paginate(10));
     }
 
-    public function store({{ request }} $request): {{ resource }}|\Illuminate\Http\JsonResponse
+    public function store({{ storeRequest }} $request): {{ resource }}|\Illuminate\Http\JsonResponse
     {
         try {
             ${{ modelVariable }} = {{ model }}::create($request->validated());
@@ -33,7 +34,7 @@ class {{ class }} extends Controller
         return {{ resource }}::make(${{ modelVariable }});
     }
 
-    public function update({{ request }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}|\Illuminate\Http\JsonResponse
+    public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}|\Illuminate\Http\JsonResponse
     {
         try {
             ${{ modelVariable }}->update($request->validated());

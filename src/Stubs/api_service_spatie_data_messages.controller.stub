@@ -8,7 +8,8 @@ use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
 use {{ modelNamespace }};
 use {{ spatieDataNamespace }};
 use {{ serviceNamespace }};
-use {{ requestNamespace }};
+use {{ storeRequestNamespace }};
+use {{ updateRequestNamespace }};
 use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class {{ class }}
     /**
      * @throws Throwable
      */
-    public function store({{ request }} $request): JsonResponse
+    public function store({{ storeRequest }} $request): JsonResponse
     {
         ${{ modelVariable }} = $this->{{ serviceVariable }}->store({{ spatieData }}::from($request->validated()));
 
@@ -48,7 +49,7 @@ class {{ class }}
     /**
      * @throws Throwable
      */
-    public function update({{ request }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
+    public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
     {
         $updated{{ model }} = $this->{{ serviceVariable }}->update({{ spatieData }}::from($request->validated()), ${{ modelVariable }});
 

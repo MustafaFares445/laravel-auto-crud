@@ -11,7 +11,7 @@ use ReflectionClass;
 
 class ControllerBuilder extends BaseBuilder
 {
-    public function createAPI(array $modelData, string $resource, string $request, array $options = []): string
+    public function createAPI(array $modelData, string $resource, array $requests, array $options = []): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
         $filterRequest = $options['filterRequest'] ?? null;
@@ -21,10 +21,11 @@ class ControllerBuilder extends BaseBuilder
 
         $stubName = $useResponseMessages ? 'api_messages.controller' : 'api.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $request, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
             $model = $this->getFullModelNamespace($modelData);
             $resourceName = explode('\\', $resource);
-            $requestName = explode('\\', $request);
+            $storeRequestName = explode('\\', $requests['store']);
+            $updateRequestName = explode('\\', $requests['update']);
 
             $filterBuilderImport = '';
             $filterRequestImport = '';
@@ -50,11 +51,13 @@ class ControllerBuilder extends BaseBuilder
             );
 
             return [
-                '{{ requestNamespace }}' => $request,
+                '{{ storeRequestNamespace }}' => $requests['store'],
+                '{{ updateRequestNamespace }}' => $requests['update'],
                 '{{ resourceNamespace }}' => $resource,
                 '{{ modelNamespace }}' => $model,
                 '{{ resource }}' => $resourceClass,
-                '{{ request }}' => end($requestName),
+                '{{ storeRequest }}' => end($storeRequestName),
+                '{{ updateRequest }}' => end($updateRequestName),
                 '{{ model }}' => $modelData['modelName'],
                 '{{ modelVariable }}' => $modelVariable,
                 '{{ filterBuilderImport }}' => $filterBuilderImport,
@@ -123,23 +126,26 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createAPIRepository(array $modelData, string $resource, string $request, string $service, array $options = []): string
+    public function createAPIRepository(array $modelData, string $resource, array $requests, string $service, array $options = []): string
     {
         $overwrite = $options['overwrite'] ?? false;
         $useResponseMessages = $options['response-messages'] ?? false;
 
         $stubName = $useResponseMessages ? 'api_repository_messages.controller' : 'api_repository.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $request, $service) {
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $service) {
             $resourceName = explode('\\', $resource);
-            $requestName = explode('\\', $request);
+            $storeRequestName = explode('\\', $requests['store']);
+            $updateRequestName = explode('\\', $requests['update']);
             $serviceName = explode('\\', $service);
 
             return [
-                '{{ requestNamespace }}' => $request,
+                '{{ storeRequestNamespace }}' => $requests['store'],
+                '{{ updateRequestNamespace }}' => $requests['update'],
                 '{{ resourceNamespace }}' => $resource,
                 '{{ resource }}' => end($resourceName),
-                '{{ request }}' => end($requestName),
+                '{{ storeRequest }}' => end($storeRequestName),
+                '{{ updateRequest }}' => end($updateRequestName),
                 '{{ serviceNamespace }}' => $service,
                 '{{ service }}' => end($serviceName),
                 '{{ serviceVariable }}' => lcfirst(end($serviceName)),
@@ -163,17 +169,20 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createWeb(array $modelData, string $request, bool $overwrite = false): string
+    public function createWeb(array $modelData, array $requests, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'web.controller', 'Http/Controllers', 'Controller', $overwrite, function ($modelData) use ($request) {
+        return $this->fileService->createFromStub($modelData, 'web.controller', 'Http/Controllers', 'Controller', $overwrite, function ($modelData) use ($requests) {
             $model = $this->getFullModelNamespace($modelData);
-            $requestName = explode('\\', $request);
+            $storeRequestName = explode('\\', $requests['store']);
+            $updateRequestName = explode('\\', $requests['update']);
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
 
             return [
-                '{{ requestNamespace }}' => $request,
+                '{{ storeRequestNamespace }}' => $requests['store'],
+                '{{ updateRequestNamespace }}' => $requests['update'],
                 '{{ modelNamespace }}' => $model,
-                '{{ request }}' => end($requestName),
+                '{{ storeRequest }}' => end($storeRequestName),
+                '{{ updateRequest }}' => end($updateRequestName),
                 '{{ model }}' => $modelData['modelName'],
                 '{{ modelVariable }}' => lcfirst($modelData['modelName']),
                 '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
@@ -184,16 +193,19 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createWebRepository(array $modelData, string $request, string $service, bool $overwrite = false): string
+    public function createWebRepository(array $modelData, array $requests, string $service, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'web_repository.controller', 'Http/Controllers', 'Controller', $overwrite, function ($modelData) use ($service, $request) {
+        return $this->fileService->createFromStub($modelData, 'web_repository.controller', 'Http/Controllers', 'Controller', $overwrite, function ($modelData) use ($service, $requests) {
             $model = $this->getFullModelNamespace($modelData);
             $serviceName = explode('\\', $service);
-            $requestName = explode('\\', $request);
+            $storeRequestName = explode('\\', $requests['store']);
+            $updateRequestName = explode('\\', $requests['update']);
 
             return [
-                '{{ requestNamespace }}' => $request,
-                '{{ request }}' => end($requestName),
+                '{{ storeRequestNamespace }}' => $requests['store'],
+                '{{ updateRequestNamespace }}' => $requests['update'],
+                '{{ storeRequest }}' => end($storeRequestName),
+                '{{ updateRequest }}' => end($updateRequestName),
                 '{{ serviceNamespace }}' => $service,
                 '{{ service }}' => end($serviceName),
                 '{{ serviceVariable }}' => lcfirst(end($serviceName)),
@@ -251,7 +263,7 @@ class ControllerBuilder extends BaseBuilder
         });
     }
 
-    public function createAPIServiceSpatieData(array $modelData, string $spatieData, string $request, string $service, string $resource, array $options = []): string
+    public function createAPIServiceSpatieData(array $modelData, string $spatieData, array $requests, string $service, string $resource, array $options = []): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
         $filterRequest = $options['filterRequest'] ?? null;
@@ -261,10 +273,11 @@ class ControllerBuilder extends BaseBuilder
 
         $stubName = $useResponseMessages ? 'api_service_spatie_data_messages.controller' : 'api_service_spatie_data.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($spatieData, $request, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
+        return $this->fileService->createFromStub($modelData, $stubName, 'Http/Controllers/API', 'Controller', $overwrite, function ($modelData) use ($spatieData, $requests, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
-            $requestName = explode('\\', $request);
+            $storeRequestName = explode('\\', $requests['store']);
+            $updateRequestName = explode('\\', $requests['update']);
             $serviceName = explode('\\', $service);
             $resourceName = explode('\\', $resource);
 
@@ -295,8 +308,10 @@ class ControllerBuilder extends BaseBuilder
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
                 '{{ spatieData }}' => end($spatieDataName),
-                '{{ requestNamespace }}' => $request,
-                '{{ request }}' => end($requestName),
+                '{{ storeRequestNamespace }}' => $requests['store'],
+                '{{ updateRequestNamespace }}' => $requests['update'],
+                '{{ storeRequest }}' => end($storeRequestName),
+                '{{ updateRequest }}' => end($updateRequestName),
                 '{{ serviceNamespace }}' => $service,
                 '{{ service }}' => end($serviceName),
                 '{{ serviceVariable }}' => lcfirst(end($serviceName)),

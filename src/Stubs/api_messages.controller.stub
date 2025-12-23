@@ -6,7 +6,8 @@ namespace {{ namespace }};
 
 use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
 use App\Http\Controllers\Controller;
-use {{ requestNamespace }};
+use {{ storeRequestNamespace }};
+use {{ updateRequestNamespace }};
 use {{ resourceNamespace }};
 use {{ modelNamespace }};
 use Illuminate\Http\JsonResponse;
@@ -21,7 +22,7 @@ class {{ class }} extends Controller
             ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
-    public function store({{ request }} $request): JsonResponse
+    public function store({{ storeRequest }} $request): JsonResponse
     {
         ${{ modelVariable }} = {{ model }}::create($request->validated());
 
@@ -38,7 +39,7 @@ class {{ class }} extends Controller
             ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
-    public function update({{ request }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
+    public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
     {
         ${{ modelVariable }}->update($request->validated());
 
