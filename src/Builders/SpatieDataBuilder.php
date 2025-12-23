@@ -89,9 +89,15 @@ class SpatieDataBuilder extends BaseBuilder
                 $validation = $relProperty['validation'];
                 $relatedModel = $relProperty['related_model'] ?? null;
                 $foreignKey = $relProperty['foreign_key'] ?? null;
+                $propertyName = $this->getPropertyName($property);
 
                 // Skip if a property with the same signature was already added from table columns
                 if (isset($supportedData['properties'][$property])) {
+                    continue;
+                }
+
+                // Skip if the property name already exists with a different signature (prevents duplicate params)
+                if ($propertyName && $this->propertyExistsByName($supportedData['properties'], $propertyName)) {
                     continue;
                 }
 
@@ -143,6 +149,34 @@ class SpatieDataBuilder extends BaseBuilder
                 '{{ data }}' => $dataSection,
             ];
         });
+    }
+
+    /**
+     * Check if a property with the same name already exists, regardless of signature.
+     *
+     * @param array<string, string> $properties
+     */
+    private function propertyExistsByName(array $properties, string $propertyName): bool
+    {
+        foreach (array_keys($properties) as $propertyDefinition) {
+            if ($this->getPropertyName($propertyDefinition) === $propertyName) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Extract the property name from a property definition like "public ?int $foo;"
+     */
+    private function getPropertyName(string $propertyDefinition): ?string
+    {
+        if (preg_match('/\$(\w+)/', $propertyDefinition, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     private function getHelperData(array $modelData, $overwrite = false, ?string $modelClass = null): array

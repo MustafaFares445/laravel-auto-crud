@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace {{ namespace }};
 
 use Illuminate\Foundation\Http\FormRequest;
-use Mrmarchone\LaravelAutoCrud\Traits\ConvertsKeysToSnakeCase;
 
 class {{ class }} extends FormRequest
 {
-    use ConvertsKeysToSnakeCase;
-
     public function authorize(): bool
     {
         return true;
