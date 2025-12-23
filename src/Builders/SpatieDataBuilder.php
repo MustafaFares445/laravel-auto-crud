@@ -90,6 +90,11 @@ class SpatieDataBuilder extends BaseBuilder
                 $relatedModel = $relProperty['related_model'] ?? null;
                 $foreignKey = $relProperty['foreign_key'] ?? null;
 
+                // Skip if a property with the same signature was already added from table columns
+                if (isset($supportedData['properties'][$property])) {
+                    continue;
+                }
+
                 // Add Exists validation for belongsTo relationships
                 // Check if it's an integer property (belongsTo) and has a related model
                 if ($relatedModel && str_contains($property, 'public ?int $')) {
