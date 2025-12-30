@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
@@ -18,11 +19,11 @@ class ResourceBuilder extends BaseBuilder
     protected ModelService $modelService;
     protected TableColumnsService $tableColumnsService;
 
-    public function __construct()
+    public function __construct(FileService $fileService, ModelService $modelService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct();
-        $this->modelService = new ModelService;
-        $this->tableColumnsService = new TableColumnsService;
+        parent::__construct($fileService);
+        $this->modelService = $modelService;
+        $this->tableColumnsService = $tableColumnsService;
     }
 
     public function create(array $modelData, bool $overwrite = false, string $pattern = 'normal', ?string $spatieData = null): string

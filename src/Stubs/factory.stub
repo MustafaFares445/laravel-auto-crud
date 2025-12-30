@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use {{ modelNamespace }};
-use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\Factory;{{ enumUseStatements }}{{ relatedModelUseStatements }}
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\{{ modelNamespace }}>

@@ -23,6 +23,8 @@ class {{ class }}
         return DB::transaction(static function () use ($data) {
             ${{ modelVariable }} = {{ model }}::create($data->onlyModelAttributes());
 {{ mediaStoreLogic }}
+            $data->syncRelationships(${{ modelVariable }});
+
             return ${{ modelVariable }};
         });
     }
@@ -41,6 +43,8 @@ class {{ class }}
         return DB::transaction(static function () use ($data, ${{ modelVariable }}) {
             tap(${{ modelVariable }})->update($data->onlyModelAttributes());
 {{ mediaUpdateLogic }}
+            $data->syncRelationships(${{ modelVariable }});
+
             return ${{ modelVariable }};
         });
     }

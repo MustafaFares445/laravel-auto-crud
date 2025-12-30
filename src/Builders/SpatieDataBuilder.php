@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
@@ -26,12 +27,12 @@ class SpatieDataBuilder extends BaseBuilder
      */
     private static array $processedModels = [];
 
-    public function __construct()
+    public function __construct(FileService $fileService, EnumBuilder $enumBuilder, ModelService $modelService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct();
-        $this->enumBuilder = new EnumBuilder;
-        $this->modelService = new ModelService;
-        $this->tableColumnsService = new TableColumnsService;
+        parent::__construct($fileService);
+        $this->enumBuilder = $enumBuilder;
+        $this->modelService = $modelService;
+        $this->tableColumnsService = $tableColumnsService;
     }
 
     public function create(array $modelData, bool $overwrite = false): string
@@ -71,11 +72,11 @@ class SpatieDataBuilder extends BaseBuilder
                 $supportedData['namespaces'][] = 'use Illuminate\Http\UploadedFile;';
                 $supportedData['namespaces'][] = 'use Spatie\LaravelData\Attributes\Validation\File;';
 
-                // Add media properties
+                // Add media properties (make them nullable for optional updates)
                 foreach ($mediaFields as $field) {
                     $typeHint = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::getTypeHint($field['isSingle']);
                     $propertyName = Str::camel($field['name']);
-                    $property = "public {$typeHint} \${$propertyName};";
+                    $property = "public ?{$typeHint} \${$propertyName};";
                     $supportedData['properties'][$property] = '#[File]';
                 }
             }
@@ -141,8 +142,14 @@ class SpatieDataBuilder extends BaseBuilder
             $constructor .= implode(",\n", $constructorProperties);
             $constructor .= "\n    ) {}";
 
-            // Combine model property and constructor
+            // Generate syncRelationships method for belongsToMany relationships
+            $syncRelationshipsMethod = $this->generateSyncRelationshipsMethod($relationships, $modelData);
+
+            // Combine model property, constructor, and syncRelationships method
             $dataSection = $modelPropertyString . "\n\n" . $constructor;
+            if ($syncRelationshipsMethod) {
+                $dataSection .= "\n\n" . $syncRelationshipsMethod;
+            }
 
             return [
                 '{{ namespaces }}' => SpatieDataTransformer::convertNamespacesToString($supportedData['namespaces']),
@@ -195,13 +202,14 @@ class SpatieDataBuilder extends BaseBuilder
             }
 
             $rules = [];
-            $isNullable = $column['is_nullable'];
+            $isNullable = $column['isNullable'];
             $columnType = $column['type'];
-            $maxLength = $column['max_length'];
-            $isUnique = $column['is_unique'];
-            $allowedValues = $column['allowed_values'];
+            $maxLength = $column['maxLength'];
+            $isUnique = $column['isUnique'];
+            $allowedValues = $column['allowedValues'];
             $validation = '#[{{ validation }}]';
-            $property = 'public '.($isNullable ? '?' : '').'{{ type }} $'.$propertyName.';';
+            // Make all properties nullable to support optional values in update endpoints
+            $property = 'public ?{{ type }} $'.$propertyName.';';
 
             // Handle column types
             switch ($columnType) {
@@ -255,7 +263,7 @@ class SpatieDataBuilder extends BaseBuilder
 
                 case 'enum':
                     if (! empty($allowedValues)) {
-                        $enum = $this->enumBuilder->create($modelData, $allowedValues, $overwrite);
+                        $enum = $this->enumBuilder->create($modelData, $allowedValues, $columnName, $overwrite);
                         $enumClass = explode('\\', $enum);
                         $enumClass = end($enumClass);
                         $rules[] = "Enum($enumClass::class)";
@@ -288,6 +296,48 @@ class SpatieDataBuilder extends BaseBuilder
         $properties['namespaces'] = array_unique($validationNamespaces);
 
         return $properties;
+    }
+
+    /**
+     * Generate syncRelationships method for belongsToMany relationships.
+     *
+     * @param array $relationships Array of relationship definitions
+     * @param array $modelData Model information
+     * @return string|null Generated method code or null if no belongsToMany relationships
+     */
+    private function generateSyncRelationshipsMethod(array $relationships, array $modelData): ?string
+    {
+        $belongsToManyRelations = array_filter($relationships, fn($rel) => $rel['type'] === 'belongsToMany');
+        
+        if (empty($belongsToManyRelations)) {
+            return null;
+        }
+
+        $modelName = $modelData['modelName'];
+        $syncCalls = [];
+
+        foreach ($belongsToManyRelations as $relationship) {
+            $relationshipName = $relationship['name'];
+            $relatedModel = $relationship['related_model'] ?? null;
+            
+            if ($relatedModel) {
+                $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
+                $propertyName = Str::camel(strtolower($relatedModelName) . '_ids');
+                $modelVariable = lcfirst($modelName);
+                $syncCalls[] = "        \$this->syncIfSet(\${$modelVariable}, '{$relationshipName}', \$this->{$propertyName});";
+            }
+        }
+
+        if (empty($syncCalls)) {
+            return null;
+        }
+
+        $modelVariable = lcfirst($modelName);
+        $method = "    public function syncRelationships({$modelName} \${$modelVariable}): void\n    {\n";
+        $method .= implode("\n", $syncCalls);
+        $method .= "\n    }";
+
+        return $method;
     }
 
     /**

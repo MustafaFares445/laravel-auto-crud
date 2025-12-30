@@ -40,7 +40,7 @@ class ServiceBuilder extends BaseBuilder
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
             $hasMedia = !empty($mediaFields);
             
-            $mediaHelperImport = $hasMedia ? "\nuse App\Helpers\MediaHelper;" : '';
+            $mediaHelperImport = $hasMedia ? "\nuse Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper;" : '';
             $mediaStoreLogic = '';
             $mediaUpdateLogic = '';
             
@@ -87,9 +87,9 @@ class ServiceBuilder extends BaseBuilder
                 $mediaUpdateLogic .= "\n";
             }
             
-            // Combine media and relationship logic
-            $storeLogic = $mediaStoreLogic . $relationshipStoreLogic;
-            $updateLogic = $mediaUpdateLogic . $relationshipUpdateLogic;
+            // Combine media logic (relationships are now handled via syncRelationships in Data class)
+            $storeLogic = $mediaStoreLogic;
+            $updateLogic = $mediaUpdateLogic;
 
             return [
                 '{{ modelNamespace }}' => $model,

@@ -197,7 +197,7 @@ class SwaggerAPIBuilder
                 case 'enum':
                 case 'set':
                     $columnType = 'string';
-                    $value = count($column['allowed_values']) ? $column['allowed_values'] : ['Value 1', 'Value 2'];
+                    $value = count($column['allowedValues']) ? $column['allowedValues'] : ['Value 1', 'Value 2'];
                     $is_enum = true;
                     $format = null;
                     break;
@@ -220,7 +220,7 @@ class SwaggerAPIBuilder
 
             $enumData = $is_enum ? ['enum' => $value] : ['example' => $value];
 
-            $data[$columnName] = ['type' => $columnType, ...$enumData, 'is_required' => ! $column['is_nullable']];
+            $data[$columnName] = ['type' => $columnType, ...$enumData, 'is_required' => ! $column['isNullable']];
             if (isset($format)) {
                 $data[$columnName]['format'] = $format;
             }

@@ -41,8 +41,7 @@ class {{ class }}
 
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
-        ${{ modelVariable }}{{ belongsToLoadRelations }};
-        return {{ resource }}::make(${{ modelVariable }}{{ loadRelations }})
+        return {{ resource }}::make(${{ modelVariable }}{{ belongsToLoadRelations }})
             ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 

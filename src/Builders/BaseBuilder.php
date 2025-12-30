@@ -10,9 +10,9 @@ abstract class BaseBuilder
 {
     protected FileService $fileService;
 
-    public function __construct()
+    public function __construct(FileService $fileService)
     {
-        $this->fileService = new FileService;
+        $this->fileService = $fileService;
     }
 
     protected function getFullModelNamespace(array $modelData): string

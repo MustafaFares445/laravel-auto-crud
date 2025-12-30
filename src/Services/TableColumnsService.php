@@ -6,6 +6,7 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class TableColumnsService
 {
@@ -18,15 +19,15 @@ class TableColumnsService
         $output = [];
 
         foreach ($columns as $column) {
-            $columnDetails = $this->getColumnDetails($driver, $table, $column);
+            $columnDetails = $this->getColumnDetails($driver, $table, $column, $modelClass);
 
             if (count($columnDetails)) {
                 // Exclude primary keys and timestamps
-                if ($columnDetails['is_primary_key'] || in_array($column, $excludeColumns)) {
+                if ($columnDetails['isPrimaryKey'] || in_array($column, $excludeColumns)) {
                     continue;
                 }
 
-                $columnDetails['is_translatable'] = $this->isTranslatable($column, $modelClass);
+                $columnDetails['isTranslatable'] = $this->isTranslatable($column, $modelClass);
                 $output[] = $columnDetails;
             }
         }
@@ -55,18 +56,18 @@ class TableColumnsService
         return false;
     }
 
-    private function getColumnDetails(string $driver, string $table, string $column): array
+    private function getColumnDetails(string $driver, string $table, string $column, ?string $modelClass = null): array
     {
         return match ($driver) {
-            'mysql' => $this->getMySQLColumnDetails($table, $column),
-            'pgsql' => $this->getPostgresColumnDetails($table, $column),
+            'mysql' => $this->getMySQLColumnDetails($table, $column, $modelClass),
+            'pgsql' => $this->getPostgresColumnDetails($table, $column, $modelClass),
             'sqlite' => $this->getSQLiteColumnDetails($table, $column),
             'sqlsrv' => $this->getSQLServerColumnDetails($table, $column),
             default => [],
         };
     }
 
-    private function getMysqlColumnDetails(string $table, string $column): array
+    private function getMysqlColumnDetails(string $table, string $column, ?string $modelClass = null): array
     {
         $columnDetails = DB::select("SHOW COLUMNS FROM `$table` WHERE Field = ?", [$column]);
 
@@ -81,24 +82,50 @@ class TableColumnsService
         $maxLength = isset($columnInfo->Type) && preg_match('/\((\d+)\)/', $columnInfo->Type, $matches) ? $matches[1] : null;
 
         $allowedValues = [];
+        $enumClass = null;
         if (str_starts_with($columnInfo->Type, 'enum')) {
             preg_match("/^enum\((.+)\)$/", $columnInfo->Type, $matches);
             $allowedValues = isset($matches[1]) ? str_getcsv(str_replace("'", '', $matches[1])) : [];
+
+            // Use EnumDetector to find existing enum from model casts, migrations, or files
+            if ($modelClass) {
+                $parts = explode('\\', $modelClass);
+                $modelName = end($parts);
+                $enumClass = \Mrmarchone\LaravelAutoCrud\Services\EnumDetector::detectExistingEnum($modelClass, $column, $modelName);
+            }
+            
+            // Fallback to simple file check if EnumDetector didn't find anything
+            if (!$enumClass) {
+                $studly = Str::studly($column);
+                $candidate = app_path("Enums/{$studly}.php");
+                if (file_exists($candidate)) {
+                    $enumClass = 'App\\Enums\\' . $studly;
+                } elseif ($modelClass) {
+                    $parts = explode('\\', $modelClass);
+                    $modelName = end($parts);
+                    $modelEnum = $modelName . $studly . 'Enum';
+                    $candidate2 = app_path("Enums/{$modelEnum}.php");
+                    if (file_exists($candidate2)) {
+                        $enumClass = 'App\\Enums\\' . $modelEnum;
+                    }
+                }
+            }
         }
 
         return [
-            'is_primary_key' => $isPrimaryKey,
-            'is_unique' => $isUnique,
-            'is_nullable' => $isNullable,
+            'isPrimaryKey' => $isPrimaryKey,
+            'isUnique' => $isUnique,
+            'isNullable' => $isNullable,
             'type' => Schema::getColumnType($table, $column),
-            'max_length' => $maxLength,
-            'allowed_values' => $allowedValues,
+            'maxLength' => $maxLength,
+            'allowedValues' => $allowedValues,
+            'enum_class' => $enumClass,
             'name' => $column,
             'table' => $table,
         ];
     }
 
-    private function getPostgresColumnDetails(string $table, string $column): array
+    private function getPostgresColumnDetails(string $table, string $column, ?string $modelClass = null): array
     {
         $columnDetails = DB::select("
                                     SELECT
@@ -132,18 +159,44 @@ class TableColumnsService
         $maxLength = $columnInfo->character_maximum_length ?? null;
 
         $allowedValues = [];
+        $enumClass = null;
         if (str_starts_with($columnInfo->udt_name, '_')) {
             preg_match('/^_(.+)$/', $columnInfo->udt_name, $matches);
             $allowedValues = isset($matches[1]) ? str_getcsv(str_replace("'", '', $matches[1])) : [];
+
+            // Use EnumDetector to find existing enum from model casts, migrations, or files
+            if ($modelClass) {
+                $parts = explode('\\', $modelClass);
+                $modelName = end($parts);
+                $enumClass = \Mrmarchone\LaravelAutoCrud\Services\EnumDetector::detectExistingEnum($modelClass, $column, $modelName);
+            }
+            
+            // Fallback to simple file check if EnumDetector didn't find anything
+            if (!$enumClass) {
+                $studly = Str::studly($column);
+                $candidate = app_path("Enums/{$studly}.php");
+                if (file_exists($candidate)) {
+                    $enumClass = 'App\\Enums\\' . $studly;
+                } elseif ($modelClass) {
+                    $parts = explode('\\', $modelClass);
+                    $modelName = end($parts);
+                    $modelEnum = $modelName . $studly . 'Enum';
+                    $candidate2 = app_path("Enums/{$modelEnum}.php");
+                    if (file_exists($candidate2)) {
+                        $enumClass = 'App\\Enums\\' . $modelEnum;
+                    }
+                }
+            }
         }
 
         return [
-            'is_primary_key' => $isPrimaryKey,
-            'is_unique' => $isUnique,
-            'is_nullable' => $isNullable,
+            'isPrimaryKey' => $isPrimaryKey,
+            'isUnique' => $isUnique,
+            'isNullable' => $isNullable,
             'type' => Schema::getColumnType($table, $column),
-            'max_length' => $maxLength,
-            'allowed_values' => $allowedValues,
+            'maxLength' => $maxLength,
+            'allowedValues' => $allowedValues,
+            'enum_class' => $enumClass,
             'name' => $column,
             'table' => $table,
         ];
@@ -155,12 +208,12 @@ class TableColumnsService
         foreach ($columnDetails as $col) {
             if ($col->name === $column) {
                 return [
-                    'is_primary_key' => $col->pk == 1,
-                    'is_unique' => false,
-                    'is_nullable' => $col->notnull == 0,
+                    'isPrimaryKey' => $col->pk == 1,
+                    'isUnique' => false,
+                    'isNullable' => $col->notnull == 0,
                     'type' => Schema::getColumnType($table, $column),
-                    'max_length' => null,
-                    'allowed_values' => [],
+                    'maxLength' => null,
+                    'allowedValues' => [],
                     'name' => $column,
                     'table' => $table,
                 ];
@@ -186,12 +239,12 @@ class TableColumnsService
         $columnInfo = $columnDetails[0];
 
         return [
-            'is_primary_key' => $columnInfo->is_identity,
-            'is_unique' => false,
-            'is_nullable' => $columnInfo->IS_NULLABLE === 'YES',
+            'isPrimaryKey' => $columnInfo->is_identity,
+            'isUnique' => false,
+            'isNullable' => $columnInfo->IS_NULLABLE === 'YES',
             'type' => Schema::getColumnType($table, $column),
-            'max_length' => null,
-            'allowed_values' => [],
+            'maxLength' => null,
+            'allowedValues' => [],
             'name' => $column,
             'table' => $table,
         ];

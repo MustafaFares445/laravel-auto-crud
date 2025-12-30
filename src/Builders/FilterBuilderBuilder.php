@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use ReflectionClass;
@@ -15,10 +16,10 @@ class FilterBuilderBuilder extends BaseBuilder
 
     protected TableColumnsService $tableColumnsService;
 
-    public function __construct()
+    public function __construct(FileService $fileService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct();
-        $this->tableColumnsService = new TableColumnsService();
+        parent::__construct($fileService);
+        $this->tableColumnsService = $tableColumnsService;
     }
 
     public function create(array $modelData, bool $overwrite = false): string

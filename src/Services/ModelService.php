@@ -37,7 +37,13 @@ class ModelService
         return count($models) ? multiselect(label: 'Select your model, use your space-bar to select.', options: $models) : null;
     }
 
-    public static function resolveModelName($modelName): array
+    /**
+     * Resolve model name into structured data.
+     *
+     * @param string $modelName Full model class name with namespace
+     * @return array{modelName: string, folders: string|null, namespace: string|null}
+     */
+    public static function resolveModelName(string $modelName): array
     {
         $parts = explode('\\', $modelName);
 
@@ -74,18 +80,34 @@ class ModelService
         return $modelData['modelName'];
     }
 
+    /**
+     * Get table name for the model.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param callable|null $modelFactory Optional factory function to create model instance
+     * @return string Table name
+     * @throws InvalidArgumentException If model is invalid
+     */
     public static function getTableName(array $modelData, ?callable $modelFactory = null): string
     {
         $modelName = self::getFullModelNamespace($modelData);
 
-        // Use the Factory if provided, otherwise create the object normally
-        $model = $modelFactory ? $modelFactory($modelName) : new $modelName;
-
-        if (is_subclass_of($model, Model::class)) {
-            return $model->getTable();
+        if (!class_exists($modelName)) {
+            throw new InvalidArgumentException("Model class does not exist: {$modelName}");
         }
 
-        throw new InvalidArgumentException("Model {$modelName} does not exist");
+        try {
+            // Use the Factory if provided, otherwise create the object normally
+            $model = $modelFactory ? $modelFactory($modelName) : new $modelName;
+
+            if (!($model instanceof Model)) {
+                throw new InvalidArgumentException("Class {$modelName} is not an Eloquent model");
+            }
+
+            return $model->getTable();
+        } catch (\Throwable $e) {
+            throw new InvalidArgumentException("Failed to get table name for model {$modelName}: {$e->getMessage()}", 0, $e);
+        }
     }
 
     public static function handleModelsPath(string $modelsPath): string
@@ -93,20 +115,45 @@ class ModelService
         return str_ends_with($modelsPath, '/') ? $modelsPath : $modelsPath.DIRECTORY_SEPARATOR;
     }
 
+    /**
+     * Get all model classes from the specified path.
+     *
+     * @param string $modelsPath Path to models directory
+     * @return \Illuminate\Support\Collection<int, string|null>
+     */
     private static function getAllModels(string $modelsPath): \Illuminate\Support\Collection
     {
         $modelsPath = static::handleModelsPath($modelsPath);
+        $fullPath = static::getModelNameFromPath($modelsPath);
 
-        return collect(File::allFiles(static::getModelNameFromPath($modelsPath)))->map(function ($file) {
-            $content = static::getClassContent($file->getRealPath());
-            $namespace = '';
-            if (preg_match('/namespace\s+([^;]+);/', $content, $matches)) {
-                $namespace = trim($matches[1]);
-            }
-            $className = pathinfo($file->getFilename(), PATHINFO_FILENAME);
+        if (!is_dir($fullPath)) {
+            return collect([]);
+        }
 
-            return $namespace ? $namespace.'\\'.$className : null;
-        });
+        try {
+            return collect(File::allFiles($fullPath))->map(function ($file) {
+                try {
+                    $content = static::getClassContent($file->getRealPath());
+                    if ($content === false) {
+                        return null;
+                    }
+                    
+                    $namespace = '';
+                    if (preg_match('/namespace\s+([^;]+);/', $content, $matches)) {
+                        $namespace = trim($matches[1]);
+                    }
+                    $className = pathinfo($file->getFilename(), PATHINFO_FILENAME);
+
+                    return $namespace ? $namespace.'\\'.$className : null;
+                } catch (\Throwable $e) {
+                    // Skip files that can't be read
+                    return null;
+                }
+            })->filter();
+        } catch (\Throwable $e) {
+            // Return empty collection if directory can't be read
+            return collect([]);
+        }
     }
 
     private static function getModelNameFromPath(string $modelsPath): string

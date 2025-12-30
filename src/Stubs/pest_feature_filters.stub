@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use App\Models\User;
+use {{ responseMessagesNamespace }};
+use Laravel\Sanctum\Sanctum;
+
+beforeEach(function () {
+{{ seederCall }}    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+});
+
+{{ filterTests }}

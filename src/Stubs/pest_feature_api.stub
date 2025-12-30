@@ -6,10 +6,10 @@ use {{ modelNamespace }};
 use App\Models\User;
 use {{ responseMessagesNamespace }};
 use Laravel\Sanctum\Sanctum;
+{{ enumUseStatements }}
 
 beforeEach(function () {
-    $this->seed({{ seederClass }}::class);
-    $user = User::factory()->create();
+{{ seederCall }}    $user = User::factory()->create();
     // Assuming the first user gets all permissions from seeder or similar logic
     Sanctum::actingAs($user);
 });
@@ -21,34 +21,63 @@ it('lists {{ modelPlural }}', function () {
 
     $response->assertOk()->assertJsonPath('message', ResponseMessages::RETRIEVED->message());
     expect($response->json('data'))->toBeArray();
+    
+    // Check that each item has required properties
+    $data = $response->json('data');
+    if (!empty($data)) {
+        $firstItem = $data[0];
+{{ listPropertyAssertions }}
+{{ listRelationshipAssertions }}
+    }
 });
 
-it('creates, shows, updates and deletes a {{ modelVariable }}', function () {
+it('creates a {{ modelVariable }}', function () {
     $payload = [
 {{ createPayload }}
     ];
 
-    $create = $this->postJson('{{ routePath }}', $payload);
-    $create->assertCreated()->assertJsonPath('message', ResponseMessages::CREATED->message());
-    $id = $create->json('data.id');
+    $response = $this->postJson('{{ routePath }}', $payload);
+    $response->assertCreated()->assertJsonPath('message', ResponseMessages::CREATED->message());
+    $id = $response->json('data.id');
     $this->assertDatabaseHas('{{ tableName }}', ['id' => $id]);
+});
 
-    $show = $this->getJson("{{ routePath }}/{$id}");
-    $show->assertOk()
+it('shows a {{ modelVariable }}', function () {
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+
+    $response = $this->getJson("{{ routePath }}/{${{ modelVariable }}->id}");
+    $response->assertOk()
         ->assertJsonPath('message', ResponseMessages::RETRIEVED->message());
+    
+    $data = $response->json('data');
+    expect($data)->toBeArray();
+    
+    // Check required properties
+{{ showPropertyAssertions }}
+    
+    // Check relationships if loaded
+{{ showRelationshipAssertions }}
+});
 
+it('updates a {{ modelVariable }}', function () {
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+    
     $updatePayload = [
 {{ updatePayload }}
     ];
 
-    $update = $this->putJson("{{ routePath }}/{$id}", $updatePayload);
-    $update->assertOk()
+    $response = $this->putJson("{{ routePath }}/{${{ modelVariable }}->id}", $updatePayload);
+    $response->assertOk()
         ->assertJsonPath('message', ResponseMessages::UPDATED->message());
+});
 
-    $delete = $this->deleteJson("{{ routePath }}/{$id}");
-    $delete->assertOk()
+it('deletes a {{ modelVariable }}', function () {
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+
+    $response = $this->deleteJson("{{ routePath }}/{${{ modelVariable }}->id}");
+    $response->assertOk()
         ->assertJsonPath('message', ResponseMessages::DELETED->message());
     
-    $this->assertDatabaseMissing('{{ tableName }}', ['id' => $id]);
+    $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}->id]);
 });
 {{ authorizationTests }}{{ extraTests }}

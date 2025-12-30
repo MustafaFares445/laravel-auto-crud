@@ -208,10 +208,13 @@ class MediaDetector
 
     /**
      * Get PHP type hint for media field
+     *
+     * @param bool $isSingle Whether this is a single file or array of files
+     * @return string Type hint without nullable marker (nullable is added by the builder)
      */
     public static function getTypeHint(bool $isSingle): string
     {
-        return $isSingle ? '?UploadedFile' : '?array';
+        return $isSingle ? 'UploadedFile' : 'array';
     }
 }
 

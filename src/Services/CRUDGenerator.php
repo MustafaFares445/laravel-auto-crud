@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\FactoryBuilder;
+use Mrmarchone\LaravelAutoCrud\Builders\PermissionGroupEnumBuilder;
+use Mrmarchone\LaravelAutoCrud\Builders\PermissionSeederBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\PestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\PolicyBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\SpatieFilterBuilder;
@@ -35,23 +37,21 @@ class CRUDGenerator
         private PolicyBuilder $policyBuilder,
         private PestBuilder $pestBuilder,
         private FactoryBuilder $factoryBuilder,
+        private PermissionSeederBuilder $permissionSeederBuilder,
+        private PermissionGroupEnumBuilder $permissionGroupEnumBuilder,
         private ModelTraitService $modelTraitService,
     ) {
-        $this->controllerBuilder = new ControllerBuilder;
-        $this->resourceBuilder = new ResourceBuilder;
-        $this->requestBuilder = new RequestBuilder;
-        $this->routeBuilder = new RouteBuilder;
-        $this->viewBuilder = new ViewBuilder;
-        $this->serviceBuilder = new ServiceBuilder;
-        $this->spatieDataBuilder = new SpatieDataBuilder;
-        $this->spatieFilterBuilder = new SpatieFilterBuilder;
-        $this->policyBuilder = new PolicyBuilder;
-        $this->pestBuilder = new PestBuilder;
-        $this->factoryBuilder = new FactoryBuilder;
-        $this->modelTraitService = new ModelTraitService;
+        // Dependencies are injected via Laravel's service container
     }
 
-    public function generate($modelData, array $options): void
+    /**
+     * Generate CRUD files for the given model.
+     *
+     * @param array<string, mixed> $modelData Model information including 'modelName', 'namespace', 'folders', 'path'
+     * @param array<string, mixed> $options Generation options including 'type', 'pattern', 'overwrite', etc.
+     * @return void
+     */
+    public function generate(array $modelData, array $options): void
     {
         $checkForType = $options['type'];
 
@@ -110,8 +110,18 @@ class CRUDGenerator
             $this->factoryBuilder->create($modelData, $options['overwrite']);
         }
 
+        if ($options['permissions-seeder'] ?? false) {
+            $this->permissionSeederBuilder->create($modelData, $options['overwrite']);
+            $this->permissionGroupEnumBuilder->updateEnum($modelData, $options['overwrite']);
+        }
+
         if ($options['pest'] ?? false) {
             $this->pestBuilder->createFeatureTest($modelData, $options['overwrite'], (bool) ($options['policy'] ?? false));
+            
+            // Generate filter tests if filters are enabled
+            if (($options['filter'] ?? false) && $options['pattern'] === 'spatie-data') {
+                $this->pestBuilder->createFilterTest($modelData, $options['overwrite']);
+            }
         }
 
         $data = [
@@ -141,11 +151,19 @@ class CRUDGenerator
             }
         }
 
-        File::ensureDirectoryExists(dirname($filePath), 0777, true);
+        $directoryPermissions = config('laravel_auto_crud.file_permissions.directory', 0755);
+        File::ensureDirectoryExists(dirname($filePath), $directoryPermissions, true);
 
-        $projectStubPath = base_path('stubs/response_messages.enum.stub');
-        $vendorStubPath = base_path('vendor/mustafafares/laravel-auto-crud/src/Stubs/response_messages.enum.stub');
-        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $vendorStubPath;
+        $customStubPath = config('laravel_auto_crud.custom_stub_path');
+        $projectStubPath = $customStubPath 
+            ? rtrim($customStubPath, '/') . '/response_messages.enum.stub'
+            : base_path('stubs/response_messages.enum.stub');
+        $packageStubPath = __DIR__ . '/../Stubs/response_messages.enum.stub';
+        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $packageStubPath;
+
+        if (!file_exists($stubPath)) {
+            throw new \RuntimeException("Stub file not found: {$stubPath}");
+        }
 
         File::copy($stubPath, $filePath);
 
@@ -184,6 +202,7 @@ class CRUDGenerator
             'overwrite' => $options['overwrite'] ?? false,
             'response-messages' => $options['response-messages'] ?? false,
             'no-pagination' => $options['no-pagination'] ?? false,
+            'controller-folder' => $options['controller-folder'] ?? null,
         ];
 
         if ($options['pattern'] === 'spatie-data') {
@@ -207,11 +226,12 @@ class CRUDGenerator
     private function generateWebController(array $modelData, array $requests, string $service, array $options, string $spatieData = ''): string
     {
         $controllerName = null;
+        $controllerFolder = $options['controller-folder'] ?? null;
 
         if ($options['pattern'] === 'spatie-data') {
-            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $options['overwrite']);
+            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $options['overwrite'], $controllerFolder);
         } elseif ($options['pattern'] === 'normal') {
-            $controllerName = $this->controllerBuilder->createWeb($modelData, $requests, $options['overwrite']);
+            $controllerName = $this->controllerBuilder->createWeb($modelData, $requests, $options['overwrite'], $controllerFolder);
         }
 
         $this->viewBuilder->create($modelData, $options['overwrite']);

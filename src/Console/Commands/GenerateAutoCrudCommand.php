@@ -17,6 +17,7 @@ use function Laravel\Prompts\info;
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\select;
+use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 class GenerateAutoCrudCommand extends Command
@@ -38,7 +39,9 @@ class GenerateAutoCrudCommand extends Command
     {--PM|postman : Generate Postman collection JSON file}
     {--SA|swagger-api : Generate Swagger/OpenAPI specification}
     {--PT|pest : Generate Pest test files (Feature and Unit)}
-    {--FC|factory : Generate Model Factory}';
+    {--FC|factory : Generate Model Factory}
+    {--PS|permissions-seeder : Generate permission seeder and update PermissionGroup enum}
+    {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}';
 
     protected $description = 'Generate complete CRUD scaffolding (Controller, Request, Resource, Routes, Service) for Eloquent models';
 
@@ -128,6 +131,36 @@ class GenerateAutoCrudCommand extends Command
             $controllerTypes = ['api', 'web'];
         }
 
+        // Step 2.5: Select Controller Folder (if not provided via option)
+        $controllerFolder = $this->option('controller-folder');
+        if (!$controllerFolder) {
+            $defaultApiFolder = config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
+            $defaultWebFolder = config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
+            
+            $folderOptions = [
+                'default' => 'Use default folders (API: ' . $defaultApiFolder . ', Web: ' . $defaultWebFolder . ')',
+                'custom' => 'Enter custom folder path',
+            ];
+            
+            [$folderPromptOptions, $folderLookup] = $this->indexedOptions($folderOptions);
+            $selectedFolderIndex = select(
+                label: '📁 Where should controllers be placed?',
+                options: $folderPromptOptions,
+                default: 1,
+                hint: 'Type number to select, enter to confirm'
+            );
+            
+            if ($folderLookup[$selectedFolderIndex] === 'custom') {
+                $controllerFolder = text(
+                    label: 'Enter controller folder path',
+                    placeholder: 'e.g., Http/Controllers/Admin or Http/Controllers/API/V1',
+                    default: '',
+                    required: true,
+                    validate: fn ($value) => empty(trim($value)) ? 'Folder path cannot be empty' : null
+                );
+            }
+        }
+
         // Step 3: Select Data Pattern
         [$patternOptions, $patternLookup] = $this->indexedOptions([
             'normal' => 'Normal - Standard Laravel Form Requests',
@@ -158,12 +191,12 @@ class GenerateAutoCrudCommand extends Command
 
         // Step 5: Select Features
         $featureOptions = [
-            'all' => '✨ All Features',
             'service' => '🔧 Service Layer - Extract business logic to service classes',
             'response-messages' => '💬 Response Messages - Add ResponseMessages enum for standardized API responses',
             'policy' => '🔐 Policy - Generate Policy class with permission-based authorization',
             'pest' => '🧪 Pest Tests - Generate Pest test files (Feature and Unit)',
             'factory' => '🏭 Factory - Generate Model Factory',
+            'permissions-seeder' => '🔑 Permissions Seeder - Generate permission seeder and update PermissionGroup enum',
         ];
 
         if ($pattern === 'spatie-data') {
@@ -222,7 +255,7 @@ class GenerateAutoCrudCommand extends Command
         );
 
         // Step 8: Show summary and confirm
-        $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $overwrite);
+        $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $overwrite, $controllerFolder);
 
         if (! confirm(label: '🚀 Proceed with generation?', default: true)) {
             warning('Generation cancelled.');
@@ -241,21 +274,28 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('policy', in_array('policy', $selectedFeatures));
         $this->input->setOption('pest', in_array('pest', $selectedFeatures));
         $this->input->setOption('factory', in_array('factory', $selectedFeatures));
+        $this->input->setOption('permissions-seeder', in_array('permissions-seeder', $selectedFeatures));
         $this->input->setOption('curl', in_array('curl', $selectedDocs));
         $this->input->setOption('postman', in_array('postman', $selectedDocs));
         $this->input->setOption('swagger-api', in_array('swagger-api', $selectedDocs));
         $this->input->setOption('overwrite', $overwrite);
+        if ($controllerFolder) {
+            $this->input->setOption('controller-folder', $controllerFolder);
+        }
 
         // Generate
         $this->generateForModels($selectedModels);
     }
 
-    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, bool $overwrite): void
+    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, bool $overwrite, ?string $controllerFolder = null): void
     {
         note('📋 Generation Summary');
 
         info('Models: ' . implode(', ', $models));
         info('Controller Types: ' . implode(', ', $types));
+        if ($controllerFolder) {
+            info('Controller Folder: ' . $controllerFolder);
+        }
         info('Pattern: ' . $pattern);
         info('Index Method: ' . ($pagination === 'pagination' ? 'Paginated' : 'Get All'));
 
@@ -357,6 +397,7 @@ class GenerateAutoCrudCommand extends Command
             || $this->option('policy')
             || $this->option('pest')
             || $this->option('factory')
+            || $this->option('permissions-seeder')
             || $this->option('no-pagination')
             || $this->option('curl')
             || $this->option('postman')
@@ -443,6 +484,7 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('policy', true);
         $this->input->setOption('pest', true);
         $this->input->setOption('factory', true);
+        $this->input->setOption('permissions-seeder', true);
         $this->input->setOption('curl', true);
         $this->input->setOption('postman', true);
         $this->input->setOption('swagger-api', true);

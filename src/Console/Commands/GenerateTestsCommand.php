@@ -50,6 +50,12 @@ class GenerateTestsCommand extends Command
             $policyExists = file_exists(app_path("Policies/{$modelData['modelName']}Policy.php"));
 
             $this->pestBuilder->createFeatureTest($modelData, $this->option('overwrite'), $policyExists);
+            
+            // Check if filter trait exists and generate filter tests
+            $traitPath = app_path("Traits/FilterQueries/{$modelData['modelName']}FilterQuery.php");
+            if (file_exists($traitPath)) {
+                $this->pestBuilder->createFilterTest($modelData, $this->option('overwrite'));
+            }
         }
 
         info('✅ Test generation completed!');

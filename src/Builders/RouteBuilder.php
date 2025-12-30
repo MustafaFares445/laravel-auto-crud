@@ -26,15 +26,46 @@ class RouteBuilder
         }
     }
 
+    /**
+     * Create or append routes to the routes file.
+     *
+     * @param string $routesPath Path to routes file
+     * @param string $routeCode Route code to add
+     * @return void
+     * @throws \RuntimeException If routes file cannot be read or written
+     */
     private function createRoutes(string $routesPath, string $routeCode): void
     {
-        if (! file_exists($routesPath)) {
-            file_put_contents($routesPath, "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n");
-        }
+        try {
+            if (! file_exists($routesPath)) {
+                $initialContent = "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n";
+                if (@file_put_contents($routesPath, $initialContent) === false) {
+                    throw new \RuntimeException("Cannot create routes file: {$routesPath}");
+                }
+            }
 
-        $content = file_get_contents($routesPath);
-        if (strpos($content, $routeCode) === false) {
-            file_put_contents($routesPath, "\n".$routeCode."\n", FILE_APPEND);
+            if (!is_readable($routesPath)) {
+                throw new \RuntimeException("Routes file is not readable: {$routesPath}");
+            }
+
+            $content = @file_get_contents($routesPath);
+            if ($content === false) {
+                throw new \RuntimeException("Cannot read routes file: {$routesPath}");
+            }
+
+            if (strpos($content, $routeCode) === false) {
+                if (!is_writable($routesPath)) {
+                    throw new \RuntimeException("Routes file is not writable: {$routesPath}");
+                }
+                if (@file_put_contents($routesPath, "\n".$routeCode."\n", FILE_APPEND) === false) {
+                    throw new \RuntimeException("Cannot write to routes file: {$routesPath}");
+                }
+            }
+        } catch (\Throwable $e) {
+            if ($e instanceof \RuntimeException) {
+                throw $e;
+            }
+            throw new \RuntimeException("Error processing routes file: {$e->getMessage()}", 0, $e);
         }
     }
 }

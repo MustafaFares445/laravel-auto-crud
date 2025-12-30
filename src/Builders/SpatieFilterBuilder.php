@@ -6,6 +6,7 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
@@ -23,11 +24,11 @@ class SpatieFilterBuilder extends BaseBuilder
 
     protected ModelService $modelService;
 
-    public function __construct()
+    public function __construct(FileService $fileService, TableColumnsService $tableColumnsService, ModelService $modelService)
     {
-        parent::__construct();
-        $this->tableColumnsService = new TableColumnsService();
-        $this->modelService = new ModelService();
+        parent::__construct($fileService);
+        $this->tableColumnsService = $tableColumnsService;
+        $this->modelService = $modelService;
     }
 
     public function createFilterRequest(array $modelData, bool $overwrite = false): string

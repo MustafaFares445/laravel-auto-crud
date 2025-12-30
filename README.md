@@ -30,6 +30,14 @@ php artisan vendor:publish --tag=auto-crud-config
 
 This will create a `config/laravel_auto_crud.php` file where you can customize package settings.
 
+Publish ResponseMessages translation files:
+
+```bash
+php artisan auto-crud:publish-translations
+```
+
+This will publish translation files to `lang/vendor/laravel-auto-crud/` where you can customize the response messages for different languages.
+
 ## Configuration
 
 After publishing the config file, you can customize the following settings in `config/laravel_auto_crud.php`:
@@ -62,6 +70,16 @@ return [
         'seeder_class' => 'Database\\Seeders\\RolesAndPermissionsSeeder',
         'include_authorization_tests' => true,
     ],
+
+    // Default pagination per page
+    'default_pagination' => 10,
+
+    // Custom stub path (optional)
+    'custom_stub_path' => null,
+
+    // Default controller folders
+    'default_api_controller_folder' => 'Http/Controllers/API',
+    'default_web_controller_folder' => 'Http/Controllers',
 ];
 ```
 
@@ -78,7 +96,9 @@ php artisan auto-crud:generate
 This will guide you through:
 - Model selection (Searchable)
 - Controller type selection (API/Web)
+- Controller folder selection (Default or custom path)
 - Data pattern selection (Normal/Spatie Data)
+- Index method style (Pagination or Get All)
 - Feature selection (Service, Policy, Factory, Tests, etc. - Searchable)
 - Documentation generation options
 
@@ -119,6 +139,7 @@ php artisan auto-crud:generate
     {--RM|response-messages : Add ResponseMessages enum for standardized API responses}
     {--NP|no-pagination : Use Model::all() instead of pagination in index method}
     {--PO|policy : Generate Policy class with permission-based authorization}
+    {--PS|permissions-seeder : Generate permission seeder and update PermissionGroup enum}
     {--FC|factory : Generate Model Factory}
     {--C|curl : Generate cURL command examples for API endpoints}
     {--PM|postman : Generate Postman collection JSON file}
@@ -138,28 +159,158 @@ php artisan auto-crud:generate-tests
     {--O|overwrite : Overwrite existing test files}
 ```
 
+### `auto-crud:publish-translations`
+
+Publish ResponseMessages translation files to your application for customization.
+
+**Signature:**
+```bash
+php artisan auto-crud:publish-translations
+    {--force : Overwrite existing translation files}
+```
+
+This command publishes translation files to `lang/vendor/laravel-auto-crud/` where you can customize response messages for different languages.
+
 ## Features
 
 ### 1. Automatic Media Detection
 The package automatically detects if your model uses media traits (`InteractsWithMedia`, `HasMediaConversions`, `HasMedia`) and generates appropriate code for handling media uploads.
 
 ### 2. Type Safety with Spatie Data
-When using `--pattern=spatie-data`, the package generates type-safe Data Transfer Objects (DTOs) using Spatie Laravel Data.
+When using `--pattern=spatie-data`, the package generates type-safe Data Transfer Objects (DTOs) using Spatie Laravel Data. All properties are nullable by default to support optional values in update endpoints. The generated Data classes include:
+- **`syncRelationships()` method**: Automatically syncs `belongsToMany` relationships when provided
+- **`HasModelAttributes` trait**: Provides `onlyModelAttributes()` to filter fillable attributes and `syncIfSet()` for conditional relationship syncing
 
 ### 3. Transaction Safety
-All store/update operations in Service classes are wrapped in `DB::transaction()` for data integrity.
+All store/update operations in Service classes are wrapped in `DB::transaction()` for data integrity. Services automatically handle:
+- Media uploads using `MediaHelper` (automatically imported)
+- Relationship syncing via `syncRelationships()` method in Data classes
+- Model attribute updates using `onlyModelAttributes()` which filters out null values
 
 ### 4. Dynamic Permission System
 The package generates policies with dynamic permission resolution. Permission names are resolved using configurable mappings.
 
-### 5. Standardized Response Messages
-With `--response-messages`, the package generates a `ResponseMessages` enum that provides consistent API response messages.
+#### Permission Seeder Generation
+
+When using the `--permissions-seeder` option, the package will:
+
+1. **Generate Individual Permission Seeders**: Creates a seeder file for each model in `Database/Seeders/Permissions/` folder
+   - Example: `WorkerPermissionsSeeder.php` for Worker model
+   - Generates permissions for: view, create, update, delete actions
+   - Uses `PermissionNameResolver` to ensure consistent permission naming
+
+2. **Update PermissionGroup Enum**: Creates or updates `app/Enums/PermissionGroup.php` with a case for the model
+   - Example: `case WORKERS = 'workers';`
+   - Maintains a single enum with all permission groups
+   - Automatically adds new cases when generating seeders for new models
+
+**Example Generated Seeder:**
+```php
+<?php
+
+namespace Database\Seeders\Permissions;
+
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
+use Mrmarchone\LaravelAutoCrud\Helpers\PermissionNameResolver;
+
+class WorkerPermissionsSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $group = 'workers';
+        $actions = ['view', 'create', 'update', 'delete'];
+        
+        foreach ($actions as $action) {
+            $permissionName = PermissionNameResolver::resolve($group, $action);
+            Permission::firstOrCreate(['name' => $permissionName]);
+        }
+    }
+}
+```
+
+**Example PermissionGroup Enum:**
+```php
+<?php
+
+namespace App\Enums;
+
+enum PermissionGroup: string
+{
+    case WORKERS = 'workers';
+    case USERS = 'users';
+    case POSTS = 'posts';
+}
+```
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=Worker --permissions-seeder
+```
+
+This will generate:
+- `Database/Seeders/Permissions/WorkerPermissionsSeeder.php`
+- Update `app/Enums/PermissionGroup.php` with `WORKERS` case
+
+**Running Seeders:**
+```php
+// In DatabaseSeeder.php or your main seeder
+$this->call([
+    \Database\Seeders\Permissions\WorkerPermissionsSeeder::class,
+    \Database\Seeders\Permissions\UserPermissionsSeeder::class,
+    // ... other permission seeders
+]);
+```
+
+Or create a master seeder that calls all permission seeders:
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class RolesAndPermissionsSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $this->call([
+            \Database\Seeders\Permissions\WorkerPermissionsSeeder::class,
+            \Database\Seeders\Permissions\UserPermissionsSeeder::class,
+            // Add other permission seeders here
+        ]);
+    }
+}
+```
+
+### 5. Standardized Response Messages with Translation Support
+With `--response-messages`, the package generates a `ResponseMessages` enum that provides consistent API response messages. The enum includes full translation support:
+
+- **Multi-language support**: Messages are automatically translated based on your application's locale
+- **Translation priority**: 
+  1. Package translation file (`laravel-auto-crud::response_messages.{key}`)
+  2. Config value (`laravel_auto_crud.response_messages.{key}`)
+  3. Enum default value
+- **Customizable**: Publish translation files to customize messages for your application
+- **Built-in languages**: Includes English and Arabic translations out of the box
+
+**Publishing translations:**
+```bash
+php artisan auto-crud:publish-translations
+```
+
+**Translation files location:** `lang/vendor/laravel-auto-crud/{locale}/response_messages.php`
 
 ### 6. Pest Test Generation
 The `--pest` option generates comprehensive Pest feature tests:
-- **Location**: Generated in `tests/Feature/{ModelName}/EndpointsTest.php`.
-- **Coverage**: Full CRUD lifecycle, including filtering, sorting, and searching.
-- **Authorization**: Automatic policy testing when policies are present.
+- **Endpoints Test**: Generated in `tests/Feature/{ModelName}/EndpointsTest.php` - covers full CRUD lifecycle
+- **Filters Test**: Generated in `tests/Feature/{ModelName}/FiltersTest.php` - includes:
+  - Search term filtering (with translatable support)
+  - Sorting (ascending and descending)
+  - Column-based filtering
+  - Date range filtering
+  - Pagination with filters
+- **Authorization**: Automatic policy testing when policies are present
 
 ### 7. Smart Factory Generation
 The `--factory` option generates model factories by intelligently mapping database column types to appropriate Faker methods.
@@ -175,6 +326,12 @@ The package automatically adds necessary traits (`HasFactory`, `FilterQuery`) to
 
 ### 10. Searchable Prompts
 All terminal selection prompts are now searchable, making it much easier to select models and features in large projects.
+
+### 11. Controller Folder Customization
+During interactive mode, you can select a custom folder path for generated controllers. This allows you to organize controllers in custom directories like `Http/Controllers/API/V1` or `Http/Controllers/Admin`.
+
+### 12. Relationship Syncing
+When using Spatie Data pattern, the package automatically generates `syncRelationships()` method in Data classes for `belongsToMany` relationships. This method uses the `syncIfSet()` helper from `HasModelAttributes` trait to conditionally sync relationships only when IDs are provided.
 
 ## Generated Files
 
@@ -193,10 +350,16 @@ All terminal selection prompts are now searchable, making it much easier to sele
 10. **Filter Builder** (`app/FilterBuilders/ModelNameFilterBuilder.php`)
 
 ### Response Messages
-11. **ResponseMessages Enum** (`app/Enums/ResponseMessages.php`)
+11. **ResponseMessages Enum** (`app/Enums/ResponseMessages.php`) - Includes translation support
+12. **Translation Files** (`lang/vendor/laravel-auto-crud/{locale}/response_messages.php`) - Published via `auto-crud:publish-translations`
 
 ### Test Files
-12. **Feature Test** (`tests/Feature/ModelName/EndpointsTest.php`)
+13. **Feature Test** (`tests/Feature/ModelName/EndpointsTest.php`) - Full CRUD operations
+14. **Filters Test** (`tests/Feature/ModelName/FiltersTest.php`) - Search, sort, and filter operations
+
+### Permission Files
+15. **Permission Seeder** (`database/seeders/Permissions/ModelNamePermissionsSeeder.php`) - Generates permissions for the model
+16. **PermissionGroup Enum** (`app/Enums/PermissionGroup.php`) - Single enum with all permission groups (auto-updated)
 
 ## Helper Files
 
@@ -212,15 +375,17 @@ Located at `Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper`, this helper provide
 - **`deleteMedia()`**: Deletes a specific media item after verifying ownership
 - **`deleteManyMedia()`**: Deletes multiple media items with ownership verification
 
-**Usage in generated controllers:**
+**Usage in generated services:**
 ```php
 use Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper;
 
-// Upload media
-MediaHelper::uploadMedia($request->file('image'), $model, 'images');
+// Upload media (automatically imported in services)
+MediaHelper::uploadMedia($data->primaryImage, $worker, 'primary-image');
+MediaHelper::uploadMedia($data->images, $worker, 'images');
 
 // Update media
-MediaHelper::updateMedia($request->file('image'), $model, 'images');
+MediaHelper::updateMedia($data->primaryImage, $worker, 'primary-image');
+MediaHelper::updateMedia($data->images, $worker, 'images');
 ```
 
 ### PermissionNameResolver
@@ -251,6 +416,80 @@ $escapedTerm = SearchTermEscaper::escape($searchTerm);
 // Returns: "%escaped%search%term%" with special characters properly escaped
 ```
 
+### HasModelAttributes Trait
+
+Located at `Mrmarchone\LaravelAutoCrud\Traits\HasModelAttributes`, this trait is automatically used in generated Spatie Data classes:
+
+- **`onlyModelAttributes()`**: Returns an array of non-null fillable attributes from the Data instance, automatically filtering out null values and converting keys to snake_case
+- **`syncIfSet()`**: Conditionally syncs a relationship only if the IDs array is set (not null), preventing unnecessary sync operations
+
+**Usage in generated Data classes:**
+```php
+use Mrmarchone\LaravelAutoCrud\Traits\HasModelAttributes;
+
+class WorkerData extends Data
+{
+    use HasModelAttributes;
+    
+    public ?array $shiftIds;
+    public ?array $sectionIds;
+    
+    public function syncRelationships(Worker $worker): void
+    {
+        $this->syncIfSet($worker, 'shifts', $this->shiftIds);
+        $this->syncIfSet($worker, 'sections', $this->sectionIds);
+    }
+}
+```
+
+**Usage in generated services:**
+```php
+// In store/update methods
+$worker = Worker::create($data->onlyModelAttributes()); // Only non-null fillable attributes
+$data->syncRelationships($worker); // Sync relationships if provided
+```
+
+### ResponseMessages Translation
+
+The `ResponseMessages` enum automatically uses translations based on your application's locale:
+
+**Usage:**
+```php
+use App\Enums\ResponseMessages;
+
+// Automatically uses translation based on app locale
+ResponseMessages::CREATED->message(); 
+// Returns: "Data created successfully." (English)
+// Returns: "تم إنشاء البيانات بنجاح." (Arabic if locale is 'ar')
+
+// Works in controllers
+return response()->json([
+    'data' => $model,
+    'message' => ResponseMessages::CREATED->message()
+], 201);
+```
+
+**Customizing translations:**
+1. Publish translation files: `php artisan auto-crud:publish-translations`
+2. Edit files in `lang/vendor/laravel-auto-crud/{locale}/response_messages.php`
+3. Add new languages by creating new locale directories
+
+**Translation file structure:**
+```php
+// lang/vendor/laravel-auto-crud/en/response_messages.php
+return [
+    'retrieved' => 'Data retrieved successfully.',
+    'created' => 'Data created successfully.',
+    'updated' => 'Data updated successfully.',
+    'deleted' => 'Data deleted successfully.',
+];
+```
+
+**Translation priority:**
+1. Package translation file (`laravel-auto-crud::response_messages.{key}`)
+2. Config value (`laravel_auto_crud.response_messages.{key}`)
+3. Enum default value
+
 ## Examples
 
 ### Example 1: Basic CRUD Generation
@@ -264,11 +503,25 @@ php artisan auto-crud:generate \
   --model=Post \
   --service \
   --policy \
+  --permissions-seeder \
   --factory \
   --response-messages \
   --pattern=spatie-data \
   --pest
 ```
+
+### Example 3: Generate with Permissions
+```bash
+php artisan auto-crud:generate \
+  --model=Worker \
+  --policy \
+  --permissions-seeder
+```
+
+This generates:
+- Policy class with permission-based authorization
+- Permission seeder in `Database/Seeders/Permissions/WorkerPermissionsSeeder.php`
+- Updates `app/Enums/PermissionGroup.php` with `WORKERS` case
 
 ## License
 

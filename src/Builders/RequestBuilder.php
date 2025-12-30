@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
@@ -22,12 +23,12 @@ class RequestBuilder extends BaseBuilder
     /**
      * Initialize the RequestBuilder with required services.
      */
-    public function __construct()
+    public function __construct(FileService $fileService, TableColumnsService $tableColumnsService, ModelService $modelService, EnumBuilder $enumBuilder)
     {
-        parent::__construct();
-        $this->tableColumnsService = new TableColumnsService;
-        $this->modelService = new ModelService;
-        $this->enumBuilder = new EnumBuilder;
+        parent::__construct($fileService);
+        $this->tableColumnsService = $tableColumnsService;
+        $this->modelService = $modelService;
+        $this->enumBuilder = $enumBuilder;
     }
 
     /**
@@ -164,7 +165,7 @@ class RequestBuilder extends BaseBuilder
     {
         $columns = $this->getAvailableColumns($modelData);
         $model = $this->getFullModelNamespace($modelData);
-        $modelVariable = lcfirst($modelData['model']);
+        $modelVariable = lcfirst($modelData['modelName']);
 
         $validationRules = [];
         $useStatements = [];
@@ -194,9 +195,9 @@ class RequestBuilder extends BaseBuilder
             }
             
             $camelCaseName = Str::camel($columnName);
-            $isNullable = $column['is_nullable'] ?? false;
+            $isNullable = $column['isNullable'] ?? false;
             
-            if ($column['is_translatable'] ?? false) {
+            if ($column['isTranslatable'] ?? false) {
                 $rules = $this->buildTranslatableRules($isNullable, $requestType);
             } else {
                 $rules = $this->buildColumnRules($column, $modelData, $isNullable, $requestType, $modelVariable, $useStatements, $needsRule);
@@ -204,9 +205,7 @@ class RequestBuilder extends BaseBuilder
 
             // For update requests, add 'sometimes' at the beginning (only validate if present)
             if ($requestType === 'update' && !empty($rules)) {
-                // Ensure 'sometimes' comes before 'bail' for proper validation flow
-                $rulesWithoutBail = array_filter($rules, fn($rule) => $rule !== 'bail');
-                $validationRules[$camelCaseName] = ['sometimes', 'bail', ...$rulesWithoutBail];
+                $validationRules[$camelCaseName] = ['sometimes', ...$rules];
             } else {
                 $validationRules[$camelCaseName] = $rules;
             }
@@ -227,12 +226,9 @@ class RequestBuilder extends BaseBuilder
         $rules = [];
         $columnType = $column['type'];
         $columnName = $column['name'];
-        $maxLength = $column['max_length'];
-        $isUnique = $column['is_unique'];
-        $allowedValues = $column['allowed_values'];
-        
-        // Add 'bail' as first rule for better performance (stops on first failure)
-        $rules[] = 'bail';
+        $maxLength = $column['maxLength'];
+        $isUnique = $column['isUnique'];
+        $allowedValues = $column['allowedValues'];
         
         // Handle nullable columns - allow null for both store and update
         if ($isNullable) {
@@ -340,11 +336,19 @@ class RequestBuilder extends BaseBuilder
 
             case 'enum':
                 if (! empty($allowedValues)) {
-                    // Check if an Enum class exists for this field
-                    $enumClass = $this->getEnumClassForField($modelData, $columnName, $allowedValues);
+                    // Prefer enum_class supplied by TableColumnsService
+                    $enumClass = $column['enum_class'] ?? $this->getEnumClassForField($modelData, $columnName, $allowedValues);
                     if ($enumClass) {
-                        $rules[] = "Rule::enum({$enumClass}::class)";
-                        $useStatements[] = "App\\Enums\\{$enumClass}";
+                        // Ensure we have full namespace (if not, prepend App\Enums\)
+                        if (!str_contains($enumClass, '\\')) {
+                            $enumClass = "App\\Enums\\{$enumClass}";
+                        }
+                        
+                        // Extract short class name for Rule::enum() call
+                        $shortClassName = $this->getShortClassName($enumClass);
+                        $rules[] = "Rule::enum({$shortClassName}::class)";
+                        // Add full class name to use statements
+                        $useStatements[] = "{$enumClass}";
                         $needsRule = true;
                     } else {
                         // Fall back to in: validation with strict checking
@@ -390,7 +394,7 @@ class RequestBuilder extends BaseBuilder
 
     private function buildTranslatableRules(bool $isNullable, string $requestType): array
     {
-        $rules = ['bail'];
+        $rules = [];
         
         if ($isNullable && $requestType === 'store') {
             $rules[] = 'nullable';
@@ -425,7 +429,7 @@ class RequestBuilder extends BaseBuilder
 
     private function optimizeRules(array $rules, string $requestType): array
     {
-        $optimized = ['bail'];
+        $optimized = [];
         
         // Add 'sometimes' for update requests
         if ($requestType === 'update') {
@@ -444,14 +448,30 @@ class RequestBuilder extends BaseBuilder
         // Check if the enum class file exists
         $enumPath = app_path("Enums/{$enumClass}.php");
         if (file_exists($enumPath)) {
-            return $enumClass;
+            // Return full namespace
+            return "App\\Enums\\{$enumClass}";
         }
         
         // Also check with model prefix (e.g., UserStatus for users.status)
-        $modelEnumClass = $modelData['model'] . $enumClass;
+        $modelEnumClass = $modelData['modelName'] . $enumClass;
         $modelEnumPath = app_path("Enums/{$modelEnumClass}.php");
         if (file_exists($modelEnumPath)) {
-            return $modelEnumClass;
+            // Return full namespace
+            return "App\\Enums\\{$modelEnumClass}";
+        }
+        
+        // Also check with Enum suffix
+        $enumClassWithSuffix = $enumClass . 'Enum';
+        $enumPathWithSuffix = app_path("Enums/{$enumClassWithSuffix}.php");
+        if (file_exists($enumPathWithSuffix)) {
+            return "App\\Enums\\{$enumClassWithSuffix}";
+        }
+        
+        // Check model prefix with Enum suffix
+        $modelEnumClassWithSuffix = $modelData['modelName'] . $enumClass . 'Enum';
+        $modelEnumPathWithSuffix = app_path("Enums/{$modelEnumClassWithSuffix}.php");
+        if (file_exists($modelEnumPathWithSuffix)) {
+            return "App\\Enums\\{$modelEnumClassWithSuffix}";
         }
         
         return null;
@@ -475,5 +495,17 @@ class RequestBuilder extends BaseBuilder
         }
         
         return explode('|', $validation);
+    }
+
+    /**
+     * Get short class name from full namespace.
+     *
+     * @param string $fullClassName
+     * @return string
+     */
+    private function getShortClassName(string $fullClassName): string
+    {
+        $parts = explode('\\', $fullClassName);
+        return end($parts);
     }
 }
