@@ -19,8 +19,8 @@ class {{ class }} extends Controller
     /**
      * Get a paginated list of {{ modelPlural }} with optional filtering.
      *
-     * @param {{ filterRequest }} $request
-     * @return AnonymousResourceCollection
+     * @param {{ filterRequestNamespace }} $request
+     * @return {{ resource }}
      * @response 200 {
      *   "data": [],
      *   "message": "data retrieved successfully.",

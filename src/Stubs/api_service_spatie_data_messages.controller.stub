@@ -24,8 +24,8 @@ class {{ class }}
     /**
      * Get a paginated list of {{ modelPlural }} with optional filtering.
      *
-     * @param {{ filterRequest }} $request
-     * @return AnonymousResourceCollection
+     * @param {{ filterRequestNamespace }} $request
+     * @return {{ resource }}
      * @response 200 {
      *   "data": [],
      *   "message": "data retrieved successfully.",
@@ -41,7 +41,7 @@ class {{ class }}
     /**
      * Create a new {{ modelVariable }}.
      *
-     * @param {{ storeRequest }} $request
+     * @param {{ storeRequestNamespace }} $request
      * @return JsonResponse
      * @throws Throwable
      * @response 201 {
@@ -85,7 +85,7 @@ class {{ class }}
     /**
      * Update an existing {{ modelVariable }}.
      *
-     * @param {{ updateRequest }} $request
+     * @param {{ updateRequestNamespace }} $request
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}
      * @throws Throwable

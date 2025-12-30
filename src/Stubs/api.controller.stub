@@ -15,7 +15,7 @@ class {{ class }} extends Controller
     /**
      * Get a paginated list of {{ modelPlural }}.
      *
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     * @return {{ resource }}
      * @response 200 {
      *   "data": [],
      *   "links": {},
@@ -30,7 +30,7 @@ class {{ class }} extends Controller
     /**
      * Create a new {{ modelVariable }}.
      *
-     * @param {{ storeRequest }} $request
+     * @param {{ storeRequestNamespace }} $request
      * @return {{ resource }}|\Illuminate\Http\JsonResponse
      * @response 201 {
      *   "data": {}
@@ -75,7 +75,7 @@ class {{ class }} extends Controller
     /**
      * Update an existing {{ modelVariable }}.
      *
-     * @param {{ updateRequest }} $request
+     * @param {{ updateRequestNamespace }} $request
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}|\Illuminate\Http\JsonResponse
      * @response 200 {
