@@ -55,7 +55,18 @@ class CRUDGenerator
     {
         $checkForType = $options['type'];
 
-        // Inject traits if needed
+        // Create filter trait first if needed (before injecting traits)
+        $filterBuilder = $filterRequest = null;
+        if ($options['filter'] ?? false) {
+            if ($options['pattern'] === 'spatie-data') {
+                $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite']);
+                $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
+            } else {
+                throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
+            }
+        }
+
+        // Inject traits if needed (after filter trait is created)
         $traits = [];
         if ($options['factory'] ?? false) {
             $traits[] = 'Illuminate\Database\Eloquent\Factories\HasFactory';
@@ -86,16 +97,6 @@ class CRUDGenerator
 
         if ($options['service'] ?? false) {
             $service = $this->serviceBuilder->createServiceOnly($modelData, $options['overwrite']);
-        }
-
-        $filterBuilder = $filterRequest = null;
-        if ($options['filter'] ?? false) {
-            if ($options['pattern'] === 'spatie-data') {
-                $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite']);
-                $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
-            } else {
-                throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
-            }
         }
 
         if (($options['response-messages'] ?? false) && in_array('api', $checkForType, true)) {
