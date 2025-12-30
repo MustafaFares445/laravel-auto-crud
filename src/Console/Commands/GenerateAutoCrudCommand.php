@@ -153,11 +153,14 @@ class GenerateAutoCrudCommand extends Command
             if ($folderLookup[$selectedFolderIndex] === 'custom') {
                 $controllerFolder = text(
                     label: 'Enter controller folder path',
-                    placeholder: 'e.g., Http/Controllers/Admin or Http/Controllers/API/V1',
+                    placeholder: 'e.g., Admin or Http/Controllers/Admin',
                     default: '',
                     required: true,
                     validate: fn ($value) => empty(trim($value)) ? 'Folder path cannot be empty' : null
                 );
+                
+                // Normalize the path
+                $controllerFolder = $this->normalizeControllerFolderPath($controllerFolder);
             }
         }
 
@@ -380,11 +383,38 @@ class GenerateAutoCrudCommand extends Command
                 }
             }
 
-            $this->CRUDGenerator->generate($modelData, $this->options());
-            $this->documentationGenerator->generate($modelData, $this->options(), count($models) > 1);
+            $options = $this->options();
+            // Normalize controller-folder path if provided
+            if (!empty($options['controller-folder'])) {
+                $options['controller-folder'] = $this->normalizeControllerFolderPath($options['controller-folder']);
+            }
+
+            $this->CRUDGenerator->generate($modelData, $options);
+            $this->documentationGenerator->generate($modelData, $options, count($models) > 1);
         }
 
         info('✅ CRUD generation completed!');
+    }
+
+    /**
+     * Normalize controller folder path.
+     * If path doesn't start with Http/Controllers, prepend it.
+     *
+     * @param string $path
+     * @return string
+     */
+    private function normalizeControllerFolderPath(string $path): string
+    {
+        $path = trim($path);
+        // Remove leading/trailing slashes
+        $path = trim($path, '/\\');
+        
+        if (!str_starts_with($path, 'Http/Controllers') && !str_starts_with($path, 'Http\\Controllers')) {
+            $path = 'Http/Controllers/' . $path;
+        }
+        
+        // Normalize to use forward slashes
+        return str_replace('\\', '/', $path);
     }
 
     private function hasAnyOptionProvided(): bool

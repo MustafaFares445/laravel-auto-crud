@@ -6,12 +6,12 @@ namespace {{ namespace }};
 
 use Illuminate\Http\Request;
 use App\Models\{{ model }};
-use Illuminate\Http\Resources\Json\JsonResource;{{ mediaResourceImport }}
+{{ baseResourceImport }}{{ mediaResourceImport }}
 
 /**
  * @mixin {{ model }}
  */
-class {{ class }} extends JsonResource
+class {{ class }} extends {{ baseResourceClass }}
 {
     /**
      * Transform the resource into an array.

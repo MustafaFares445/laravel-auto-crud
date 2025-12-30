@@ -16,12 +16,38 @@ use Symfony\Component\HttpFoundation\Response;
 
 class {{ class }} extends Controller
 {
+    /**
+     * Get a paginated list of {{ modelPlural }}.
+     *
+     * @param Request $request
+     * @return AnonymousResourceCollection
+     * @response 200 {
+     *   "data": [],
+     *   "message": "data retrieved successfully.",
+     *   "links": {},
+     *   "meta": {}
+     * }
+     */
     public function index(): AnonymousResourceCollection
     {
         return {{ resource }}::collection({{ model }}::latest()->paginate(10))
             ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
+    /**
+     * Create a new {{ modelVariable }}.
+     *
+     * @param {{ storeRequest }} $request
+     * @return JsonResponse
+     * @response 201 {
+     *   "data": {},
+     *   "message": "data created successfully."
+     * }
+     * @response 422 {
+     *   "message": "Validation error",
+     *   "errors": {}
+     * }
+     */
     public function store({{ storeRequest }} $request): JsonResponse
     {
         ${{ modelVariable }} = {{ model }}::create($request->validated());
@@ -32,6 +58,19 @@ class {{ class }} extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
+    /**
+     * Get a specific {{ modelVariable }} by ID.
+     *
+     * @param {{ model }} ${{ modelVariable }}
+     * @return {{ resource }}
+     * @response 200 {
+     *   "data": {},
+     *   "message": "data retrieved successfully."
+     * }
+     * @response 404 {
+     *   "message": "No query results for model"
+     * }
+     */
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
         ${{ modelVariable }}{{ belongsToLoadRelations }};
@@ -39,6 +78,24 @@ class {{ class }} extends Controller
             ->additional(['message' => ResponseMessages::RETRIEVED->message()]);
     }
 
+    /**
+     * Update an existing {{ modelVariable }}.
+     *
+     * @param {{ updateRequest }} $request
+     * @param {{ model }} ${{ modelVariable }}
+     * @return {{ resource }}
+     * @response 200 {
+     *   "data": {},
+     *   "message": "data updated successfully."
+     * }
+     * @response 422 {
+     *   "message": "Validation error",
+     *   "errors": {}
+     * }
+     * @response 404 {
+     *   "message": "No query results for model"
+     * }
+     */
     public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
     {
         ${{ modelVariable }}->update($request->validated());
@@ -47,6 +104,19 @@ class {{ class }} extends Controller
             ->additional(['message' => ResponseMessages::UPDATED->message()]);
     }
 
+    /**
+     * Delete a {{ modelVariable }}.
+     *
+     * @param {{ model }} ${{ modelVariable }}
+     * @return {{ resource }}
+     * @response 200 {
+     *   "data": {},
+     *   "message": "data deleted successfully."
+     * }
+     * @response 404 {
+     *   "message": "No query results for model"
+     * }
+     */
     public function destroy({{ model }} ${{ modelVariable }}): {{ resource }}
     {
         ${{ modelVariable }}->delete();

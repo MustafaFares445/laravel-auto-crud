@@ -31,14 +31,38 @@ class ResourceBuilder extends BaseBuilder
         return $this->fileService->createFromStub($modelData, 'resource', 'Http/Resources', 'Resource', $overwrite, function ($modelData) use ($pattern, $spatieData) {
             $model = $this->getFullModelNamespace($modelData);
             $resourcesData = $this->getResourcesData($modelData, $model, $pattern, $spatieData);
+            
+            // Check if selective-response package is installed
+            $useSelectiveResponse = $this->isSelectiveResponseInstalled();
+            $baseResourceClass = $useSelectiveResponse ? 'BaseApiResource' : 'JsonResource';
+            $baseResourceImport = $useSelectiveResponse 
+                ? "use MustafaFares\SelectiveResponse\Http\Resources\BaseApiResource;"
+                : "use Illuminate\Http\Resources\Json\JsonResource;";
+            
+            // Ensure baseResourceImport has a newline if mediaResourceImport is empty
+            if (empty($resourcesData['mediaResourceImport'])) {
+                $baseResourceImport .= "\n";
+            }
 
             return [
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $modelData['modelName'],
                 '{{ data }}' => HelperService::formatArrayToPhpSyntax($resourcesData['data'], true),
                 '{{ mediaResourceImport }}' => $resourcesData['mediaResourceImport'],
+                '{{ baseResourceImport }}' => $baseResourceImport,
+                '{{ baseResourceClass }}' => $baseResourceClass,
             ];
         });
+    }
+    
+    /**
+     * Check if the selective-response package is installed.
+     *
+     * @return bool
+     */
+    private function isSelectiveResponseInstalled(): bool
+    {
+        return class_exists(\MustafaFares\SelectiveResponse\Http\Resources\BaseApiResource::class);
     }
 
     private function getResourcesData(array $modelData, string $model, string $pattern = 'normal', ?string $spatieData = null): array

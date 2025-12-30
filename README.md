@@ -72,7 +72,7 @@ return [
     ],
 
     // Default pagination per page
-    'default_pagination' => 10,
+    'default_pagination' => 20,
 
     // Custom stub path (optional)
     'custom_stub_path' => null,

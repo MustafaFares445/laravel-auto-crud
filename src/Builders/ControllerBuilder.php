@@ -61,6 +61,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ updateRequest }}' => end($updateRequestName),
                 '{{ model }}' => $modelData['modelName'],
                 '{{ modelVariable }}' => $modelVariable,
+                '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ filterBuilderImport }}' => $filterBuilderImport,
                 '{{ filterRequestImport }}' => $filterRequestImport,
                 '{{ filterBuilder }}' => $filterBuilderClass,
@@ -118,6 +119,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ resource }}' => $resourceClass,
                 '{{ model }}' => $modelData['modelName'],
                 '{{ modelVariable }}' => $modelVariable,
+                '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ filterBuilderImport }}' => $filterBuilderImport,
                 '{{ filterRequestImport }}' => $filterRequestImport,
                 '{{ filterBuilder }}' => $filterBuilderClass,
@@ -329,6 +331,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $modelData['modelName'],
                 '{{ modelVariable }}' => $modelVariable,
+                '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ filterBuilderImport }}' => $filterBuilderImport,
                 '{{ filterRequestImport }}' => $filterRequestImport,
                 '{{ filterBuilder }}' => $filterBuilderClass,
@@ -417,7 +420,7 @@ class ControllerBuilder extends BaseBuilder
             return "        return {$resourceClass}::collection({$modelClass}::all()){$additionalMessage};";
         }
 
-        $defaultPagination = config('laravel_auto_crud.default_pagination', 10);
+        $defaultPagination = config('laravel_auto_crud.default_pagination', 20);
         return "        return {$resourceClass}::collection({$modelClass}::latest()->paginate({$defaultPagination})){$additionalMessage};";
     }
 

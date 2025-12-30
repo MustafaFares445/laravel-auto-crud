@@ -12,11 +12,37 @@ use Symfony\Component\HttpFoundation\Response;
 
 class {{ class }} extends Controller
 {
+    /**
+     * Get a paginated list of {{ modelPlural }}.
+     *
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     * @response 200 {
+     *   "data": [],
+     *   "links": {},
+     *   "meta": {}
+     * }
+     */
     public function index(): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
     {
         return {{ resource }}::collection({{ model }}::latest()->paginate(10));
     }
 
+    /**
+     * Create a new {{ modelVariable }}.
+     *
+     * @param {{ storeRequest }} $request
+     * @return {{ resource }}|\Illuminate\Http\JsonResponse
+     * @response 201 {
+     *   "data": {}
+     * }
+     * @response 422 {
+     *   "message": "Validation error",
+     *   "errors": {}
+     * }
+     * @response 500 {
+     *   "error": "There is an error."
+     * }
+     */
     public function store({{ storeRequest }} $request): {{ resource }}|\Illuminate\Http\JsonResponse
     {
         try {
@@ -28,12 +54,44 @@ class {{ class }} extends Controller
         }
     }
 
+    /**
+     * Get a specific {{ modelVariable }} by ID.
+     *
+     * @param {{ model }} ${{ modelVariable }}
+     * @return {{ resource }}
+     * @response 200 {
+     *   "data": {}
+     * }
+     * @response 404 {
+     *   "message": "No query results for model"
+     * }
+     */
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
         ${{ modelVariable }}{{ belongsToLoadRelations }};
         return {{ resource }}::make(${{ modelVariable }});
     }
 
+    /**
+     * Update an existing {{ modelVariable }}.
+     *
+     * @param {{ updateRequest }} $request
+     * @param {{ model }} ${{ modelVariable }}
+     * @return {{ resource }}|\Illuminate\Http\JsonResponse
+     * @response 200 {
+     *   "data": {}
+     * }
+     * @response 422 {
+     *   "message": "Validation error",
+     *   "errors": {}
+     * }
+     * @response 404 {
+     *   "message": "No query results for model"
+     * }
+     * @response 500 {
+     *   "error": "There is an error."
+     * }
+     */
     public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}|\Illuminate\Http\JsonResponse
     {
         try {
@@ -45,6 +103,21 @@ class {{ class }} extends Controller
         }
     }
 
+    /**
+     * Delete a {{ modelVariable }}.
+     *
+     * @param {{ model }} ${{ modelVariable }}
+     * @return \Illuminate\Http\JsonResponse
+     * @response 200 {
+     *   "message": "Deleted successfully"
+     * }
+     * @response 404 {
+     *   "message": "No query results for model"
+     * }
+     * @response 500 {
+     *   "error": "There is an error."
+     * }
+     */
     public function destroy({{ model }} ${{ modelVariable }}): \Illuminate\Http\JsonResponse
     {
         try {
