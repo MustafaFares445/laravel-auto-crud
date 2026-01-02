@@ -73,6 +73,9 @@ class ResourceBuilder extends BaseBuilder
         // Always include id
         $data['id'] = '$this->id';
 
+        // Get hidden properties from model
+        $hiddenProperties = $this->getHiddenProperties($model);
+
         // Detect media fields once (used later)
         $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
 
@@ -105,8 +108,13 @@ class ResourceBuilder extends BaseBuilder
                     continue;
                 }
 
-                $camelCaseName = Str::camel($propertyName);
+                // Skip hidden properties
                 $snakeCaseName = Str::snake($propertyName);
+                if (in_array($snakeCaseName, $hiddenProperties, true)) {
+                    continue;
+                }
+
+                $camelCaseName = Str::camel($propertyName);
                 
                 $data[$camelCaseName] = '$this->'.$snakeCaseName;
             }
@@ -118,6 +126,11 @@ class ResourceBuilder extends BaseBuilder
 
                 // Skip id, created_at, updated_at as they're handled separately
                 if (in_array($columnName, ['id', 'created_at', 'updated_at'])) {
+                    continue;
+                }
+
+                // Skip hidden properties
+                if (in_array($columnName, $hiddenProperties, true)) {
                     continue;
                 }
 
@@ -193,9 +206,13 @@ class ResourceBuilder extends BaseBuilder
             }
         }
 
-        // Always add timestamps at the end
-        $data['createdAt'] = '$this->created_at->toDateTimeString()';
-        $data['updatedAt'] = '$this->updated_at->toDateTimeString()';
+        // Add timestamps at the end (only if not hidden)
+        if (!in_array('created_at', $hiddenProperties, true)) {
+            $data['createdAt'] = '$this->created_at->toDateTimeString()';
+        }
+        if (!in_array('updated_at', $hiddenProperties, true)) {
+            $data['updatedAt'] = '$this->updated_at->toDateTimeString()';
+        }
 
         return [
             'data' => $data,
@@ -230,5 +247,74 @@ class ResourceBuilder extends BaseBuilder
         }
 
         return $properties;
+    }
+
+    /**
+     * Get hidden properties from model.
+     *
+     * @param string $modelClass Full model class name
+     * @return array<string> Array of hidden property names
+     */
+    private function getHiddenProperties(string $modelClass): array
+    {
+        try {
+            if (!class_exists($modelClass)) {
+                return [];
+            }
+
+            $reflection = new \ReflectionClass($modelClass);
+            
+            // Try to get $hidden property via reflection
+            if ($reflection->hasProperty('hidden')) {
+                $hiddenProperty = $reflection->getProperty('hidden');
+                $hiddenProperty->setAccessible(true);
+                
+                // Try to get value without instantiating
+                try {
+                    $modelInstance = $reflection->newInstanceWithoutConstructor();
+                    $hidden = $hiddenProperty->getValue($modelInstance);
+                    if (is_array($hidden)) {
+                        return $hidden;
+                    }
+                } catch (\Throwable $e) {
+                    // If instantiation fails, try reading from file
+                }
+            }
+
+            // Fallback: Read from model file
+            $modelFile = $reflection->getFileName();
+            if ($modelFile && file_exists($modelFile)) {
+                $content = \Illuminate\Support\Facades\File::get($modelFile);
+                return $this->extractHiddenFromContent($content);
+            }
+        } catch (\Throwable $e) {
+            // Ignore errors and return empty array
+        }
+
+        return [];
+    }
+
+    /**
+     * Extract hidden properties from model file content.
+     *
+     * @param string $content Model file content
+     * @return array<string> Array of hidden property names
+     */
+    private function extractHiddenFromContent(string $content): array
+    {
+        $hidden = [];
+
+        // Match: protected $hidden = ['password', 'remember_token'];
+        // Match: protected array $hidden = ['password', 'remember_token'];
+        if (preg_match('/protected\s+(?:array\s+)?\$hidden\s*=\s*\[(.*?)\];/s', $content, $matches)) {
+            $arrayContent = $matches[1];
+            
+            // Extract string values from array
+            if (preg_match_all("/['\"]([^'\"]+)['\"]/", $arrayContent, $valueMatches)) {
+                $hidden = $valueMatches[1];
+            }
+        }
+
+        return $hidden;
     }
 }

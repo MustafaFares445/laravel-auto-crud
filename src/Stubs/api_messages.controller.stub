@@ -20,12 +20,6 @@ class {{ class }} extends Controller
      * Get a paginated list of {{ modelPlural }}.
      *
      * @return {{ resource }}
-     * @response 200 {
-     *   "data": [],
-     *   "message": "data retrieved successfully.",
-     *   "links": {},
-     *   "meta": {}
-     * }
      */
     public function index(): AnonymousResourceCollection
     {
@@ -36,16 +30,8 @@ class {{ class }} extends Controller
     /**
      * Create a new {{ modelVariable }}.
      *
-     * @param {{ storeRequestNamespace }} $request
+     * @param {{ storeRequest }} $request
      * @return JsonResponse
-     * @response 201 {
-     *   "data": {},
-     *   "message": "data created successfully."
-     * }
-     * @response 422 {
-     *   "message": "Validation error",
-     *   "errors": {}
-     * }
      */
     public function store({{ storeRequest }} $request): JsonResponse
     {
@@ -62,13 +48,6 @@ class {{ class }} extends Controller
      *
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}
-     * @response 200 {
-     *   "data": {},
-     *   "message": "data retrieved successfully."
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
      */
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
@@ -80,20 +59,9 @@ class {{ class }} extends Controller
     /**
      * Update an existing {{ modelVariable }}.
      *
-     * @param {{ updateRequestNamespace }} $request
+     * @param {{ updateRequest }} $request
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}
-     * @response 200 {
-     *   "data": {},
-     *   "message": "data updated successfully."
-     * }
-     * @response 422 {
-     *   "message": "Validation error",
-     *   "errors": {}
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
      */
     public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}
     {
@@ -108,13 +76,6 @@ class {{ class }} extends Controller
      *
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}
-     * @response 200 {
-     *   "data": {},
-     *   "message": "data deleted successfully."
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
      */
     public function destroy({{ model }} ${{ modelVariable }}): {{ resource }}
     {

@@ -13,9 +13,6 @@ class {{ class }} extends Controller
      * Get a paginated list of {{ modelPlural }}.
      *
      * @return \Spatie\LaravelData\PaginatedDataCollection
-     * @response 200 {
-     *   "data": []
-     * }
      */
     public function index(): array|\Illuminate\Contracts\Pagination\CursorPaginator|\Illuminate\Contracts\Pagination\Paginator|\Illuminate\Pagination\AbstractCursorPaginator|\Illuminate\Pagination\AbstractPaginator|\Illuminate\Support\Collection|\Illuminate\Support\Enumerable|\Illuminate\Support\LazyCollection|\Spatie\LaravelData\CursorPaginatedDataCollection|\Spatie\LaravelData\DataCollection|\Spatie\LaravelData\PaginatedDataCollection
     {
@@ -27,16 +24,6 @@ class {{ class }} extends Controller
      *
      * @param {{ spatieData }} $data
      * @return {{ spatieData }}|\Illuminate\Http\JsonResponse
-     * @response 200 {
-     *   "data": {}
-     * }
-     * @response 422 {
-     *   "message": "Validation error",
-     *   "errors": {}
-     * }
-     * @response 500 {
-     *   "error": "There is an error."
-     * }
      */
     public function store({{ spatieData }} $data): {{ spatieData }}|\Illuminate\Http\JsonResponse
     {
@@ -54,12 +41,6 @@ class {{ class }} extends Controller
      *
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ spatieData }}
-     * @response 200 {
-     *   "data": {}
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
      */
     public function show({{ model }} ${{ modelVariable }}): {{ spatieData }}
     {
@@ -73,19 +54,6 @@ class {{ class }} extends Controller
      * @param {{ spatieData }} $data
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ spatieData }}|\Illuminate\Http\JsonResponse
-     * @response 200 {
-     *   "data": {}
-     * }
-     * @response 422 {
-     *   "message": "Validation error",
-     *   "errors": {}
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
-     * @response 500 {
-     *   "error": "There is an error."
-     * }
      */
     public function update({{ spatieData }} $data, {{ model }} ${{ modelVariable }}): {{ spatieData }}|\Illuminate\Http\JsonResponse
     {
@@ -103,15 +71,6 @@ class {{ class }} extends Controller
      *
      * @param {{ model }} ${{ modelVariable }}
      * @return \Illuminate\Http\JsonResponse
-     * @response 200 {
-     *   "message": "Deleted successfully"
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
-     * @response 500 {
-     *   "error": "There is an error."
-     * }
      */
     public function destroy({{ model }} ${{ modelVariable }}): \Illuminate\Http\JsonResponse
     {

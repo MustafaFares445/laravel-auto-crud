@@ -99,10 +99,6 @@ class CRUDGenerator
             $service = $this->serviceBuilder->createServiceOnly($modelData, $options['overwrite']);
         }
 
-        if (($options['response-messages'] ?? false) && in_array('api', $checkForType, true)) {
-            $this->generateResponseMessagesEnum($options['overwrite']);
-        }
-
         if ($options['policy'] ?? false) {
             $this->policyBuilder->create($modelData, $options['overwrite']);
         }
@@ -137,38 +133,6 @@ class CRUDGenerator
         $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType);
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
-    }
-
-    private function generateResponseMessagesEnum(bool $overwrite = false): void
-    {
-        $filePath = app_path('Enums/ResponseMessages.php');
-
-        if (file_exists($filePath) && ! $overwrite) {
-            $shouldOverwrite = confirm(
-                label: 'ResponseMessages enum already exists, do you want to overwrite it? '.$filePath
-            );
-            if (! $shouldOverwrite) {
-                return;
-            }
-        }
-
-        $directoryPermissions = config('laravel_auto_crud.file_permissions.directory', 0755);
-        File::ensureDirectoryExists(dirname($filePath), $directoryPermissions, true);
-
-        $customStubPath = config('laravel_auto_crud.custom_stub_path');
-        $projectStubPath = $customStubPath 
-            ? rtrim($customStubPath, '/') . '/response_messages.enum.stub'
-            : base_path('stubs/response_messages.enum.stub');
-        $packageStubPath = __DIR__ . '/../Stubs/response_messages.enum.stub';
-        $stubPath = file_exists($projectStubPath) ? $projectStubPath : $packageStubPath;
-
-        if (!file_exists($stubPath)) {
-            throw new \RuntimeException("Stub file not found: {$stubPath}");
-        }
-
-        File::copy($stubPath, $filePath);
-
-        info("Created: $filePath");
     }
 
     private function generateController(array $types, array $modelData, array $data, array $options): string

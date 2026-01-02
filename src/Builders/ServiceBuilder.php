@@ -53,43 +53,27 @@ class ServiceBuilder extends BaseBuilder
                 }
             }
             
-            // Detect relationships and generate syncing logic
+            // Detect belongsToMany relationships to determine if syncRelationships method exists
             $relationships = RelationshipDetector::detectRelationships($model);
-            $relationshipStoreLogic = '';
-            $relationshipUpdateLogic = '';
+            $hasBelongsToMany = false;
             
             foreach ($relationships as $relationship) {
                 if ($relationship['type'] === 'belongsToMany') {
-                    $relatedModel = $relationship['related_model'] ?? null;
-                    if ($relatedModel) {
-                        $relatedModelName = RelationshipDetector::getModelNameFromClass($relatedModel);
-                        $propertyName = Str::camel(strtolower($relatedModelName) . '_ids');
-                        $relationshipName = $relationship['name'];
-                        
-                        $relationshipStoreLogic .= "\n            // Sync {$relationshipName} relationship";
-                        $relationshipStoreLogic .= "\n            if (isset(\$data->{$propertyName})) {";
-                        $relationshipStoreLogic .= "\n                \${$modelVariable}->{$relationshipName}()->sync(\$data->{$propertyName} ?? []);";
-                        $relationshipStoreLogic .= "\n            }";
-                        
-                        $relationshipUpdateLogic .= "\n            // Sync {$relationshipName} relationship";
-                        $relationshipUpdateLogic .= "\n            if (isset(\$data->{$propertyName})) {";
-                        $relationshipUpdateLogic .= "\n                \${$modelVariable}->{$relationshipName}()->sync(\$data->{$propertyName} ?? []);";
-                        $relationshipUpdateLogic .= "\n            }";
-                    }
+                    $hasBelongsToMany = true;
+                    break;
                 }
             }
             
-            // Add empty line before return if there's media or relationship logic
-            if ($mediaStoreLogic || $relationshipStoreLogic) {
+            // Only add syncRelationships call if there are belongsToMany relationships
+            $syncRelationshipsCall = $hasBelongsToMany ? "\n            \$data->syncRelationships(\${$modelVariable});" : '';
+            
+            // Add empty line before syncRelationships if there's media logic
+            if ($mediaStoreLogic && $syncRelationshipsCall) {
                 $mediaStoreLogic .= "\n";
             }
-            if ($mediaUpdateLogic || $relationshipUpdateLogic) {
+            if ($mediaUpdateLogic && $syncRelationshipsCall) {
                 $mediaUpdateLogic .= "\n";
             }
-            
-            // Combine media logic (relationships are now handled via syncRelationships in Data class)
-            $storeLogic = $mediaStoreLogic;
-            $updateLogic = $mediaUpdateLogic;
 
             return [
                 '{{ modelNamespace }}' => $model,
@@ -98,8 +82,9 @@ class ServiceBuilder extends BaseBuilder
                 '{{ data }}' => $modelData['modelName'] . 'Data',
                 '{{ modelVariable }}' => $modelVariable,
                 '{{ mediaHelperImport }}' => $mediaHelperImport,
-                '{{ mediaStoreLogic }}' => $storeLogic,
-                '{{ mediaUpdateLogic }}' => $updateLogic,
+                '{{ mediaStoreLogic }}' => $mediaStoreLogic,
+                '{{ mediaUpdateLogic }}' => $mediaUpdateLogic,
+                '{{ syncRelationshipsCall }}' => $syncRelationshipsCall,
             ];
         });
     }

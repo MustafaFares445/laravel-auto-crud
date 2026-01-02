@@ -16,11 +16,6 @@ class {{ class }} extends Controller
      * Get a paginated list of {{ modelPlural }}.
      *
      * @return {{ resource }}
-     * @response 200 {
-     *   "data": [],
-     *   "links": {},
-     *   "meta": {}
-     * }
      */
     public function index(): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
     {
@@ -30,18 +25,8 @@ class {{ class }} extends Controller
     /**
      * Create a new {{ modelVariable }}.
      *
-     * @param {{ storeRequestNamespace }} $request
+     * @param {{ storeRequest }} $request
      * @return {{ resource }}|\Illuminate\Http\JsonResponse
-     * @response 201 {
-     *   "data": {}
-     * }
-     * @response 422 {
-     *   "message": "Validation error",
-     *   "errors": {}
-     * }
-     * @response 500 {
-     *   "error": "There is an error."
-     * }
      */
     public function store({{ storeRequest }} $request): {{ resource }}|\Illuminate\Http\JsonResponse
     {
@@ -59,12 +44,6 @@ class {{ class }} extends Controller
      *
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}
-     * @response 200 {
-     *   "data": {}
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
      */
     public function show({{ model }} ${{ modelVariable }}): {{ resource }}
     {
@@ -75,22 +54,9 @@ class {{ class }} extends Controller
     /**
      * Update an existing {{ modelVariable }}.
      *
-     * @param {{ updateRequestNamespace }} $request
+     * @param {{ updateRequest }} $request
      * @param {{ model }} ${{ modelVariable }}
      * @return {{ resource }}|\Illuminate\Http\JsonResponse
-     * @response 200 {
-     *   "data": {}
-     * }
-     * @response 422 {
-     *   "message": "Validation error",
-     *   "errors": {}
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
-     * @response 500 {
-     *   "error": "There is an error."
-     * }
      */
     public function update({{ updateRequest }} $request, {{ model }} ${{ modelVariable }}): {{ resource }}|\Illuminate\Http\JsonResponse
     {
@@ -108,15 +74,6 @@ class {{ class }} extends Controller
      *
      * @param {{ model }} ${{ modelVariable }}
      * @return \Illuminate\Http\JsonResponse
-     * @response 200 {
-     *   "message": "Deleted successfully"
-     * }
-     * @response 404 {
-     *   "message": "No query results for model"
-     * }
-     * @response 500 {
-     *   "error": "There is an error."
-     * }
      */
     public function destroy({{ model }} ${{ modelVariable }}): \Illuminate\Http\JsonResponse
     {

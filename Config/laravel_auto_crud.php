@@ -120,7 +120,7 @@ return [
     | Configuration for permission seeder generation.
     |
     */
-    'permissions_seeder_path' => 'Database/Seeders/Permissions',
+    'permissions_seeder_path' => 'database/seeders/Permissions',
 
     /*
     |--------------------------------------------------------------------------
