@@ -83,7 +83,8 @@ class RequestBuilder extends BaseBuilder
      */
     protected function createStoreRequest(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'store_request', 'Http/Requests', 'StoreRequest', $overwrite, function ($modelData) {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'store_request', $requestPath, 'StoreRequest', $overwrite, function ($modelData) {
             $data = $this->getRequestData($modelData, 'store');
             return [
                 '{{ data }}' => HelperService::formatArrayToPhpSyntax($data['rules']),
@@ -103,7 +104,8 @@ class RequestBuilder extends BaseBuilder
      */
     protected function createUpdateRequest(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'update_request', 'Http/Requests', 'UpdateRequest', $overwrite, function ($modelData) {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'update_request', $requestPath, 'UpdateRequest', $overwrite, function ($modelData) {
             $data = $this->getRequestData($modelData, 'update');
             return [
                 '{{ data }}' => HelperService::formatArrayToPhpSyntax($data['rules']),
@@ -123,7 +125,8 @@ class RequestBuilder extends BaseBuilder
      */
     protected function createSpatieDataStoreRequest(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'spatie_data_store_request', 'Http/Requests', 'StoreRequest', $overwrite, function ($modelData) {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'spatie_data_store_request', $requestPath, 'StoreRequest', $overwrite, function ($modelData) {
             $data = $this->getRequestData($modelData, 'store');
             
             // Add media field validation rules
@@ -143,7 +146,8 @@ class RequestBuilder extends BaseBuilder
 
     protected function createSpatieDataUpdateRequest(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'spatie_data_update_request', 'Http/Requests', 'UpdateRequest', $overwrite, function ($modelData) {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'spatie_data_update_request', $requestPath, 'UpdateRequest', $overwrite, function ($modelData) {
             $data = $this->getRequestData($modelData, 'update');
             
             // Add media field validation rules
@@ -159,6 +163,19 @@ class RequestBuilder extends BaseBuilder
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
         });
+    }
+    
+    /**
+     * Get the folder path for model requests.
+     * Groups requests by model name (e.g., Http/Requests/UserRequests).
+     *
+     * @param array $modelData Model information
+     * @return string Request folder path
+     */
+    private function getRequestFolderPath(array $modelData): string
+    {
+        $modelName = $modelData['modelName'];
+        return 'Http/Requests/' . $modelName . 'Requests';
     }
 
     private function getRequestData(array $modelData, string $requestType): array

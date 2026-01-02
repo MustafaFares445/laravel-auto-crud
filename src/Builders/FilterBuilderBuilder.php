@@ -26,7 +26,7 @@ class FilterBuilderBuilder extends BaseBuilder
     {
         return $this->fileService->createFromStub($modelData, 'filter_builder', 'FilterBuilders', 'FilterBuilder', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
-            $requestClass = 'App\\Http\\Requests\\' . $modelData['modelName'] . 'FilterRequest';
+            $requestClass = 'App\\Http\\Requests\\' . $modelData['modelName'] . 'Requests\\' . $modelData['modelName'] . 'FilterRequest';
 
             $hasScoutSearch = $this->modelHasScoutSearch($model);
             $textSearchMethod = $this->generateTextSearchMethod($modelData, $model, $hasScoutSearch);

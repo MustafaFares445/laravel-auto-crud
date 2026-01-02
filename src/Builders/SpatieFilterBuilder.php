@@ -33,7 +33,8 @@ class SpatieFilterBuilder extends BaseBuilder
 
     public function createFilterRequest(array $modelData, bool $overwrite = false): string
     {
-        return $this->fileService->createFromStub($modelData, 'spatie_filter_request', 'Http/Requests', 'FilterRequest', $overwrite, function ($modelData) {
+        $requestPath = 'Http/Requests/' . $modelData['modelName'] . 'Requests';
+        return $this->fileService->createFromStub($modelData, 'spatie_filter_request', $requestPath, 'FilterRequest', $overwrite, function ($modelData) {
             $columns = $this->getAvailableColumns($modelData);
             $rules = [];
             $sortableColumns = [];

@@ -19,7 +19,7 @@ class {{ class }} extends Controller
     /**
      * Get a paginated list of {{ modelPlural }}.
      *
-     * @return {{ resource }}
+     * @return {{ AnonymousResourceCollection<resource> }}
      */
     public function index(): AnonymousResourceCollection
     {
