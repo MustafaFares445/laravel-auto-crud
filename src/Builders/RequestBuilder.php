@@ -87,7 +87,7 @@ class RequestBuilder extends BaseBuilder
         return $this->fileService->createFromStub($modelData, 'store_request', $requestPath, 'StoreRequest', $overwrite, function ($modelData) {
             $data = $this->getRequestData($modelData, 'store');
             return [
-                '{{ data }}' => HelperService::formatArrayToPhpSyntax($data['rules']),
+                '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
         });
@@ -108,7 +108,7 @@ class RequestBuilder extends BaseBuilder
         return $this->fileService->createFromStub($modelData, 'update_request', $requestPath, 'UpdateRequest', $overwrite, function ($modelData) {
             $data = $this->getRequestData($modelData, 'update');
             return [
-                '{{ data }}' => HelperService::formatArrayToPhpSyntax($data['rules']),
+                '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
         });
@@ -138,7 +138,7 @@ class RequestBuilder extends BaseBuilder
             }
 
             return [
-                '{{ data }}' => HelperService::formatArrayToPhpSyntax($data['rules']),
+                '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
         });
@@ -159,10 +159,49 @@ class RequestBuilder extends BaseBuilder
             }
 
             return [
-                '{{ data }}' => HelperService::formatArrayToPhpSyntax($data['rules']),
+                '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
         });
+    }
+    
+    /**
+     * Format validation rules as string (one line per field).
+     * 
+     * @param array $rules Validation rules array (can contain strings or arrays for Rule:: calls)
+     * @return string Formatted PHP array with string rules
+     */
+    private function formatRulesAsString(array $rules): string
+    {
+        $indent = str_repeat(' ', 12);
+        $formatted = "[\n";
+        
+        foreach ($rules as $field => $rule) {
+            $escapedField = addslashes($field);
+            
+            // Check if rule is an array (contains Rule:: calls)
+            if (is_array($rule)) {
+                // Array format: ['string|rules', Rule::call()]
+                $ruleParts = [];
+                foreach ($rule as $part) {
+                    if (str_contains($part, 'Rule::')) {
+                        $ruleParts[] = $part;
+                    } else {
+                        $escapedPart = addslashes($part);
+                        $ruleParts[] = "'{$escapedPart}'";
+                    }
+                }
+                $ruleArray = '[' . implode(', ', $ruleParts) . ']';
+                $formatted .= "{$indent}'{$escapedField}' => {$ruleArray},\n";
+            } else {
+                // Simple string rule
+                $escapedRule = addslashes($rule);
+                $formatted .= "{$indent}'{$escapedField}' => '{$escapedRule}',\n";
+            }
+        }
+        
+        $formatted .= str_repeat(' ', 8) . ']';
+        return $formatted;
     }
     
     /**
@@ -183,6 +222,12 @@ class RequestBuilder extends BaseBuilder
         $columns = $this->getAvailableColumns($modelData);
         $model = $this->getFullModelNamespace($modelData);
         $modelVariable = lcfirst($modelData['modelName']);
+
+        // Get hidden properties and filter them out
+        $hiddenProperties = $this->getHiddenProperties($model);
+        $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+            return !in_array($column['name'], $hiddenProperties, true);
+        });
 
         $validationRules = [];
         $useStatements = [];
@@ -220,11 +265,39 @@ class RequestBuilder extends BaseBuilder
                 $rules = $this->buildColumnRules($column, $modelData, $isNullable, $requestType, $modelVariable, $useStatements, $needsRule);
             }
 
+            // Separate string rules from Rule:: calls
+            $stringRules = [];
+            $ruleCalls = [];
+            
+            foreach ($rules as $rule) {
+                if (str_contains($rule, 'Rule::')) {
+                    $ruleCalls[] = $rule;
+                } else {
+                    $stringRules[] = $rule;
+                }
+            }
+            
+            // Convert string rules to one line format
+            $rulesString = implode('|', $stringRules);
+            
+            // For store requests, add 'required' for non-nullable fields
+            if ($requestType === 'store' && !$isNullable && !empty($rulesString)) {
+                $rulesString = 'required|' . $rulesString;
+            }
+            
             // For update requests, add 'sometimes' at the beginning (only validate if present)
-            if ($requestType === 'update' && !empty($rules)) {
-                $validationRules[$camelCaseName] = ['sometimes', ...$rules];
+            if ($requestType === 'update' && !empty($rulesString)) {
+                $rulesString = 'sometimes|' . $rulesString;
+            }
+            
+            // Combine string rules and Rule calls
+            if (!empty($ruleCalls)) {
+                // If we have Rule calls, use array format: ['string|rules', Rule::call()]
+                $combinedRules = !empty($rulesString) ? [$rulesString, ...$ruleCalls] : $ruleCalls;
+                $validationRules[$camelCaseName] = $combinedRules;
             } else {
-                $validationRules[$camelCaseName] = $rules;
+                // Only string rules, use simple string format
+                $validationRules[$camelCaseName] = $rulesString;
             }
         }
 

@@ -9,13 +9,14 @@ use {{ resourceNamespace }};
 use {{ modelNamespace }};
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;W
 
 class {{ class }} extends Controller
 {
     /**
      * Get a paginated list of {{ modelPlural }}.
      *
-     * @return {{ resource }}
+     * @return {{ AnonymousResourceCollection<resource> }}
      */
     public function index(): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
     {

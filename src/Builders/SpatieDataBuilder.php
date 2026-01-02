@@ -189,6 +189,15 @@ class SpatieDataBuilder extends BaseBuilder
     private function getHelperData(array $modelData, $overwrite = false, ?string $modelClass = null): array
     {
         $columns = $this->getAvailableColumns($modelData);
+        
+        // Get hidden properties and filter them out
+        if ($modelClass) {
+            $hiddenProperties = $this->getHiddenProperties($modelClass);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+        }
+        
         $properties = [];
         $validationNamespaces = [];
         $validationNamespace = 'use Spatie\LaravelData\Attributes\Validation\{{ validationNamespace }};';

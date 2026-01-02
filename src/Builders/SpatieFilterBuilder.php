@@ -36,6 +36,14 @@ class SpatieFilterBuilder extends BaseBuilder
         $requestPath = 'Http/Requests/' . $modelData['modelName'] . 'Requests';
         return $this->fileService->createFromStub($modelData, 'spatie_filter_request', $requestPath, 'FilterRequest', $overwrite, function ($modelData) {
             $columns = $this->getAvailableColumns($modelData);
+            
+            // Get hidden properties and filter them out
+            $model = $this->getFullModelNamespace($modelData);
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+            
             $rules = [];
             $sortableColumns = [];
             $searchableColumns = [];

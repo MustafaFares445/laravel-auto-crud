@@ -41,6 +41,12 @@ class FactoryBuilder extends BaseBuilder
         $tableName = $modelInstance->getTable();
         $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
         
+        // Get hidden properties and filter them out
+        $hiddenProperties = $this->getHiddenProperties($model);
+        $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+            return !in_array($column['name'], $hiddenProperties, true);
+        });
+        
         // Detect relationships to identify foreign keys
         $relationships = \Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector::detectRelationships($model);
         $foreignKeys = $this->extractForeignKeys($relationships);
