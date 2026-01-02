@@ -284,7 +284,7 @@ class RolesAndPermissionsSeeder extends Seeder
 ```
 
 ### 5. Standardized Response Messages with Translation Support
-With `--response-messages`, the package generates a `ResponseMessages` enum that provides consistent API response messages. The enum includes full translation support:
+With `--response-messages`, the package uses the built-in `ResponseMessages` enum from the package (`Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages`) that provides consistent API response messages. The enum includes full translation support:
 
 - **Multi-language support**: Messages are automatically translated based on your application's locale
 - **Translation priority**: 
@@ -293,6 +293,7 @@ With `--response-messages`, the package generates a `ResponseMessages` enum that
   3. Enum default value
 - **Customizable**: Publish translation files to customize messages for your application
 - **Built-in languages**: Includes English and Arabic translations out of the box
+- **No file generation**: The enum is provided by the package, no need to generate it in your project
 
 **Publishing translations:**
 ```bash
@@ -313,7 +314,7 @@ The `--pest` option generates comprehensive Pest feature tests:
 - **Authorization**: Automatic policy testing when policies are present
 
 ### 7. Smart Factory Generation
-The `--factory` option generates model factories by intelligently mapping database column types to appropriate Faker methods.
+The `--factory` option generates model factories by intelligently mapping database column types to appropriate Faker methods. Hidden properties from the model's `$hidden` array are automatically excluded from factory definitions.
 
 ### 8. Translatable Support
 Full support for Spatie Translatable models:
@@ -331,13 +332,60 @@ All terminal selection prompts are now searchable, making it much easier to sele
 During interactive mode, you can select a custom folder path for generated controllers. This allows you to organize controllers in custom directories like `Http/Controllers/API/V1` or `Http/Controllers/Admin`.
 
 ### 12. Relationship Syncing
-When using Spatie Data pattern, the package automatically generates `syncRelationships()` method in Data classes for `belongsToMany` relationships. This method uses the `syncIfSet()` helper from `HasModelAttributes` trait to conditionally sync relationships only when IDs are provided.
+When using Spatie Data pattern, the package automatically generates `syncRelationships()` method in Data classes for `belongsToMany` relationships. This method uses the `syncIfSet()` helper from `HasModelAttributes` trait to conditionally sync relationships only when IDs are provided. The `syncRelationships()` call is only added to service classes when `belongsToMany` relationships exist.
+
+### 13. Hidden Properties Support
+The package automatically detects and excludes hidden properties (defined in the model's `$hidden` array) from all generated files:
+- **API Resources**: Hidden fields are not included in resource responses
+- **Form Requests**: Hidden fields don't have validation rules
+- **Factories**: Hidden fields are excluded from factory definitions
+- **Spatie Data Classes**: Hidden fields are not included as properties
+- **Pest Tests**: Hidden fields are excluded from test payloads and assertions
+- **Filter Requests**: Hidden fields are not included in filter rules
+
+**Example:**
+```php
+// Model
+class User extends Model
+{
+    protected $hidden = ['password', 'remember_token', 'api_token'];
+}
+```
+
+All generated files will automatically exclude these fields.
+
+### 14. Organized Request Structure
+Form requests are now organized in model-specific folders for better organization:
+- **Store Request**: `app/Http/Requests/UserRequests/UserStoreRequest.php`
+- **Update Request**: `app/Http/Requests/UserRequests/UserUpdateRequest.php`
+- **Filter Request**: `app/Http/Requests/UserRequests/UserFilterRequest.php` (when using filters)
+
+This keeps all requests for a model together in one folder.
+
+### 15. One-Line Validation Rules
+Validation rules in form requests are now formatted as one-line strings for better readability:
+```php
+// Before (array format)
+'name' => [
+    '0' => 'string',
+    '1' => 'max:255',
+],
+
+// After (one-line format)
+'name' => 'required|string|max:255',  // Store request
+'name' => 'sometimes|string|max:255',  // Update request
+```
+
+The package automatically:
+- Adds `required` rule for non-nullable fields in store requests
+- Adds `sometimes` rule for all fields in update requests
+- Handles `Rule::unique()` and `Rule::enum()` calls properly
 
 ## Generated Files
 
 ### Standard CRUD Files
 1. **Controller** (`app/Http/Controllers/API/ModelNameController.php`)
-2. **Form Request** (`app/Http/Requests/ModelNameRequest.php`)
+2. **Form Requests** (`app/Http/Requests/ModelNameRequests/ModelNameStoreRequest.php`, `ModelNameUpdateRequest.php`)
 3. **API Resource** (`app/Http/Resources/ModelNameResource.php`)
 4. **Routes** (`routes/api.php` or `routes/web.php`)
 5. **Service** (`app/Services/ModelNameService.php`)
@@ -346,12 +394,12 @@ When using Spatie Data pattern, the package automatically generates `syncRelatio
 
 ### Spatie Data Pattern Files
 8. **Data Class** (`app/Data/ModelNameData.php`)
-9. **Filter Request** (`app/Http/Requests/ModelNameFilterRequest.php`)
+9. **Filter Request** (`app/Http/Requests/ModelNameRequests/ModelNameFilterRequest.php`)
 10. **Filter Builder** (`app/FilterBuilders/ModelNameFilterBuilder.php`)
 
 ### Response Messages
-11. **ResponseMessages Enum** (`app/Enums/ResponseMessages.php`) - Includes translation support
-12. **Translation Files** (`lang/vendor/laravel-auto-crud/{locale}/response_messages.php`) - Published via `auto-crud:publish-translations`
+11. **Translation Files** (`lang/vendor/laravel-auto-crud/{locale}/response_messages.php`) - Published via `auto-crud:publish-translations`
+   - Note: The `ResponseMessages` enum is provided by the package and doesn't need to be generated
 
 ### Test Files
 13. **Feature Test** (`tests/Feature/ModelName/EndpointsTest.php`) - Full CRUD operations
@@ -360,6 +408,8 @@ When using Spatie Data pattern, the package automatically generates `syncRelatio
 ### Permission Files
 15. **Permission Seeder** (`database/seeders/Permissions/ModelNamePermissionsSeeder.php`) - Generates permissions for the model
 16. **PermissionGroup Enum** (`app/Enums/PermissionGroup.php`) - Single enum with all permission groups (auto-updated)
+
+**Note**: Permission seeders are generated in `database/seeders/Permissions/` (lowercase path) with the correct namespace `Database\Seeders\Permissions`.
 
 ## Helper Files
 
