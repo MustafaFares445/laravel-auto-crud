@@ -212,10 +212,26 @@ class GenerateAutoCrudCommand extends Command
             'pest' => '🧪 Pest Tests - Generate Pest test files (Feature and Unit)',
             'factory' => '🏭 Factory - Generate Model Factory',
             'permissions-seeder' => '🔑 Permissions Seeder - Generate permission seeder and update PermissionGroup enum',
+            'events' => '⚡ Events - Generate event classes for model events',
+            'observer' => '👁️  Observer - Generate observer classes for model events',
+            'bulk' => '📦 Bulk Operations - Generate bulk create, update, delete methods',
+            'export-import' => '📊 Export/Import - Generate Excel export/import classes',
+            'activity-log' => '📝 Activity Log - Generate activity logging integration (requires spatie/laravel-activitylog)',
+            'cache' => '💾 Caching - Add cache layer to controller methods',
+            'jobs' => '⏳ Queue Jobs - Generate queue/job classes for async operations',
+            'scramble' => '📚 Scramble - Add Scramble OpenAPI documentation attributes (requires dedoc/scramble)',
+            'scout' => '🔎 Scout Search - Generate Scout search endpoints (requires laravel/scout)',
+            'pulse' => '📈 Pulse Monitoring - Add Pulse monitoring endpoints (requires laravel/pulse)',
         ];
 
         if ($pattern === 'spatie-data') {
             $featureOptions['filter'] = '🔍 Filters - Add Spatie Query Builder filter support';
+        }
+
+        // Add API-specific features if API controller is selected
+        if (in_array('api', $controllerTypes)) {
+            $featureOptions['sanctum'] = '🔐 Sanctum Auth - Add Sanctum authentication middleware to API routes';
+            $featureOptions['api-version'] = '🏷️  API Versioning - Add API version prefix (e.g., v1, v2) for route paths';
         }
 
         [$featurePromptOptions, $featureLookup] = $this->indexedOptions(
@@ -290,12 +306,35 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('pest', in_array('pest', $selectedFeatures));
         $this->input->setOption('factory', in_array('factory', $selectedFeatures));
         $this->input->setOption('permissions-seeder', in_array('permissions-seeder', $selectedFeatures));
+        $this->input->setOption('events', in_array('events', $selectedFeatures));
+        $this->input->setOption('observer', in_array('observer', $selectedFeatures));
+        $this->input->setOption('bulk', in_array('bulk', $selectedFeatures));
+        $this->input->setOption('export-import', in_array('export-import', $selectedFeatures));
+        $this->input->setOption('activity-log', in_array('activity-log', $selectedFeatures));
+        $this->input->setOption('cache', in_array('cache', $selectedFeatures));
+        $this->input->setOption('jobs', in_array('jobs', $selectedFeatures));
+        $this->input->setOption('scramble', in_array('scramble', $selectedFeatures));
+        $this->input->setOption('scout', in_array('scout', $selectedFeatures));
+        $this->input->setOption('pulse', in_array('pulse', $selectedFeatures));
+        $this->input->setOption('sanctum', in_array('sanctum', $selectedFeatures));
         $this->input->setOption('curl', in_array('curl', $selectedDocs));
         $this->input->setOption('postman', in_array('postman', $selectedDocs));
         $this->input->setOption('swagger-api', in_array('swagger-api', $selectedDocs));
         $this->input->setOption('overwrite', $overwrite);
         if ($controllerFolder) {
             $this->input->setOption('controller-folder', $controllerFolder);
+        }
+        
+        // Handle API version if selected
+        if (in_array('api-version', $selectedFeatures)) {
+            $apiVersion = text(
+                label: 'Enter API version prefix',
+                placeholder: 'e.g., v1, v2, v3',
+                default: 'v1',
+                required: true,
+                validate: fn ($value) => empty(trim($value)) ? 'API version cannot be empty' : null
+            );
+            $this->input->setOption('api-version', trim($apiVersion));
         }
 
         // Generate
