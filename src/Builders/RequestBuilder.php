@@ -235,6 +235,17 @@ class RequestBuilder extends BaseBuilder
 
         // Add relationship validation rules
         $relationships = RelationshipDetector::detectRelationships($model);
+        
+        // Skip media relationships if model uses Spatie Media Library
+        $usesMediaLibrary = $this->usesMediaLibrary($model);
+        if ($usesMediaLibrary) {
+            $relationships = array_filter($relationships, function($rel) {
+                return !isset($rel['type']) || 
+                       ($rel['type'] !== 'morphMany' && $rel['type'] !== 'morphOne') ||
+                       (!isset($rel['related']) || !str_contains($rel['related'], 'Media'));
+            });
+        }
+        
         $relationshipRules = RelationshipDetector::getRelationshipValidationRules($relationships);
 
         foreach ($relationshipRules as $field => $rules) {
@@ -597,5 +608,35 @@ class RequestBuilder extends BaseBuilder
     {
         $parts = explode('\\', $fullClassName);
         return end($parts);
+    }
+
+    /**
+     * Check if a model uses Spatie Media Library traits.
+     *
+     * @param string $modelClass
+     * @return bool
+     */
+    private function usesMediaLibrary(string $modelClass): bool
+    {
+        if (!class_exists($modelClass)) {
+            return false;
+        }
+
+        try {
+            $reflection = new \ReflectionClass($modelClass);
+            $traits = $reflection->getTraitNames();
+
+            foreach ($traits as $trait) {
+                if (str_contains($trait, 'InteractsWithMedia') ||
+                    str_contains($trait, 'HasMediaConversions') ||
+                    str_contains($trait, 'HasMedia')) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }

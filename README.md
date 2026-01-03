@@ -80,6 +80,42 @@ return [
     // Default controller folders
     'default_api_controller_folder' => 'Http/Controllers/API',
     'default_web_controller_folder' => 'Http/Controllers',
+
+    // Error messages for API responses
+    'error_messages' => [
+        'generic' => 'An error occurred while processing your request.',
+        'store' => 'An error occurred while creating the resource.',
+        'update' => 'An error occurred while updating the resource.',
+        'delete' => 'An error occurred while deleting the resource.',
+    ],
+
+    // Authentication settings
+    'authentication' => [
+        'middleware' => 'auth:sanctum', // Default middleware for API routes
+    ],
+
+    // Cache configuration
+    'cache' => [
+        'ttl' => 3600, // Time to live in seconds (1 hour)
+        'prefix' => 'laravel_auto_crud',
+        'use_tags' => true, // Use cache tags (requires Redis or Memcached)
+    ],
+
+    // Presets for saving common configurations
+    'presets' => [
+        // 'api-full' => [
+        //     'type' => ['api'],
+        //     'service' => true,
+        //     'filter' => true,
+        //     'response-messages' => true,
+        //     'policy' => true,
+        //     'pest' => true,
+        //     'factory' => true,
+        //     'permissions-seeder' => true,
+        //     'pattern' => 'spatie-data',
+        //     'sanctum' => true,
+        // ],
+    ],
 ];
 ```
 
@@ -145,6 +181,19 @@ php artisan auto-crud:generate
     {--PM|postman : Generate Postman collection JSON file}
     {--SA|swagger-api : Generate Swagger/OpenAPI specification}
     {--PT|pest : Generate Pest test files (Feature)}
+    {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}
+    {--sanctum : Add Sanctum authentication middleware to API routes}
+    {--AV|api-version= : API version prefix (e.g., v1, v2) for route paths}
+    {--events : Generate event classes for model events}
+    {--observer : Generate observer classes for model events}
+    {--bulk : Generate bulk operations (create, update, delete) methods}
+    {--export-import : Generate Excel export/import classes}
+    {--activity-log : Generate activity logging integration (requires spatie/laravel-activitylog)}
+    {--cache : Add cache layer to controller methods}
+    {--jobs : Generate queue/job classes for async operations}
+    {--scramble : Add Scramble OpenAPI documentation attributes (requires dedoc/scramble)}
+    {--scout : Generate Scout search endpoints (requires laravel/scout)}
+    {--pulse : Add Pulse monitoring endpoints (requires laravel/pulse)}
 ```
 
 ### `auto-crud:generate-tests`
@@ -362,16 +411,9 @@ Form requests are now organized in model-specific folders for better organizatio
 
 This keeps all requests for a model together in one folder.
 
-### 15. One-Line Validation Rules
+### 15. Validation Rules
 Validation rules in form requests are now formatted as one-line strings for better readability:
 ```php
-// Before (array format)
-'name' => [
-    '0' => 'string',
-    '1' => 'max:255',
-],
-
-// After (one-line format)
 'name' => 'required|string|max:255',  // Store request
 'name' => 'sometimes|string|max:255',  // Update request
 ```
@@ -380,6 +422,178 @@ The package automatically:
 - Adds `required` rule for non-nullable fields in store requests
 - Adds `sometimes` rule for all fields in update requests
 - Handles `Rule::unique()` and `Rule::enum()` calls properly
+
+### 16. Sanctum Authentication Integration
+With `--sanctum`, the package automatically adds Sanctum authentication middleware to API routes. This ensures all generated API endpoints are protected by authentication.
+
+**Usage:**0
+```bash
+php artisan auto-crud:generate --model=User --type=api --sanctum
+```
+
+Generated routes will be wrapped with `auth:sanctum` middleware:
+```php
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('/users', UserController::class);
+});
+```
+
+### 17. Soft Delete Support
+The package automatically detects if a model uses the `SoftDeletes` trait and generates appropriate routes and controller methods:
+- `restore` method for restoring soft-deleted records
+- `forceDelete` method for permanently deleting records
+- Additional routes: `POST /{model}/restore` and `DELETE /{model}/force`
+
+**Usage:**
+No flags needed - automatic detection based on model traits.
+
+### 18. API Versioning
+With `--api-version`, you can prefix API routes with a version string (e.g., `v1`, `v2`).
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --type=api --api-version=v1
+```
+
+Generated routes:
+```php
+Route::apiResource('/v1/users', UserController::class);
+```
+
+### 19. Events and Observers
+Generate event and observer classes for model lifecycle events with `--events` and `--observer` flags.
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --events --observer
+```
+
+This generates:
+- Event class in `App/Events/UserEvents.php`
+- Observer class in `App/Observers/UserObserver.php`
+
+### 20. Bulk Operations
+With `--bulk`, the package generates bulk operation methods for controllers:
+- `bulkCreate()` - Create multiple records at once
+- `bulkUpdate()` - Update multiple records at once
+- `bulkDelete()` - Delete multiple records at once
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --type=api --bulk
+```
+
+### 21. Export/Import Functionality
+Generate Excel export and import classes with `--export-import` (requires `maatwebsite/excel`).
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --export-import
+```
+
+This generates:
+- Export class in `App/Exports/UserExport.php`
+- Import class in `App/Imports/UserImport.php`
+
+### 22. Activity Logging
+Generate activity logging integration with `--activity-log` (requires `spatie/laravel-activitylog`).
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --activity-log
+```
+
+This generates:
+- Activity log service methods
+- Activity log endpoint in controller
+- Proper trait injection in models
+
+### 23. Cache Layer
+Add caching to controller methods with `--cache` flag. Configure cache TTL and tags in config.
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --type=api --cache
+```
+
+Cache configuration in `config/laravel_auto_crud.php`:
+```php
+'cache' => [
+    'ttl' => 3600, // 1 hour
+    'use_tags' => true, // Requires Redis/Memcached
+],
+```
+
+### 24. Queue Jobs
+Generate queue job classes for async operations with `--jobs` flag.
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --jobs
+```
+
+This generates job classes in `App/Jobs/` for create, update, and delete operations.
+
+### 25. Scramble OpenAPI Documentation
+Add Scramble annotations for automatic OpenAPI documentation with `--scramble` (requires `dedoc/scramble`).
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --type=api --scramble
+```
+
+This adds OpenAPI operation attributes and response annotations to controller methods.
+
+### 26. Scout Search Integration
+Generate Scout search endpoints with `--scout` (requires `laravel/scout`). Supports both standard Scout and Typesense.
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --type=api --scout
+```
+
+This generates:
+- Search endpoint: `GET /{model}/search`
+- Typesense-specific features (filters, sorting, pagination) when Typesense is installed
+
+### 27. Pulse Monitoring
+Add Laravel Pulse monitoring endpoints with `--pulse` (requires `laravel/pulse`).
+
+**Usage:**
+```bash
+php artisan auto-crud:generate --model=User --type=api --pulse
+```
+
+This generates:
+- Metrics endpoint: `GET /{model}/metrics`
+- Automatic operation recording in controller methods
+
+### 28. Configuration Presets
+Save and reuse common generation configurations using presets in `config/laravel_auto_crud.php`.
+
+**Example preset:**
+```php
+'presets' => [
+    'api-full' => [
+        'type' => ['api'],
+        'service' => true,
+        'filter' => true,
+        'response-messages' => true,
+        'policy' => true,
+        'pest' => true,
+        'factory' => true,
+        'permissions-seeder' => true,
+        'pattern' => 'spatie-data',
+        'sanctum' => true,
+    ],
+],
+```
+
+### 29. Generation Report Service
+After generation, the package provides a summary report showing:
+- All generated files with status
+- Skipped models (if any)
+- Next steps and recommendations
 
 ## Generated Files
 
@@ -408,6 +622,13 @@ The package automatically:
 ### Permission Files
 15. **Permission Seeder** (`database/seeders/Permissions/ModelNamePermissionsSeeder.php`) - Generates permissions for the model
 16. **PermissionGroup Enum** (`app/Enums/PermissionGroup.php`) - Single enum with all permission groups (auto-updated)
+
+### Additional Feature Files
+17. **Event Classes** (`app/Events/ModelNameEvents.php`) - Generated with `--events` flag
+18. **Observer Classes** (`app/Observers/ModelNameObserver.php`) - Generated with `--observer` flag
+19. **Export Classes** (`app/Exports/ModelNameExport.php`) - Generated with `--export-import` flag
+20. **Import Classes** (`app/Imports/ModelNameImport.php`) - Generated with `--export-import` flag
+21. **Job Classes** (`app/Jobs/ModelNameCreateJob.php`, etc.) - Generated with `--jobs` flag
 
 **Note**: Permission seeders are generated in `database/seeders/Permissions/` (lowercase path) with the correct namespace `Database\Seeders\Permissions`.
 
@@ -572,6 +793,61 @@ This generates:
 - Policy class with permission-based authorization
 - Permission seeder in `Database/Seeders/Permissions/WorkerPermissionsSeeder.php`
 - Updates `app/Enums/PermissionGroup.php` with `WORKERS` case
+
+### Example 4: Generate with Sanctum and API Versioning
+```bash
+php artisan auto-crud:generate \
+  --model=User \
+  --type=api \
+  --sanctum \
+  --api-version=v1 \
+  --service \
+  --response-messages
+```
+
+This generates:
+- API controller with Sanctum authentication middleware
+- Versioned routes: `/api/v1/users`
+- Service layer with business logic
+- Standardized response messages
+
+### Example 5: Generate with Advanced Features
+```bash
+php artisan auto-crud:generate \
+  --model=Product \
+  --type=api \
+  --pattern=spatie-data \
+  --service \
+  --filter \
+  --bulk \
+  --export-import \
+  --cache \
+  --scout \
+  --pulse \
+  --sanctum
+```
+
+This generates a fully-featured API with:
+- Spatie Data pattern for type safety
+- Filter support with Spatie Query Builder
+- Bulk operations
+- Excel export/import
+- Cache layer
+- Scout search integration
+- Pulse monitoring
+- Sanctum authentication
+
+### Example 6: Generate with Events and Observers
+```bash
+php artisan auto-crud:generate \
+  --model=Order \
+  --events \
+  --observer
+```
+
+This generates:
+- Event class with lifecycle event handlers
+- Observer class with model event observers
 
 ## License
 

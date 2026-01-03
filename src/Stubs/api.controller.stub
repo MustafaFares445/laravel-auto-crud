@@ -9,7 +9,7 @@ use {{ resourceNamespace }};
 use {{ modelNamespace }};
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;W
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class {{ class }} extends Controller
 {
@@ -36,7 +36,9 @@ class {{ class }} extends Controller
             return new {{ resource }}(${{ modelVariable }});
         } catch (\Exception $exception) {
             report($exception);
-            return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json([
+                'message' => config('laravel_auto_crud.error_messages.store', 'An error occurred while creating the resource.'),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -66,7 +68,9 @@ class {{ class }} extends Controller
             return new {{ resource }}(${{ modelVariable }});
         } catch (\Exception $exception) {
             report($exception);
-            return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json([
+                'message' => config('laravel_auto_crud.error_messages.update', 'An error occurred while updating the resource.'),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -83,7 +87,9 @@ class {{ class }} extends Controller
             return response()->json(['message' => 'Deleted successfully'], Response::HTTP_OK);
         } catch (\Exception $exception) {
             report($exception);
-            return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json([
+                'message' => config('laravel_auto_crud.error_messages.delete', 'An error occurred while deleting the resource.'),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-    }
+    }{{ softDeleteMethods }}
 }

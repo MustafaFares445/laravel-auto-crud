@@ -74,7 +74,7 @@ class {{ class }}
         } catch (Exception $e) {
             DB::rollBack();
             report($e);
-            throw new InvalidArgumentException('Unable to update post data');
+            throw new InvalidArgumentException(config('laravel_auto_crud.error_messages.update', 'An error occurred while updating the resource.'));
         }
     }
 
@@ -94,7 +94,7 @@ class {{ class }}
         } catch (Exception $e) {
             DB::rollBack();
             report($e);
-            throw new InvalidArgumentException('Unable to delete post data');
+            throw new InvalidArgumentException(config('laravel_auto_crud.error_messages.delete', 'An error occurred while deleting the resource.'));
         }
     }
 

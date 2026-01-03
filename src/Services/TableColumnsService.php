@@ -18,12 +18,16 @@ class TableColumnsService
 
         $output = [];
 
+        // Check if model uses Spatie Media Library
+        $usesMediaLibrary = $this->usesMediaLibrary($modelClass);
+        $mediaExcludeColumns = $usesMediaLibrary ? ['model_id', 'model_type'] : [];
+
         foreach ($columns as $column) {
             $columnDetails = $this->getColumnDetails($driver, $table, $column, $modelClass);
 
             if (count($columnDetails)) {
-                // Exclude primary keys and timestamps
-                if ($columnDetails['isPrimaryKey'] || in_array($column, $excludeColumns)) {
+                // Exclude primary keys, timestamps, and media library columns
+                if ($columnDetails['isPrimaryKey'] || in_array($column, $excludeColumns) || in_array($column, $mediaExcludeColumns)) {
                     continue;
                 }
 
@@ -33,6 +37,36 @@ class TableColumnsService
         }
 
         return $output;
+    }
+
+    /**
+     * Check if a model uses Spatie Media Library traits.
+     *
+     * @param string|null $modelClass
+     * @return bool
+     */
+    private function usesMediaLibrary(?string $modelClass): bool
+    {
+        if (!$modelClass || !class_exists($modelClass)) {
+            return false;
+        }
+
+        try {
+            $reflection = new \ReflectionClass($modelClass);
+            $traits = $reflection->getTraitNames();
+
+            foreach ($traits as $trait) {
+                if (str_contains($trait, 'InteractsWithMedia') ||
+                    str_contains($trait, 'HasMediaConversions') ||
+                    str_contains($trait, 'HasMedia')) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function isTranslatable(string $column, ?string $modelClass): bool

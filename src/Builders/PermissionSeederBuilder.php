@@ -69,7 +69,10 @@ class PermissionSeederBuilder extends BaseBuilder
         $stubPath = file_exists($projectStubPath) ? $projectStubPath : $packageStubPath;
         
         if (!file_exists($stubPath)) {
-            throw new \RuntimeException("Stub file not found: {$stubType}.stub. Checked: {$projectStubPath} and {$packageStubPath}");
+            throw new \Mrmarchone\LaravelAutoCrud\Exceptions\StubNotFoundException(
+                $stubType,
+                [$projectStubPath, $packageStubPath]
+            );
         }
         
         return $stubPath;
@@ -79,7 +82,10 @@ class PermissionSeederBuilder extends BaseBuilder
     {
         $stubContent = file_get_contents($stubPath);
         if ($stubContent === false) {
-            throw new \RuntimeException("Cannot read stub file: {$stubPath}");
+            throw new \Mrmarchone\LaravelAutoCrud\Exceptions\StubNotFoundException(
+                basename($stubPath, '.stub'),
+                [$stubPath]
+            );
         }
         
         $groupName = Str::plural(Str::snake($modelName));

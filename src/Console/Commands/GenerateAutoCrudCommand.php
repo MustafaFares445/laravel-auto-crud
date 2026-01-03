@@ -41,7 +41,19 @@ class GenerateAutoCrudCommand extends Command
     {--PT|pest : Generate Pest test files (Feature and Unit)}
     {--FC|factory : Generate Model Factory}
     {--PS|permissions-seeder : Generate permission seeder and update PermissionGroup enum}
-    {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}';
+    {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}
+    {--sanctum : Add Sanctum authentication middleware to API routes}
+    {--AV|api-version= : API version prefix (e.g., v1, v2) for route paths}
+    {--events : Generate event classes for model events}
+    {--observer : Generate observer classes for model events}
+    {--bulk : Generate bulk operations (create, update, delete) methods}
+    {--export-import : Generate Excel export/import classes}
+    {--activity-log : Generate activity logging integration (requires spatie/laravel-activitylog)}
+    {--cache : Add cache layer to controller methods}
+    {--jobs : Generate queue/job classes for async operations}
+    {--scramble : Add Scramble OpenAPI documentation attributes (requires dedoc/scramble)}
+    {--scout : Generate Scout search endpoints (requires laravel/scout)}
+    {--pulse : Add Pulse monitoring endpoints (requires laravel/pulse)}';
 
     protected $description = 'Generate complete CRUD scaffolding (Controller, Request, Resource, Routes, Service) for Eloquent models';
 
@@ -432,6 +444,18 @@ class GenerateAutoCrudCommand extends Command
             || $this->option('curl')
             || $this->option('postman')
             || $this->option('swagger-api')
+            || $this->option('sanctum')
+            || $this->option('api-version')
+            || $this->option('events')
+            || $this->option('observer')
+            || $this->option('bulk')
+            || $this->option('export-import')
+            || $this->option('activity-log')
+            || $this->option('cache')
+            || $this->option('jobs')
+            || $this->option('scramble')
+            || $this->option('scout')
+            || $this->option('pulse')
             || $this->option('pattern') !== 'normal';
     }
 
@@ -457,6 +481,12 @@ class GenerateAutoCrudCommand extends Command
 
         if ($this->option('filter') && $this->option('pattern') !== 'spatie-data') {
             alert('❌ Filter option requires --pattern=spatie-data');
+
+            return false;
+        }
+
+        if ($this->option('sanctum') && ! class_exists(\Laravel\Sanctum\SanctumServiceProvider::class) && ! class_exists(\Laravel\Sanctum\HasApiTokens::class)) {
+            alert('❌ Laravel Sanctum is not installed. Install it with: composer require laravel/sanctum');
 
             return false;
         }

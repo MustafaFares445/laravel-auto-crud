@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use Illuminate\Support\Facades\File;
+use Mrmarchone\LaravelAutoCrud\Exceptions\GenerationException;
+use Mrmarchone\LaravelAutoCrud\Exceptions\StubNotFoundException;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
@@ -33,7 +37,10 @@ class FileService
         $stubPath = file_exists($projectStubPath) ? $projectStubPath : $packageStubPath;
         
         if (!file_exists($stubPath)) {
-            throw new \RuntimeException("Stub file not found: {$stubType}.stub. Checked: {$projectStubPath} and {$packageStubPath}");
+            throw new StubNotFoundException(
+                $stubType,
+                [$projectStubPath, $packageStubPath]
+            );
         }
         
         $isTest = str_starts_with($basePath, 'tests');
@@ -176,7 +183,10 @@ class FileService
         $stubContent = @file_get_contents($stubPath);
         
         if ($stubContent === false) {
-            throw new \RuntimeException("Cannot read stub file: {$stubPath}");
+            throw new StubNotFoundException(
+                basename($stubPath, '.stub'),
+                [$stubPath]
+            );
         }
         
         $replacements = [

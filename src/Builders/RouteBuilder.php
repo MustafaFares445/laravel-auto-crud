@@ -9,13 +9,13 @@ use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 
 class RouteBuilder
 {
-    public function create(string $modelName, string $controller, array $types): void
+    public function create(string $modelName, string $controller, array $types, bool $withAuth = false, bool $hasSoftDeletes = false, ?string $apiVersion = null): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
             $routesPath = base_path('routes/api.php');
-            $routeCode = "Route::apiResource('/{$modelName}', {$controller}::class);";
+            $routeCode = $this->generateApiRouteCode($modelName, $controller, $withAuth, $hasSoftDeletes, $apiVersion);
             $this->createRoutes($routesPath, $routeCode);
         }
 
@@ -24,6 +24,51 @@ class RouteBuilder
             $routeCode = "Route::resource('/{$modelName}', {$controller}::class);";
             $this->createRoutes($routesPath, $routeCode);
         }
+    }
+
+    /**
+     * Generate API route code with optional authentication middleware.
+     *
+     * @param string $modelName Plural model name (snake_case)
+     * @param string $controller Full controller class name
+     * @param bool $withAuth Whether to wrap routes with auth middleware
+     * @param bool $hasSoftDeletes Whether model uses soft deletes
+     * @param string|null $apiVersion API version prefix (e.g., v1, v2)
+     * @return string Generated route code
+     */
+    private function generateApiRouteCode(string $modelName, string $controller, bool $withAuth, bool $hasSoftDeletes = false, ?string $apiVersion = null): string
+    {
+        $middleware = config('laravel_auto_crud.authentication.middleware', 'auth:sanctum');
+        
+        // Build route path with optional version prefix
+        $routePath = $modelName;
+        if ($apiVersion) {
+            $routePath = $apiVersion . '/' . $routePath;
+        }
+        
+        $resourceRoute = "Route::apiResource('/{$routePath}', {$controller}::class);";
+        
+        if ($hasSoftDeletes) {
+            $softDeleteRoutes = "\n    Route::post('/{$routePath}/{id}/restore', [{$controller}::class, 'restore']);\n    Route::delete('/{$routePath}/{id}/force', [{$controller}::class, 'forceDelete']);";
+            $resourceRoute .= $softDeleteRoutes;
+        }
+        
+        if ($withAuth && $this->isSanctumInstalled()) {
+            return "Route::middleware('{$middleware}')->group(function () {\n    {$resourceRoute}\n});";
+        }
+        
+        return $resourceRoute;
+    }
+
+    /**
+     * Check if Laravel Sanctum is installed.
+     *
+     * @return bool
+     */
+    private function isSanctumInstalled(): bool
+    {
+        return class_exists(\Laravel\Sanctum\SanctumServiceProvider::class) 
+            || class_exists(\Laravel\Sanctum\HasApiTokens::class);
     }
 
     /**

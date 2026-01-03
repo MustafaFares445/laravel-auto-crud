@@ -32,6 +32,9 @@ class RelationshipDetector
             return [];
         }
 
+        // Check if model uses Spatie Media Library - skip media relationships
+        $usesMediaLibrary = self::usesMediaLibrary($modelClass);
+
         $reflection = new ReflectionClass($modelClass);
         $relationships = [];
 
@@ -70,6 +73,18 @@ class RelationshipDetector
                 );
 
                 if ($relationshipData) {
+                    // Skip media relationships if model uses Spatie Media Library
+                    if ($usesMediaLibrary) {
+                        $relatedModel = $relationshipData['related_model'] ?? null;
+                        if ($relatedModel && str_contains($relatedModel, 'Media')) {
+                            continue;
+                        }
+                        // Skip morphMany/morphOne relationships to Media
+                        if (in_array($relationshipType, ['morphMany', 'morphOne'], true) && $relatedModel && str_contains($relatedModel, 'Media')) {
+                            continue;
+                        }
+                    }
+                    
                     $relationships[] = $relationshipData;
                 }
             } catch (\Exception $e) {
@@ -79,6 +94,36 @@ class RelationshipDetector
         }
 
         return $relationships;
+    }
+
+    /**
+     * Check if a model uses Spatie Media Library traits.
+     *
+     * @param string $modelClass
+     * @return bool
+     */
+    private static function usesMediaLibrary(string $modelClass): bool
+    {
+        if (!class_exists($modelClass)) {
+            return false;
+        }
+
+        try {
+            $reflection = new ReflectionClass($modelClass);
+            $traits = $reflection->getTraitNames();
+
+            foreach ($traits as $trait) {
+                if (str_contains($trait, 'InteractsWithMedia') ||
+                    str_contains($trait, 'HasMediaConversions') ||
+                    str_contains($trait, 'HasMedia')) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**

@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ modelNamespace }};
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+
+class {{ class }} implements FromCollection, WithHeadings, WithMapping
+{
+    /**
+     * @return \Illuminate\Support\Collection
+     */
+    public function collection()
+    {
+        return {{ model }}::all();
+    }
+
+    /**
+     * @return array
+     */
+    public function headings(): array
+    {
+        return [
+{{ headers }}
+        ];
+    }
+
+    /**
+     * @param mixed $row
+     * @return array
+     */
+    public function map($row): array
+    {
+        return [
+{{ mappings }}
+        ];
+    }
+}
+

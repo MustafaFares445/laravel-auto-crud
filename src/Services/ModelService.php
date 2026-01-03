@@ -6,7 +6,8 @@ namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
-use InvalidArgumentException;
+use Mrmarchone\LaravelAutoCrud\Exceptions\GenerationException;
+use Mrmarchone\LaravelAutoCrud\Exceptions\ModelNotFoundException;
 
 use function Laravel\Prompts\multiselect;
 
@@ -93,7 +94,7 @@ class ModelService
         $modelName = self::getFullModelNamespace($modelData);
 
         if (!class_exists($modelName)) {
-            throw new InvalidArgumentException("Model class does not exist: {$modelName}");
+            throw new \Mrmarchone\LaravelAutoCrud\Exceptions\ModelNotFoundException($modelName);
         }
 
         try {
@@ -101,12 +102,20 @@ class ModelService
             $model = $modelFactory ? $modelFactory($modelName) : new $modelName;
 
             if (!($model instanceof Model)) {
-                throw new InvalidArgumentException("Class {$modelName} is not an Eloquent model");
+                throw new ModelNotFoundException($modelName, "Class {$modelName} is not an Eloquent model");
             }
 
             return $model->getTable();
         } catch (\Throwable $e) {
-            throw new InvalidArgumentException("Failed to get table name for model {$modelName}: {$e->getMessage()}", 0, $e);
+            if ($e instanceof ModelNotFoundException) {
+                throw $e;
+            }
+            throw new GenerationException(
+                'table name retrieval',
+                $modelName,
+                $e->getMessage(),
+                $e
+            );
         }
     }
 

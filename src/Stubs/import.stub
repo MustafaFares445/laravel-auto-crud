@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ modelNamespace }};
+use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
+
+class {{ class }} implements ToModel, WithHeadingRow, WithValidation
+{
+    /**
+     * @param array $row
+     * @return \Illuminate\Database\Eloquent\Model|null
+     */
+    public function model(array $row)
+    {
+{{ modelCreation }}
+    }
+
+    /**
+     * @return array
+     */
+    public function rules(): array
+    {
+        return [
+{{ rules }}
+        ];
+    }
+}
+

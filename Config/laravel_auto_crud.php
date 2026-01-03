@@ -31,6 +31,45 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Error Messages
+    |--------------------------------------------------------------------------
+    |
+    | Standardized error messages for API error responses.
+    |
+    */
+    'error_messages' => [
+        'generic' => 'An error occurred while processing your request.',
+        'store' => 'An error occurred while creating the resource.',
+        'update' => 'An error occurred while updating the resource.',
+        'delete' => 'An error occurred while deleting the resource.',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Presets
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for saving and reusing common generation configurations.
+    |
+    */
+    'presets_path' => storage_path('app/auto-crud-presets'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Cache settings for generated controllers when --cache flag is used.
+    |
+    */
+    'cache' => [
+        'ttl' => 3600, // Time to live in seconds (1 hour)
+        'prefix' => 'laravel_auto_crud',
+        'use_tags' => true, // Use cache tags (requires Redis or Memcached)
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Permission Mappings
     |--------------------------------------------------------------------------
     |
@@ -132,4 +171,18 @@ return [
     |
     */
     'permission_group_enum_path' => 'app/Enums/PermissionGroup.php',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for API authentication middleware.
+    |
+    */
+    'authentication' => [
+        'driver' => 'sanctum', // sanctum, passport, or none
+        'middleware' => 'auth:sanctum',
+        'guard' => 'sanctum',
+    ],
 ];

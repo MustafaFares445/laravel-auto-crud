@@ -39,7 +39,9 @@ class {{ class }} extends Controller
             return new {{ resource }}($this->{{ serviceVariable }}->save($request->validated()));
         } catch (\Exception $exception) {
             report($exception);
-            return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json([
+                'message' => config('laravel_auto_crud.error_messages.store', 'An error occurred while creating the resource.'),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -54,7 +56,9 @@ class {{ class }} extends Controller
             return new {{ resource }}($this->{{ serviceVariable }}->update($request->validated(), $id));
         } catch (\Exception $exception) {
             report($exception);
-            return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json([
+                'message' => config('laravel_auto_crud.error_messages.update', 'An error occurred while updating the resource.'),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -65,7 +69,9 @@ class {{ class }} extends Controller
             return response()->json(['message' => 'Deleted successfully'], Response::HTTP_OK);
         } catch (\Exception $exception) {
             report($exception);
-            return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json([
+                'message' => config('laravel_auto_crud.error_messages.delete', 'An error occurred while deleting the resource.'),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

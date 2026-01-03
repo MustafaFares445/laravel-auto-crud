@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use Illuminate\Support\Facades\File;
-use InvalidArgumentException;
 use Mrmarchone\LaravelAutoCrud\Builders\ControllerBuilder;
+use Mrmarchone\LaravelAutoCrud\Exceptions\GenerationException;
+use Mrmarchone\LaravelAutoCrud\Exceptions\InvalidConfigurationException;
 use Mrmarchone\LaravelAutoCrud\Builders\FactoryBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\PermissionGroupEnumBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\PermissionSeederBuilder;
@@ -62,7 +63,11 @@ class CRUDGenerator
                 $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite']);
                 $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
             } else {
-                throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
+                throw new InvalidConfigurationException(
+                    'filter',
+                    $options['pattern'] ?? null,
+                    'Filter option is only supported with the spatie-data pattern'
+                );
             }
         }
 
@@ -129,8 +134,13 @@ class CRUDGenerator
             'filterRequest' => $filterRequest ?? '',
         ];
 
+        $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes(ModelService::getFullModelNamespace($modelData));
+        $data['hasSoftDeletes'] = $hasSoftDeletes;
+
         $controllerName = $this->generateController($checkForType, $modelData, $data, $options);
-        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType);
+        $withAuth = (bool) ($options['sanctum'] ?? false);
+        $apiVersion = $options['api-version'] ?? null;
+        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $withAuth, $hasSoftDeletes, $apiVersion);
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
     }
@@ -148,7 +158,11 @@ class CRUDGenerator
         }
 
         if (! $controllerName) {
-            throw new InvalidArgumentException('Unsupported controller type');
+            throw new GenerationException(
+                'controller generation',
+                $modelData['modelName'] ?? 'unknown',
+                'Unsupported controller type'
+            );
         }
 
         return $controllerName;
@@ -168,6 +182,7 @@ class CRUDGenerator
             'response-messages' => $options['response-messages'] ?? false,
             'no-pagination' => $options['no-pagination'] ?? false,
             'controller-folder' => $options['controller-folder'] ?? null,
+            'hasSoftDeletes' => $data['hasSoftDeletes'] ?? false,
         ];
 
         if ($options['pattern'] === 'spatie-data') {
@@ -182,7 +197,11 @@ class CRUDGenerator
         }
 
         if (! $controllerName) {
-            throw new InvalidArgumentException('Unsupported controller type');
+            throw new GenerationException(
+                'controller generation',
+                $modelData['modelName'] ?? 'unknown',
+                'Unsupported controller type'
+            );
         }
 
         return $controllerName;
@@ -202,7 +221,11 @@ class CRUDGenerator
         $this->viewBuilder->create($modelData, $options['overwrite']);
 
         if (! $controllerName) {
-            throw new InvalidArgumentException('Unsupported controller type');
+            throw new GenerationException(
+                'controller generation',
+                $modelData['modelName'] ?? 'unknown',
+                'Unsupported controller type'
+            );
         }
 
         return $controllerName;
