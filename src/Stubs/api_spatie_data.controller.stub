@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
@@ -7,6 +9,7 @@ use {{ spatieDataNamespace }};
 use {{ modelNamespace }};
 use Symfony\Component\HttpFoundation\Response;
 
+{{ scrambleClassAttribute }}
 class {{ class }} extends Controller
 {
     /**
@@ -81,5 +84,5 @@ class {{ class }} extends Controller
             report($exception);
             return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-    }
+    }{{ softDeleteMethods }}
 }

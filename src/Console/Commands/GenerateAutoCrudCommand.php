@@ -251,14 +251,14 @@ class GenerateAutoCrudCommand extends Command
         }
 
         // Step 6: Overwrite confirmation
-        $overwrite = confirm(
-            label: '🔄 Overwrite existing files without asking?',
-            default: false,
-            hint: 'If No, you will be prompted for each existing file'
-        );
+                $overwrite = confirm(
+                    label: '🔄 Overwrite existing files without asking?',
+                    default: false,
+                    hint: 'If No, you will be prompted for each existing file'
+                );
 
-        // Step 8: Show summary and confirm
-        $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $overwrite, $controllerFolder);
+                // Step 8: Show summary and confirm
+                $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $overwrite, $controllerFolder);
 
         if (! confirm(label: '🚀 Proceed with generation?', default: true)) {
             warning('Generation cancelled.');

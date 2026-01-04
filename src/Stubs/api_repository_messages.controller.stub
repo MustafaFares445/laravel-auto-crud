@@ -53,5 +53,5 @@ class {{ class }} extends Controller
         $this->{{ serviceVariable }}->deleteById($id);
 
         return response()->json(['message' => ResponseMessages::DELETED->message()], Response::HTTP_OK);
-    }
+    }{{ softDeleteMethods }}
 }

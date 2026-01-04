@@ -10,6 +10,14 @@ use Illuminate\Support\Str;
 
 class TableColumnsService
 {
+    /**
+     * Get available columns from a database table.
+     *
+     * @param string $table Table name
+     * @param array<string> $excludeColumns Columns to exclude from results
+     * @param string|null $modelClass Optional model class for additional checks
+     * @return array<int, array<string, mixed>> Array of column details
+     */
     public function getAvailableColumns(string $table, array $excludeColumns = ['created_at', 'updated_at'], ?string $modelClass = null): array
     {
         $columns = Schema::getColumnListing($table);
@@ -35,6 +43,13 @@ class TableColumnsService
         return $output;
     }
 
+    /**
+     * Check if a column is translatable using Spatie Translatable.
+     *
+     * @param string $column Column name
+     * @param string|null $modelClass Model class to check
+     * @return bool True if column is translatable
+     */
     private function isTranslatable(string $column, ?string $modelClass): bool
     {
         if (!$modelClass || !class_exists($modelClass)) {
@@ -56,10 +71,19 @@ class TableColumnsService
         return false;
     }
 
+    /**
+     * Get column details based on database driver.
+     *
+     * @param string $driver Database driver name
+     * @param string $table Table name
+     * @param string $column Column name
+     * @param string|null $modelClass Optional model class
+     * @return array<string, mixed> Column details array
+     */
     private function getColumnDetails(string $driver, string $table, string $column, ?string $modelClass = null): array
     {
         return match ($driver) {
-            'mysql' => $this->getMySQLColumnDetails($table, $column, $modelClass),
+            'mysql' => $this->getMysqlColumnDetails($table, $column, $modelClass),
             'pgsql' => $this->getPostgresColumnDetails($table, $column, $modelClass),
             'sqlite' => $this->getSQLiteColumnDetails($table, $column),
             'sqlsrv' => $this->getSQLServerColumnDetails($table, $column),
@@ -67,6 +91,14 @@ class TableColumnsService
         };
     }
 
+    /**
+     * Get MySQL column details.
+     *
+     * @param string $table Table name
+     * @param string $column Column name
+     * @param string|null $modelClass Optional model class
+     * @return array<string, mixed> Column details array
+     */
     private function getMysqlColumnDetails(string $table, string $column, ?string $modelClass = null): array
     {
         $columnDetails = DB::select("SHOW COLUMNS FROM `$table` WHERE Field = ?", [$column]);
@@ -125,6 +157,14 @@ class TableColumnsService
         ];
     }
 
+    /**
+     * Get PostgreSQL column details.
+     *
+     * @param string $table Table name
+     * @param string $column Column name
+     * @param string|null $modelClass Optional model class
+     * @return array<string, mixed> Column details array
+     */
     private function getPostgresColumnDetails(string $table, string $column, ?string $modelClass = null): array
     {
         $columnDetails = DB::select("
@@ -202,6 +242,13 @@ class TableColumnsService
         ];
     }
 
+    /**
+     * Get SQLite column details.
+     *
+     * @param string $table Table name
+     * @param string $column Column name
+     * @return array<string, mixed> Column details array
+     */
     private function getSqliteColumnDetails(string $table, string $column): array
     {
         $columnDetails = DB::select("PRAGMA table_info($table)");
@@ -223,6 +270,13 @@ class TableColumnsService
         return [];
     }
 
+    /**
+     * Get SQL Server column details.
+     *
+     * @param string $table Table name
+     * @param string $column Column name
+     * @return array<string, mixed> Column details array
+     */
     private function getSQLServerColumnDetails(string $table, string $column): array
     {
         $columnDetails = DB::select(

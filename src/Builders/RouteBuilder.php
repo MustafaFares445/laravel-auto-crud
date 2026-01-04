@@ -9,13 +9,13 @@ use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 
 class RouteBuilder
 {
-    public function create(string $modelName, string $controller, array $types): void
+    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
             $routesPath = base_path('routes/api.php');
-            $routeCode = "Route::apiResource('/{$modelName}', {$controller}::class);";
+            $routeCode = $this->generateApiRouteCode($modelName, $controller, $hasSoftDeletes);
             $this->createRoutes($routesPath, $routeCode);
         }
 
@@ -24,6 +24,27 @@ class RouteBuilder
             $routeCode = "Route::resource('/{$modelName}', {$controller}::class);";
             $this->createRoutes($routesPath, $routeCode);
         }
+    }
+
+    /**
+     * Generate API route code with optional soft delete routes.
+     *
+     * @param string $modelName Plural model name (snake_case)
+     * @param string $controller Full controller class name
+     * @param bool $hasSoftDeletes Whether model uses soft deletes
+     * @return string Generated route code
+     */
+    private function generateApiRouteCode(string $modelName, string $controller, bool $hasSoftDeletes = false): string
+    {
+        $apiResource = "Route::apiResource('/{$modelName}', {$controller}::class);";
+        $softDeleteRoutes = '';
+
+        if ($hasSoftDeletes) {
+            $softDeleteRoutes = "\nRoute::post('/{$modelName}/{id}/restore', [{$controller}::class, 'restore']);";
+            $softDeleteRoutes .= "\nRoute::delete('/{$modelName}/{id}/force-delete', [{$controller}::class, 'forceDelete']);";
+        }
+
+        return $apiResource . $softDeleteRoutes;
     }
 
     /**

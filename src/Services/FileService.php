@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Mrmarchone\LaravelAutoCrud\Services;
 
 use Illuminate\Support\Facades\File;

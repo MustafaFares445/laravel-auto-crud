@@ -10,15 +10,24 @@ use Mrmarchone\LaravelAutoCrud\Builders\DocumentationBuilders\SwaggerAPIBuilder;
 
 class DocumentationGenerator
 {
-    public function __construct(private PostmanBuilder $postmanBuilder,
+    public function __construct(
+        private PostmanBuilder $postmanBuilder,
         private SwaggerAPIBuilder $swaggerAPIBuilder,
-        private CURLBuilder $CURLBuilder)
-    {
+        private CURLBuilder $CURLBuilder
+    ) {
         $this->CURLBuilder = new CURLBuilder;
         $this->postmanBuilder = new PostmanBuilder;
         $this->swaggerAPIBuilder = new SwaggerAPIBuilder;
     }
 
+    /**
+     * Generate documentation files for the given model.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param array<string, mixed> $options Generation options
+     * @param bool $multipleModels Whether multiple models are being processed
+     * @return void
+     */
     public function generate(array $modelData, array $options, bool $multipleModels = false): void
     {
         if (in_array('api', $options['type'])) {
@@ -34,6 +43,14 @@ class DocumentationGenerator
         }
     }
 
+    /**
+     * Generate Postman collection if requested.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param bool $generate Whether to generate Postman collection
+     * @param bool $overwrite Whether to overwrite existing files
+     * @return void
+     */
     private function generatePostman(array $modelData, bool $generate, bool $overwrite): void
     {
         if ($generate) {
@@ -41,6 +58,14 @@ class DocumentationGenerator
         }
     }
 
+    /**
+     * Generate cURL examples if requested.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param bool $generate Whether to generate cURL examples
+     * @param bool $overwrite Whether to overwrite existing files
+     * @return void
+     */
     private function generateCURL(array $modelData, bool $generate, bool $overwrite): void
     {
         if ($generate) {
@@ -48,6 +73,14 @@ class DocumentationGenerator
         }
     }
 
+    /**
+     * Generate Swagger/OpenAPI documentation if requested.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param bool $generate Whether to generate Swagger documentation
+     * @param bool $overwrite Whether to overwrite existing files
+     * @return void
+     */
     private function generateSwaggerAPI(array $modelData, bool $generate, bool $overwrite): void
     {
         if ($generate) {

@@ -1,0 +1,19 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    
+    excludePaths:
+        - tests/_support
+    
+    ignoreErrors:
+        - '#Method.*has no return type specified#'
+        - '#Call to an undefined method#'
+    
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+

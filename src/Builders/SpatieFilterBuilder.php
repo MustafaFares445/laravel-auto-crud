@@ -24,6 +24,13 @@ class SpatieFilterBuilder extends BaseBuilder
 
     protected ModelService $modelService;
 
+    /**
+     * Initialize the SpatieFilterBuilder with required services.
+     *
+     * @param FileService $fileService File service for creating files
+     * @param TableColumnsService $tableColumnsService Service for table column operations
+     * @param ModelService $modelService Service for model operations
+     */
     public function __construct(FileService $fileService, TableColumnsService $tableColumnsService, ModelService $modelService)
     {
         parent::__construct($fileService);
@@ -31,6 +38,13 @@ class SpatieFilterBuilder extends BaseBuilder
         $this->modelService = $modelService;
     }
 
+    /**
+     * Create a filter request class for Spatie Query Builder.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param bool $overwrite Whether to overwrite existing files
+     * @return string Full namespace path of the created file
+     */
     public function createFilterRequest(array $modelData, bool $overwrite = false): string
     {
         $requestPath = 'Http/Requests/' . $modelData['modelName'] . 'Requests';
@@ -98,12 +112,20 @@ class SpatieFilterBuilder extends BaseBuilder
         });
     }
 
+    /**
+     * Create a filter query trait for Spatie Query Builder.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param bool $overwrite Whether to overwrite existing files
+     * @return string Full namespace path of the created file
+     */
     public function createFilterQueryTrait(array $modelData, bool $overwrite = false): string
     {
         $modelClass = $this->getFullModelNamespace($modelData);
         $hasScoutSearch = $this->modelHasScoutSearch($modelClass);
+        $isTypesense = $this->isTypesenseDriver($modelClass);
 
-        return $this->fileService->createFromStub($modelData, 'spatie_filter_query_trait', 'Traits/FilterQueries', 'FilterQuery', $overwrite, function ($modelData) use ($hasScoutSearch) {
+        return $this->fileService->createFromStub($modelData, 'spatie_filter_query_trait', 'Traits/FilterQueries', 'FilterQuery', $overwrite, function ($modelData) use ($hasScoutSearch, $isTypesense) {
             try {
                 $columns = $this->getAvailableColumns($modelData);
             } catch (\Throwable) {
@@ -162,7 +184,7 @@ class SpatieFilterBuilder extends BaseBuilder
             // Generate scopes
             $scopes[] = $this->generateScopeCreatedAfter();
             $scopes[] = $this->generateScopeCreatedBefore();
-            $scopes[] = $this->generateScopeSearch($modelData, $searchableColumns, $hasScoutSearch);
+            $scopes[] = $this->generateScopeSearch($modelData, $searchableColumns, $hasScoutSearch, $isTypesense);
 
             return [
                 '{{ modelNamespace }}' => $this->getFullModelNamespace($modelData),
@@ -174,6 +196,12 @@ class SpatieFilterBuilder extends BaseBuilder
         });
     }
 
+    /**
+     * Check if model has Scout search implementation.
+     *
+     * @param string $modelClass Full model class name
+     * @return bool True if model has toSearchableArray method
+     */
     private function modelHasScoutSearch(string $modelClass): bool
     {
         try {
@@ -189,6 +217,60 @@ class SpatieFilterBuilder extends BaseBuilder
         }
     }
 
+    /**
+     * Check if Typesense driver is being used for Scout.
+     *
+     * @param string $modelClass Full model class name
+     * @return bool True if Typesense driver is configured
+     */
+    private function isTypesenseDriver(string $modelClass): bool
+    {
+        // Check if Typesense driver is configured in Scout config
+        $scoutDriver = config('scout.driver', '');
+        
+        if ($scoutDriver === 'typesense') {
+            return true;
+        }
+
+        // Check if model uses TypesenseEngine explicitly
+        try {
+            if (! class_exists($modelClass)) {
+                return false;
+            }
+
+            $reflection = new ReflectionClass($modelClass);
+            
+            // Check if model has searchableUsing method that returns TypesenseEngine
+            if ($reflection->hasMethod('searchableUsing')) {
+                $method = $reflection->getMethod('searchableUsing');
+                $returnType = $method->getReturnType();
+                
+                if ($returnType instanceof \ReflectionNamedType) {
+                    $returnTypeName = $returnType->getName();
+                    if (str_contains($returnTypeName, 'Typesense') || str_contains($returnTypeName, 'TypesenseEngine')) {
+                        return true;
+                    }
+                }
+            }
+
+            // Check if TypesenseEngine class exists (indicates package is installed)
+            if (class_exists('Typesense\LaravelScout\TypesenseEngine') || 
+                class_exists('Typesense\ScoutEngines\TypesenseEngine')) {
+                // If Typesense package is installed and Scout driver is not explicitly set to something else
+                return $scoutDriver !== 'algolia' && $scoutDriver !== 'meilisearch';
+            }
+        } catch (\Throwable) {
+            // Ignore errors
+        }
+
+        return false;
+    }
+
+    /**
+     * Generate scopeCreatedAfter method code.
+     *
+     * @return string Generated method code
+     */
     private function generateScopeCreatedAfter(): string
     {
         return <<<EOT
@@ -199,6 +281,11 @@ class SpatieFilterBuilder extends BaseBuilder
         EOT;
     }
 
+    /**
+     * Generate scopeCreatedBefore method code.
+     *
+     * @return string Generated method code
+     */
     private function generateScopeCreatedBefore(): string
     {
         return <<<EOT
@@ -209,15 +296,33 @@ class SpatieFilterBuilder extends BaseBuilder
         EOT;
     }
 
-    private function generateScopeSearch(array $modelData, array $searchableColumns, bool $hasScoutSearch): string
+    /**
+     * Generate scopeSearch method code.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param array<int, string> $searchableColumns List of searchable column names
+     * @param bool $hasScoutSearch Whether model uses Scout search
+     * @param bool $isTypesense Whether Typesense driver is being used
+     * @return string Generated method code
+     */
+    private function generateScopeSearch(array $modelData, array $searchableColumns, bool $hasScoutSearch, bool $isTypesense = false): string
     {
         if ($hasScoutSearch) {
+            if ($isTypesense) {
+                return $this->generateTypesenseScopeSearch($modelData, $searchableColumns);
+            }
             return $this->generateScoutScopeSearch($modelData);
         }
 
         return $this->generateDatabaseScopeSearch($searchableColumns);
     }
 
+    /**
+     * Generate scopeSearch method using Scout search.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @return string Generated method code
+     */
     private function generateScoutScopeSearch(array $modelData): string
     {
         $modelName = $modelData['modelName'];
@@ -225,13 +330,13 @@ class SpatieFilterBuilder extends BaseBuilder
 
         return <<<EOT
 
-    public function scopeSearch(\$query, \$term): Builder
+    public function scopeSearch(\$query, \$search): Builder
     {
-        if (empty(\$term)) {
+        if (empty(\$search)) {
             return \$query;
         }
 
-        \${$modelVariable}Ids = {$modelName}::search(\$term)->keys();
+        \${$modelVariable}Ids = {$modelName}::search(\$search)->keys();
 
         return \$query->when(
             \${$modelVariable}Ids->isNotEmpty(),
@@ -241,12 +346,77 @@ class SpatieFilterBuilder extends BaseBuilder
 EOT;
     }
 
+    /**
+     * Generate scopeSearch method using Typesense-specific features.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @param array<int, string> $searchableColumns List of searchable column names
+     * @return string Generated method code
+     */
+    private function generateTypesenseScopeSearch(array $modelData, array $searchableColumns): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+
+        // Build query_by parameter for Typesense (comma-separated list of fields)
+        $queryByFields = !empty($searchableColumns) 
+            ? "'" . implode(',', $searchableColumns) . "'"
+            : "'*'"; // Search all fields if no specific columns
+
+        return <<<EOT
+
+    public function scopeSearch(\$query, \$search, ?int \$typoTolerance = null, ?string \$queryBy = null): Builder
+    {
+        if (empty(\$search)) {
+            return \$query;
+        }
+
+        // Typesense-specific search with typo tolerance and query_by parameters
+        \$searchBuilder = {$modelName}::search(\$search);
+        
+        // Set query_by fields (which fields to search in)
+        if (\$queryBy !== null) {
+            \$searchBuilder->queryBy(\$queryBy);
+        } else {
+            // Default to all searchable columns
+            \$searchBuilder->queryBy({$queryByFields});
+        }
+        
+        // Set typo tolerance (0-2, where 2 is most lenient)
+        if (\$typoTolerance !== null) {
+            \$searchBuilder->typoTolerance(\$typoTolerance);
+        } else {
+            // Default typo tolerance for better search results
+            \$searchBuilder->typoTolerance(1);
+        }
+        
+        // Additional Typesense-specific parameters
+        \$searchBuilder->numTypos(1) // Allow 1 typo
+            ->dropTokensThreshold(0) // Don't drop tokens
+            ->exhaustiveSearch(false); // Balance between speed and accuracy
+
+        \${$modelVariable}Ids = \$searchBuilder->keys();
+
+        return \$query->when(
+            \${$modelVariable}Ids->isNotEmpty(),
+            fn (Builder \$q) => \$q->whereIn('id', \${$modelVariable}Ids)
+        );
+    }
+EOT;
+    }
+
+    /**
+     * Generate scopeSearch method using database LIKE queries.
+     *
+     * @param array<int, string> $searchableColumns List of searchable column names
+     * @return string Generated method code
+     */
     private function generateDatabaseScopeSearch(array $searchableColumns): string
     {
         if (empty($searchableColumns)) {
             return <<<EOT
 
-    public function scopeSearch(\$query, \$term): Builder
+    public function scopeSearch(\$query, \$search): Builder
     {
         return \$query;
     }
@@ -269,13 +439,13 @@ EOT;
 
         return <<<EOT
 
-    public function scopeSearch(\$query, \$term): Builder
+    public function scopeSearch(\$query, \$search): Builder
     {
-        if (empty(\$term)) {
+        if (empty(\$search)) {
             return \$query;
         }
 
-        \$likeTerm = SearchTermEscaper::escape(\$term);
+        \$likeTerm = SearchTermEscaper::escape(\$search);
 
         return \$query->where(function (Builder \$q) use (\$likeTerm) {
             {$conditionsString};
@@ -284,6 +454,12 @@ EOT;
 EOT;
     }
 
+    /**
+     * Get fallback column metadata from model fillable and casts.
+     *
+     * @param array<string, mixed> $modelData Model information
+     * @return array<int, array<string, string>> Array of column metadata
+     */
     private function fallbackColumnMetadata(array $modelData): array
     {
         $modelClass = $this->getFullModelNamespace($modelData);
@@ -309,6 +485,12 @@ EOT;
         ], array_filter($columns, fn ($name) => ! in_array($name, ['created_at', 'updated_at', 'deleted_at'], true))));
     }
 
+    /**
+     * Collect searchable columns from column metadata.
+     *
+     * @param array<int, array<string, string>> $columns Array of column metadata
+     * @return array<int, string> Array of searchable column names
+     */
     private function collectSearchableColumns(array $columns): array
     {
         $searchableColumns = [];
@@ -322,6 +504,12 @@ EOT;
         return array_values(array_unique($searchableColumns));
     }
 
+    /**
+     * Check if a column type is searchable.
+     *
+     * @param string $type Column type
+     * @return bool True if column type is searchable
+     */
     private function isSearchableColumnType(string $type): bool
     {
         return in_array($type, [

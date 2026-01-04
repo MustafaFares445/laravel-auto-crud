@@ -21,10 +21,10 @@ use ReflectionMethod;
 class RelationshipDetector
 {
     /**
-     * Detect relationships from a model class
+     * Detect relationships from a model class.
      *
      * @param string $modelClass Full class name of the model
-     * @return array Arrasty of relationship definitions
+     * @return array<int, array<string, mixed>> Array of relationship definitions
      */
     public static function detectRelationships(string $modelClass): array
     {
@@ -82,7 +82,10 @@ class RelationshipDetector
     }
 
     /**
-     * Get relationship type from return type name
+     * Get relationship type from return type name.
+     *
+     * @param string $returnTypeName Return type name from reflection
+     * @return string|null Relationship type name or null
      */
     private static function getRelationshipType(string $returnTypeName): ?string
     {
@@ -108,7 +111,13 @@ class RelationshipDetector
     }
 
     /**
-     * Extract relationship data
+     * Extract relationship data from a relationship instance.
+     *
+     * @param string $methodName Relationship method name
+     * @param string $relationshipType Type of relationship
+     * @param \Illuminate\Database\Eloquent\Relations\Relation $relationship Relationship instance
+     * @param string $modelClass Model class name
+     * @return array<string, mixed>|null Relationship data array or null
      */
     private static function extractRelationshipData(
         string $methodName,
@@ -172,10 +181,10 @@ class RelationshipDetector
     }
 
     /**
-     * Get relationship ID properties for Data class
+     * Get relationship ID properties for Data class.
      *
-     * @param array $relationships Array of relationship definitions
-     * @return array Array of property definitions with validation
+     * @param array<int, array<string, mixed>> $relationships Array of relationship definitions
+     * @return array<int, array<string, mixed>> Array of property definitions with validation
      */
     public static function getRelationshipProperties(array $relationships): array
     {
@@ -266,7 +275,10 @@ class RelationshipDetector
     }
 
     /**
-     * Get model name from full class name
+     * Get model name from full class name.
+     *
+     * @param string $class Full class name
+     * @return string Model name without namespace
      */
     public static function getModelNameFromClass(string $class): string
     {
@@ -275,10 +287,10 @@ class RelationshipDetector
     }
 
     /**
-     * Get only belongsTo relationships
+     * Get only belongsTo relationships.
      *
-     * @param array $relationships Array of relationship definitions
-     * @return array Array of belongsTo relationships
+     * @param array<int, array<string, mixed>> $relationships Array of relationship definitions
+     * @return array<int, array<string, mixed>> Array of belongsTo relationships
      */
     public static function getBelongsToRelationships(array $relationships): array
     {
@@ -286,11 +298,11 @@ class RelationshipDetector
     }
 
     /**
-     * Get relationships for eager loading
+     * Get relationships for eager loading.
      *
-     * @param array $relationships Array of relationship definitions
+     * @param array<int, array<string, mixed>> $relationships Array of relationship definitions
      * @param bool $includeBelongsTo Whether to include belongsTo relationships
-     * @return array Array of relationship names for eager loading
+     * @return array<int, string> Array of relationship names for eager loading
      */
     public static function getEagerLoadRelationships(array $relationships, bool $includeBelongsTo = true): array
     {
@@ -308,10 +320,11 @@ class RelationshipDetector
     }
 
     /**
-     * Generate eager load string for relationships
+     * Generate eager load string for relationships.
      *
-     * @param array $relationships Array of relationship definitions
+     * @param array<int, array<string, mixed>> $relationships Array of relationship definitions
      * @param bool $includeBelongsTo Whether to include belongsTo relationships
+     * @param bool $useWith Whether to use with() instead of load()
      * @return string Eager load string (e.g., "->load('user', 'posts')" or "->with(['user', 'posts'])")
      */
     public static function getEagerLoadString(array $relationships, bool $includeBelongsTo = true, bool $useWith = false): string
@@ -332,10 +345,10 @@ class RelationshipDetector
     }
 
     /**
-     * Get validation rules for relationships
+     * Get validation rules for relationships.
      *
-     * @param array $relationships Array of relationship definitions
-     * @return array Array of validation rules keyed by field name
+     * @param array<int, array<string, mixed>> $relationships Array of relationship definitions
+     * @return array<string, array<int, string>> Array of validation rules keyed by field name
      */
     public static function getRelationshipValidationRules(array $relationships): array
     {

@@ -89,5 +89,5 @@ class {{ class }}
 
         return {{ resource }}::make(${{ modelVariable }})
             ->additional(['message' => ResponseMessages::DELETED->message()]);
-    }
+    }{{ softDeleteMethods }}
 }

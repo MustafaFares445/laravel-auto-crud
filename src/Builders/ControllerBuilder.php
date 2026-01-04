@@ -18,11 +18,12 @@ class ControllerBuilder extends BaseBuilder
         $overwrite = $options['overwrite'] ?? false;
         $useResponseMessages = $options['response-messages'] ?? false;
         $noPagination = $options['no-pagination'] ?? false;
+        $hasSoftDeletes = $options['hasSoftDeletes'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
 
         $stubName = $useResponseMessages ? 'api_messages.controller' : 'api.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes) {
             $model = $this->getFullModelNamespace($modelData);
             $resourceName = explode('\\', $resource);
             $storeRequestName = explode('\\', $requests['store']);
@@ -51,6 +52,9 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestClass
             );
 
+            $scrambleData = $this->generateScrambleAttributes($modelData['modelName'], $modelVariable);
+            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages);
+
             return [
                 '{{ storeRequestNamespace }}' => $requests['store'],
                 '{{ updateRequestNamespace }}' => $requests['update'],
@@ -68,6 +72,14 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
+                '{{ scrambleUseStatements }}' => $scrambleData['useStatements'],
+                '{{ scrambleClassAttribute }}' => $scrambleData['classDocComment'],
+                '{{ scrambleIndexAttribute }}' => $scrambleData['indexAttribute'],
+                '{{ scrambleStoreAttribute }}' => $scrambleData['storeAttribute'],
+                '{{ scrambleShowAttribute }}' => $scrambleData['showAttribute'],
+                '{{ scrambleUpdateAttribute }}' => $scrambleData['updateAttribute'],
+                '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
+                '{{ softDeleteMethods }}' => $softDeleteMethods,
             ];
         });
     }
@@ -83,7 +95,9 @@ class ControllerBuilder extends BaseBuilder
 
         $stubName = $useResponseMessages ? 'api_spatie_data_messages.controller' : 'api_spatie_data.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
+        $hasSoftDeletes = $options['hasSoftDeletes'] ?? false;
+        
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $resourceName = explode('\\', $resource);
@@ -110,6 +124,10 @@ class ControllerBuilder extends BaseBuilder
                 $filterBuilderClass,
                 $filterRequestClass
             );
+
+            $scrambleData = $this->generateScrambleAttributes($modelData['modelName'], $modelVariable);
+            $spatieDataClass = end($spatieDataName);
+            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $spatieDataClass, $useResponseMessages, true);
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
@@ -127,6 +145,14 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
+                '{{ scrambleUseStatements }}' => $scrambleData['useStatements'],
+                '{{ scrambleClassAttribute }}' => $scrambleData['classDocComment'],
+                '{{ scrambleIndexAttribute }}' => $scrambleData['indexAttribute'],
+                '{{ scrambleStoreAttribute }}' => $scrambleData['storeAttribute'],
+                '{{ scrambleShowAttribute }}' => $scrambleData['showAttribute'],
+                '{{ scrambleUpdateAttribute }}' => $scrambleData['updateAttribute'],
+                '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
+                '{{ softDeleteMethods }}' => $softDeleteMethods,
             ];
         });
     }
@@ -135,43 +161,52 @@ class ControllerBuilder extends BaseBuilder
     {
         $overwrite = $options['overwrite'] ?? false;
         $useResponseMessages = $options['response-messages'] ?? false;
+        $hasSoftDeletes = $options['hasSoftDeletes'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
 
         $stubName = $useResponseMessages ? 'api_repository_messages.controller' : 'api_repository.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $service) {
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $service, $hasSoftDeletes, $useResponseMessages) {
             $resourceName = explode('\\', $resource);
             $storeRequestName = explode('\\', $requests['store']);
             $updateRequestName = explode('\\', $requests['update']);
             $serviceName = explode('\\', $service);
+            $modelVariable = lcfirst($modelData['modelName']);
+            $resourceClass = end($resourceName);
+            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages);
 
             return [
                 '{{ storeRequestNamespace }}' => $requests['store'],
                 '{{ updateRequestNamespace }}' => $requests['update'],
                 '{{ resourceNamespace }}' => $resource,
-                '{{ resource }}' => end($resourceName),
+                '{{ resource }}' => $resourceClass,
                 '{{ storeRequest }}' => end($storeRequestName),
                 '{{ updateRequest }}' => end($updateRequestName),
                 '{{ serviceNamespace }}' => $service,
                 '{{ service }}' => end($serviceName),
                 '{{ serviceVariable }}' => lcfirst(end($serviceName)),
+                '{{ softDeleteMethods }}' => $softDeleteMethods,
             ];
         });
     }
 
-    public function createAPIRepositorySpatieData(array $modelData, string $spatieData, string $service, bool $overwrite = false, ?string $controllerFolder = null): string
+    public function createAPIRepositorySpatieData(array $modelData, string $spatieData, string $service, bool $overwrite = false, ?string $controllerFolder = null, bool $hasSoftDeletes = false): string
     {
         $controllerFolder = $controllerFolder ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
-        return $this->fileService->createFromStub($modelData, 'api_repository_spatie_data.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $service) {
+        return $this->fileService->createFromStub($modelData, 'api_repository_spatie_data.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $service, $hasSoftDeletes) {
             $spatieDataName = explode('\\', $spatieData);
             $serviceName = explode('\\', $service);
+            $modelVariable = lcfirst($modelData['modelName']);
+            $spatieDataClass = end($spatieDataName);
+            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $spatieDataClass, false, true);
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
-                '{{ spatieData }}' => end($spatieDataName),
+                '{{ spatieData }}' => $spatieDataClass,
                 '{{ serviceNamespace }}' => $service,
                 '{{ service }}' => end($serviceName),
                 '{{ serviceVariable }}' => lcfirst(end($serviceName)),
+                '{{ softDeleteMethods }}' => $softDeleteMethods,
             ];
         });
     }
@@ -281,11 +316,12 @@ class ControllerBuilder extends BaseBuilder
         $overwrite = $options['overwrite'] ?? false;
         $useResponseMessages = $options['response-messages'] ?? false;
         $noPagination = $options['no-pagination'] ?? false;
+        $hasSoftDeletes = $options['hasSoftDeletes'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
 
         $stubName = $useResponseMessages ? 'api_service_spatie_data_messages.controller' : 'api_service_spatie_data.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $requests, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination) {
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $requests, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $storeRequestName = explode('\\', $requests['store']);
@@ -317,6 +353,9 @@ class ControllerBuilder extends BaseBuilder
                 $filterRequestClass
             );
 
+            $scrambleData = $this->generateScrambleAttributes($modelData['modelName'], $modelVariable);
+            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages);
+
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
                 '{{ spatieData }}' => end($spatieDataName),
@@ -339,8 +378,16 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterBuilder }}' => $filterBuilderClass,
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
+                '{{ softDeleteMethods }}' => $softDeleteMethods,
                 '{{ loadRelations }}' => $loadRelations,
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
+                '{{ scrambleUseStatements }}' => $scrambleData['useStatements'],
+                '{{ scrambleClassAttribute }}' => $scrambleData['classDocComment'],
+                '{{ scrambleIndexAttribute }}' => $scrambleData['indexAttribute'],
+                '{{ scrambleStoreAttribute }}' => $scrambleData['storeAttribute'],
+                '{{ scrambleShowAttribute }}' => $scrambleData['showAttribute'],
+                '{{ scrambleUpdateAttribute }}' => $scrambleData['updateAttribute'],
+                '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
             ];
         });
     }
@@ -380,21 +427,67 @@ class ControllerBuilder extends BaseBuilder
     }
 
     /**
-     * Generate the index method body for API controllers.
+     * Generate Scramble PHPDoc comments for controller class.
      *
-     * @param string $modelClass Model class name
-     * @param string $modelVariable Model variable name
-     * @param string $resourceClass Resource class name
-     * @param string $additionalMessage Additional message for response
-     * @param string|null $filterBuilder Filter builder class name
-     * @param string|null $filterRequest Filter request class name
-     * @param bool $noPagination Whether to use pagination
-     * @param string &$filterBuilderImport Output parameter for import statement
-     * @param string &$filterRequestImport Output parameter for import statement
-     * @param string &$filterBuilderClass Output parameter for class name
-     * @param string &$filterRequestClass Output parameter for class name
-     * @return string Generated method body
+     * @param string $modelName Model name
+     * @param string $modelVariable Model variable name (camelCase)
+     * @return array<string, string> Array with classDocComment (PHPDoc for class)
      */
+    private function generateScrambleAttributes(string $modelName, string $modelVariable): array
+    {
+        $modelPlural = Str::plural($modelName);
+        $classDocComment = "    /**\n     * {$modelName} API Controller\n     *\n     * Handles CRUD operations for {$modelPlural}.\n     */";
+
+        return [
+            'useStatements' => '',
+            'classAttribute' => '',
+            'classDocComment' => $classDocComment,
+            'indexAttribute' => '',
+            'storeAttribute' => '',
+            'showAttribute' => '',
+            'updateAttribute' => '',
+            'destroyAttribute' => '',
+        ];
+    }
+
+    /**
+     * Generate soft delete methods (restore and forceDelete) for controllers.
+     *
+     * @param bool $hasSoftDeletes Whether the model uses soft deletes
+     * @param string $modelName Model name
+     * @param string $modelVariable Model variable name (camelCase)
+     * @param string $resourceClass Resource class name
+     * @param bool $useResponseMessages Whether to use ResponseMessages enum
+     * @return string Generated methods code
+     */
+    private function generateSoftDeleteMethods(bool $hasSoftDeletes, string $modelName, string $modelVariable, string $returnClass, bool $useResponseMessages = false, bool $isSpatieData = false): string
+    {
+        if (!$hasSoftDeletes) {
+            return '';
+        }
+
+        $model = $this->getFullModelNamespace(['modelName' => $modelName]);
+        
+        // Determine return type and return statement based on pattern
+        if ($isSpatieData) {
+            $restoreReturn = "{$returnClass}::from(\${$modelVariable})";
+            $restoreMessage = $useResponseMessages 
+                ? "->additional(['message' => ResponseMessages::UPDATED->message()])"
+                : '';
+        } else {
+            $restoreReturn = "new {$returnClass}(\${$modelVariable})";
+            $restoreMessage = $useResponseMessages 
+                ? "->additional(['message' => ResponseMessages::UPDATED->message()])"
+                : '';
+        }
+        
+        $forceDeleteMessage = $useResponseMessages
+            ? "ResponseMessages::DELETED->message()"
+            : "'Permanently deleted successfully'";
+        
+        return "\n\n    /**\n     * Restore a soft-deleted {$modelVariable}.\n     *\n     * @param int \$id\n     * @return {$returnClass}|\\Illuminate\\Http\\JsonResponse\n     */\n    public function restore(int \$id): {$returnClass}|\\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \${$modelVariable} = {$model}::withTrashed()->findOrFail(\$id);\n            \${$modelVariable}->restore();\n            " . ($isSpatieData ? "return {$restoreReturn}{$restoreMessage};" : "return ({$restoreReturn}){$restoreMessage};") . "\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }\n\n    /**\n     * Permanently delete a {$modelVariable}.\n     *\n     * @param int \$id\n     * @return \\Illuminate\\Http\\JsonResponse\n     */\n    public function forceDelete(int \$id): \\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \${$modelVariable} = {$model}::withTrashed()->findOrFail(\$id);\n            \${$modelVariable}->forceDelete();\n            return response()->json(['message' => {$forceDeleteMessage}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+    }
+
     private function generateIndexMethodBody(
         string $modelClass,
         string $modelVariable,

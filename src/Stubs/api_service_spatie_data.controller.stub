@@ -53,6 +53,6 @@ class {{ class }}
         ${{ modelVariable }}->delete();
 
         return response()->noContent();
-    }
+    }{{ softDeleteMethods }}
 }
 

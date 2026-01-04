@@ -65,5 +65,5 @@ class {{ class }} extends Controller
             report($exception);
             return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-    }
+    }{{ softDeleteMethods }}
 }

@@ -130,7 +130,11 @@ class CRUDGenerator
         ];
 
         $controllerName = $this->generateController($checkForType, $modelData, $data, $options);
-        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType);
+        
+        $modelClass = ModelService::getFullModelNamespace($modelData);
+        $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
+        
+        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $hasSoftDeletes);
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
     }
@@ -161,6 +165,9 @@ class CRUDGenerator
         // Always generate Resource for API controllers
         $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite'], $options['pattern'] ?? 'normal', $spatieData);
 
+        $modelClass = ModelService::getFullModelNamespace($modelData);
+        $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
+        
         $controllerOptions = [
             'filterBuilder' => $filterBuilder,
             'filterRequest' => $filterRequest,
@@ -168,6 +175,7 @@ class CRUDGenerator
             'response-messages' => $options['response-messages'] ?? false,
             'no-pagination' => $options['no-pagination'] ?? false,
             'controller-folder' => $options['controller-folder'] ?? null,
+            'hasSoftDeletes' => $hasSoftDeletes,
         ];
 
         if ($options['pattern'] === 'spatie-data') {
