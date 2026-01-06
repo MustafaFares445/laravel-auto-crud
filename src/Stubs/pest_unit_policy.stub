@@ -1,0 +1,99 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use {{ policyNamespace }};
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+uses(TestCase::class, RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->policy = new {{ policyClass }}();
+{{ seederCall }}    $this->authorizedUser = User::factory()->create();
+    $this->unauthorizedUser = User::factory()->create();
+    $this->{{ modelVariable }} = {{ model }}::factory()->create();
+});
+
+it('allows authorized user to view any {{ modelPlural }}', function () {
+    // Arrange & Act
+    $result = $this->policy->viewAny($this->authorizedUser);
+
+    // Assert
+    expect($result)->toBeBool();
+});
+
+it('allows authorized user to view a {{ modelVariable }}', function () {
+    // Arrange & Act
+    $result = $this->policy->view($this->authorizedUser, $this->{{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeBool();
+});
+
+it('allows authorized user to create {{ modelPlural }}', function () {
+    // Arrange & Act
+    $result = $this->policy->create($this->authorizedUser);
+
+    // Assert
+    expect($result)->toBeBool();
+});
+
+it('allows authorized user to update a {{ modelVariable }}', function () {
+    // Arrange & Act
+    $result = $this->policy->update($this->authorizedUser, $this->{{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeBool();
+});
+
+it('allows authorized user to delete a {{ modelVariable }}', function () {
+    // Arrange & Act
+    $result = $this->policy->delete($this->authorizedUser, $this->{{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeBool();
+});
+
+it('forbids unauthorized user from viewing any {{ modelPlural }}', function () {
+    // Arrange & Act
+    $result = $this->policy->viewAny($this->unauthorizedUser);
+
+    // Assert
+    expect($result)->toBeFalse();
+});
+
+it('forbids unauthorized user from viewing a {{ modelVariable }}', function () {
+    // Arrange & Act
+    $result = $this->policy->view($this->unauthorizedUser, $this->{{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeFalse();
+});
+
+it('forbids unauthorized user from creating {{ modelPlural }}', function () {
+    // Arrange & Act
+    $result = $this->policy->create($this->unauthorizedUser);
+
+    // Assert
+    expect($result)->toBeFalse();
+});
+
+it('forbids unauthorized user from updating a {{ modelVariable }}', function () {
+    // Arrange & Act
+    $result = $this->policy->update($this->unauthorizedUser, $this->{{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeFalse();
+});
+
+it('forbids unauthorized user from deleting a {{ modelVariable }}', function () {
+    // Arrange & Act
+    $result = $this->policy->delete($this->unauthorizedUser, $this->{{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeFalse();
+});
+

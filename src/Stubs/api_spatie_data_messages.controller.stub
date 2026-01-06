@@ -7,7 +7,7 @@ namespace {{ namespace }};
 use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
 use App\Http\Controllers\Controller;
 use {{ spatieDataNamespace }};
-use {{ resourceNamespace }};
+{{ bulkRequestImports }}use {{ resourceNamespace }};
 use {{ modelNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,5 +83,5 @@ class {{ class }} extends Controller
 
         return {{ resource }}::make(${{ modelVariable }})
             ->additional(['message' => ResponseMessages::DELETED->message()]);
-    }{{ softDeleteMethods }}
+    }{{ softDeleteMethods }}{{ bulkMethods }}
 }

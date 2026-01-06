@@ -4,8 +4,19 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
-class PolicyBuilder extends BaseBuilder
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
+
+class PolicyBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
+
+    public function __construct(FileService $fileService)
+    {
+        $this->fileService = $fileService;
+    }
     public function create(array $modelData, bool $overwrite = false): string
     {
         return $this->fileService->createFromStub($modelData, 'policy', 'Policies', 'Policy', $overwrite, function ($modelData) {

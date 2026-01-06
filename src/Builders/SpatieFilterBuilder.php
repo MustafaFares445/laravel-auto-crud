@@ -10,30 +10,25 @@ use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use ReflectionClass;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 
-class SpatieFilterBuilder extends BaseBuilder
+class SpatieFilterBuilder
 {
+    use ModelHelperTrait;
     use TableColumnsTrait;
 
+    protected FileService $fileService;
     protected TableColumnsService $tableColumnsService;
-
     protected ModelService $modelService;
 
-    /**
-     * Initialize the SpatieFilterBuilder with required services.
-     *
-     * @param FileService $fileService File service for creating files
-     * @param TableColumnsService $tableColumnsService Service for table column operations
-     * @param ModelService $modelService Service for model operations
-     */
     public function __construct(FileService $fileService, TableColumnsService $tableColumnsService, ModelService $modelService)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->tableColumnsService = $tableColumnsService;
         $this->modelService = $modelService;
     }

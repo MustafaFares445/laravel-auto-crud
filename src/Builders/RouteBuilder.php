@@ -9,42 +9,84 @@ use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 
 class RouteBuilder
 {
-    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false): void
+    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false, array $bulkEndpoints = []): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
             $routesPath = base_path('routes/api.php');
-            $routeCode = $this->generateApiRouteCode($modelName, $controller, $hasSoftDeletes);
+            $routeCode = $this->generateApiRouteCode($modelName, $controller, $hasSoftDeletes, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
 
         if (in_array('web', $types)) {
             $routesPath = base_path('routes/web.php');
-            $routeCode = "Route::resource('/{$modelName}', {$controller}::class);";
+            $routeCode = $this->generateWebRouteCode($modelName, $controller, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
     }
 
     /**
-     * Generate API route code with optional soft delete routes.
+     * Generate API route code with optional soft delete routes and bulk routes.
      *
      * @param string $modelName Plural model name (snake_case)
      * @param string $controller Full controller class name
      * @param bool $hasSoftDeletes Whether model uses soft deletes
+     * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
      * @return string Generated route code
      */
-    private function generateApiRouteCode(string $modelName, string $controller, bool $hasSoftDeletes = false): string
+    private function generateApiRouteCode(string $modelName, string $controller, bool $hasSoftDeletes = false, array $bulkEndpoints = []): string
     {
         $apiResource = "Route::apiResource('/{$modelName}', {$controller}::class);";
         $softDeleteRoutes = '';
+        $bulkRoutes = '';
 
         if ($hasSoftDeletes) {
             $softDeleteRoutes = "\nRoute::post('/{$modelName}/{id}/restore', [{$controller}::class, 'restore']);";
             $softDeleteRoutes .= "\nRoute::delete('/{$modelName}/{id}/force-delete', [{$controller}::class, 'forceDelete']);";
         }
 
-        return $apiResource . $softDeleteRoutes;
+        if (in_array('create', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::post('/{$modelName}/bulk', [{$controller}::class, 'bulkStore']);";
+        }
+
+        if (in_array('update', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::put('/{$modelName}/bulk', [{$controller}::class, 'bulkUpdate']);";
+        }
+
+        if (in_array('delete', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::delete('/{$modelName}/bulk', [{$controller}::class, 'bulkDestroy']);";
+        }
+
+        return $apiResource . $softDeleteRoutes . $bulkRoutes;
+    }
+
+    /**
+     * Generate Web route code with bulk routes.
+     *
+     * @param string $modelName Plural model name (snake_case)
+     * @param string $controller Full controller class name
+     * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
+     * @return string Generated route code
+     */
+    private function generateWebRouteCode(string $modelName, string $controller, array $bulkEndpoints = []): string
+    {
+        $resourceRoute = "Route::resource('/{$modelName}', {$controller}::class);";
+        $bulkRoutes = '';
+
+        if (in_array('create', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::post('/{$modelName}/bulk', [{$controller}::class, 'bulkStore']);";
+        }
+
+        if (in_array('update', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::put('/{$modelName}/bulk', [{$controller}::class, 'bulkUpdate']);";
+        }
+
+        if (in_array('delete', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::delete('/{$modelName}/bulk', [{$controller}::class, 'bulkDestroy']);";
+        }
+
+        return $resourceRoute . $bulkRoutes;
     }
 
     /**

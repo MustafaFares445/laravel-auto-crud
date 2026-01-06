@@ -64,6 +64,32 @@ return [
          * Whether to include authorization tests in generated test files.
          */
         'include_authorization_tests' => true,
+        
+        /*
+         * Whether to generate unit tests for Service classes.
+         */
+        'generate_unit_tests' => false,
+        
+        /*
+         * Whether to generate integration tests.
+         */
+        'generate_integration_tests' => false,
+        
+        /*
+         * Whether to include validation error tests in feature tests.
+         */
+        'include_validation_tests' => true,
+        
+        /*
+         * Whether to include edge case tests in feature tests.
+         */
+        'include_edge_case_tests' => true,
+        
+        /*
+         * Custom path for test data helper class (optional).
+         * If not set, uses default TestDataHelper from package.
+         */
+        'test_data_factory_path' => null,
     ],
 
     /*

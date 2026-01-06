@@ -11,13 +11,16 @@ use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 
-class FactoryBuilder extends BaseBuilder
+class FactoryBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
     protected TableColumnsService $tableColumnsService;
 
     public function __construct(FileService $fileService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->tableColumnsService = $tableColumnsService;
     }
 

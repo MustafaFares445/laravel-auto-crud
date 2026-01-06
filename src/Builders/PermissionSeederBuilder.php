@@ -6,9 +6,18 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\FileService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 
-class PermissionSeederBuilder extends BaseBuilder
+class PermissionSeederBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
+
+    public function __construct(FileService $fileService)
+    {
+        $this->fileService = $fileService;
+    }
     public function create(array $modelData, bool $overwrite = false): string
     {
         $modelName = $modelData['modelName'];

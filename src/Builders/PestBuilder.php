@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Helpers\TestDataHelper;
 use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 
-class PestBuilder extends BaseBuilder
+class PestBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
     protected TableColumnsService $tableColumnsService;
 
     public function __construct(FileService $fileService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->tableColumnsService = $tableColumnsService;
     }
 
@@ -40,30 +44,8 @@ class PestBuilder extends BaseBuilder
                 }
             }
 
-            $authorizationTests = '';
-            if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {
-                $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
-                $authPayload = $this->generatePayload($columns);
-
-                $authorizationTests = "\n" . "it('forbids unauthorized access to " . Str::plural(Str::snake($modelData['modelName'], ' ')) . " CRUD operations', function () {
-    \$user = User::factory()->create();
-    \$model = {$modelData['modelName']}::factory()->create();
-    Sanctum::actingAs(\$user);
-
-    \$this->postJson('{$routePath}', [
-{$authPayload}
-    ])->assertForbidden();
-
-    \$this->putJson(\"{$routePath}/\" . \$model->id, [
-{$authPayload}
-    ])->assertForbidden();
-
-    \$this->deleteJson(\"{$routePath}/\" . \$model->id)->assertForbidden();
-});";
-            }
-
-            $extraTests = $this->generateExtraTests($modelData, $model, $searchField);
-
+            $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+            
             // Generate property and relationship assertions
             $listPropertyAssertions = $this->generatePropertyAssertions($columns, $model, true);
             $showPropertyAssertions = $this->generatePropertyAssertions($columns, $model, false);
@@ -71,6 +53,29 @@ class PestBuilder extends BaseBuilder
             $relationships = \Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector::detectRelationships($model);
             $listRelationshipAssertions = $this->generateRelationshipAssertions($relationships, true);
             $showRelationshipAssertions = $this->generateRelationshipAssertions($relationships, false);
+            
+            $authorizationTests = '';
+            if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {
+                $authorizationTests = $this->generateEnhancedAuthorizationTests($modelData, $model, $columns, $routePath);
+            }
+
+            $validationTests = '';
+            if (config('laravel_auto_crud.test_settings.include_validation_tests', true)) {
+                $validationTests = $this->generateValidationTests($modelData, $model, $columns, $routePath);
+            }
+
+            $notFoundTests = $this->generateNotFoundTests($modelData, $model, $routePath);
+
+            $edgeCaseTests = '';
+            if (config('laravel_auto_crud.test_settings.include_edge_case_tests', true)) {
+                $edgeCaseTests = $this->generateEdgeCaseTests($modelData, $model, $columns, $routePath);
+            }
+
+            $relationshipTests = $this->generateRelationshipTests($modelData, $model, $relationships, $routePath);
+
+            $paginationTests = $this->generatePaginationTests($modelData, $model, $routePath);
+
+            $extraTests = $this->generateExtraTests($modelData, $model, $searchField);
             
             // Collect enum use statements for test file
             $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
@@ -91,6 +96,11 @@ class PestBuilder extends BaseBuilder
                 '{{ createPayload }}' => $this->generatePayload($columns),
                 '{{ updatePayload }}' => $this->generatePayload($columns, true),
                 '{{ authorizationTests }}' => $authorizationTests,
+                '{{ validationTests }}' => $validationTests,
+                '{{ notFoundTests }}' => $notFoundTests,
+                '{{ edgeCaseTests }}' => $edgeCaseTests,
+                '{{ relationshipTests }}' => $relationshipTests,
+                '{{ paginationTests }}' => $paginationTests,
                 '{{ extraTests }}' => $extraTests,
                 '{{ listPropertyAssertions }}' => $listPropertyAssertions,
                 '{{ showPropertyAssertions }}' => $showPropertyAssertions,
@@ -516,5 +526,798 @@ class PestBuilder extends BaseBuilder
         }
         
         return !empty($assertions) ? implode("\n", $assertions) : '';
+    }
+
+    /**
+     * Generate validation error tests for Form Request validation rules.
+     *
+     * @param array $modelData
+     * @param string $model
+     * @param array $columns
+     * @param string $routePath
+     * @return string
+     */
+    private function generateValidationTests(array $modelData, string $model, array $columns, string $routePath): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+        $modelPlural = Str::plural(Str::snake($modelName, ' '));
+        $tests = '';
+
+        // Test empty payload (missing required fields)
+        $requiredFields = [];
+        foreach ($columns as $column) {
+            $isNullable = $column['isNullable'] ?? false;
+            if (!$isNullable && !in_array($column['name'], ['id', 'created_at', 'updated_at', 'deleted_at'])) {
+                $requiredFields[] = Str::camel($column['name']);
+            }
+        }
+
+        if (!empty($requiredFields)) {
+            $tests .= "it('validates required fields when creating a {$modelVariable}', function () {
+    // Arrange
+    \$payload = [];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors([" . implode(', ', array_map(fn($f) => "'{$f}'", $requiredFields)) . "]);
+});\n\n";
+        }
+
+        // Test validation for each column based on type
+        foreach ($columns as $column) {
+            $columnName = $column['name'];
+            $camelCaseName = Str::camel($columnName);
+            $isNullable = $column['isNullable'] ?? false;
+            $type = $column['type'];
+            $name = strtolower($columnName);
+
+            // Skip timestamps and id
+            if (in_array($columnName, ['id', 'created_at', 'updated_at', 'deleted_at'])) {
+                continue;
+            }
+
+            // Test invalid type for integers
+            if (in_array($type, ['integer', 'bigint', 'smallint', 'tinyint'])) {
+                $tests .= "it('validates {$camelCaseName} must be an integer', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'not-a-number'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+            }
+
+            // Test invalid email format
+            if (str_contains($name, 'email')) {
+                $tests .= "it('validates {$camelCaseName} must be a valid email', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'invalid-email'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+            }
+
+            // Test invalid URL format
+            if (str_contains($name, 'url') || str_contains($name, 'website')) {
+                $tests .= "it('validates {$camelCaseName} must be a valid URL', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'not-a-url'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+            }
+
+            // Test max length
+            if (isset($column['maxLength']) && $column['maxLength'] > 0) {
+                $maxLength = (int) $column['maxLength'];
+                $tests .= "it('validates {$camelCaseName} must not exceed max length', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'" . str_repeat('a', $maxLength + 1) . "'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+            }
+
+            // Test enum values
+            if (!empty($column['allowedValues'])) {
+                $enumClass = $column['enum_class'] ?? null;
+                if ($enumClass) {
+                    $shortClassName = $this->getShortClassName($enumClass);
+                    $tests .= "it('validates {$camelCaseName} must be a valid enum value', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'invalid-enum-value'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+                }
+            }
+
+            // Test date format
+            if (in_array($type, ['date', 'datetime', 'timestamp'])) {
+                $tests .= "it('validates {$camelCaseName} must be a valid date format', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'invalid-date'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+            }
+
+            // Test JSON format
+            if ($type === 'json') {
+                $tests .= "it('validates {$camelCaseName} must be valid JSON', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'not-json'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422)
+        ->assertJsonValidationErrors(['{$camelCaseName}']);
+});\n\n";
+            }
+        }
+
+        return $tests;
+    }
+
+    /**
+     * Generate not found (404) tests.
+     *
+     * @param array $modelData
+     * @param string $model
+     * @param string $routePath
+     * @return string
+     */
+    private function generateNotFoundTests(array $modelData, string $model, string $routePath): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+        $modelPlural = Str::plural(Str::snake($modelName, ' '));
+
+        // Determine if using UUID or integer ID
+        $isUuid = false;
+        try {
+            if (class_exists($model)) {
+                $modelInstance = new $model;
+                $keyType = $modelInstance->getKeyType();
+                $isUuid = ($keyType === 'string' && $modelInstance->getIncrementing() === false);
+            }
+        } catch (\Throwable $e) {
+            // Default to integer
+        }
+
+        $nonExistentId = $isUuid ? "'00000000-0000-0000-0000-000000000000'" : '99999';
+        $invalidId = $isUuid ? "'invalid-uuid'" : "'not-a-number'";
+
+        $tests = "it('returns 404 when showing non-existent {$modelVariable}', function () {
+    // Arrange
+    \$nonExistentId = {$nonExistentId};
+    
+    // Act
+    \$response = \$this->getJson(\"{$routePath}/\" . \$nonExistentId);
+    
+    // Assert
+    \$response->assertNotFound();
+});\n\n";
+
+        $tests .= "it('returns 404 when updating non-existent {$modelVariable}', function () {
+    // Arrange
+    \$nonExistentId = {$nonExistentId};
+    \$payload = [" . $this->generatePayload($this->tableColumnsService->getAvailableColumns((new $model)->getTable(), ['created_at', 'updated_at'], $model), true) . "];
+    
+    // Act
+    \$response = \$this->putJson(\"{$routePath}/\" . \$nonExistentId, \$payload);
+    
+    // Assert
+    \$response->assertNotFound();
+});\n\n";
+
+        $tests .= "it('returns 404 when deleting non-existent {$modelVariable}', function () {
+    // Arrange
+    \$nonExistentId = {$nonExistentId};
+    
+    // Act
+    \$response = \$this->deleteJson(\"{$routePath}/\" . \$nonExistentId);
+    
+    // Assert
+    \$response->assertNotFound();
+});\n\n";
+
+        if ($isUuid) {
+            $tests .= "it('returns 404 when ID format is invalid', function () {
+    // Arrange
+    \$invalidId = {$invalidId};
+    
+    // Act
+    \$response = \$this->getJson(\"{$routePath}/\" . \$invalidId);
+    
+    // Assert
+    \$response->assertNotFound();
+});\n\n";
+        }
+
+        return $tests;
+    }
+
+    /**
+     * Generate enhanced authorization tests.
+     *
+     * @param array $modelData
+     * @param string $model
+     * @param array $columns
+     * @param string $routePath
+     * @return string
+     */
+    private function generateEnhancedAuthorizationTests(array $modelData, string $model, array $columns, string $routePath): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+        $modelPlural = Str::plural(Str::snake($modelName, ' '));
+        $authPayload = $this->generatePayload($columns);
+
+        $tests = "it('forbids unauthorized user from viewing {$modelPlural}', function () {
+    // Arrange
+    \$user = User::factory()->create();
+    {$modelName}::factory()->create();
+    Sanctum::actingAs(\$user);
+    
+    // Act
+    \$response = \$this->getJson('{$routePath}');
+    
+    // Assert
+    \$response->assertForbidden();
+});\n\n";
+
+        $tests .= "it('forbids unauthorized user from creating {$modelVariable}', function () {
+    // Arrange
+    \$user = User::factory()->create();
+    Sanctum::actingAs(\$user);
+    
+    \$payload = [
+{$authPayload}
+    ];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertForbidden();
+});\n\n";
+
+        $tests .= "it('forbids unauthorized user from updating {$modelVariable}', function () {
+    // Arrange
+    \$user = User::factory()->create();
+    \$model = {$modelName}::factory()->create();
+    Sanctum::actingAs(\$user);
+    
+    \$payload = [
+{$authPayload}
+    ];
+    
+    // Act
+    \$response = \$this->putJson(\"{$routePath}/\" . \$model->id, \$payload);
+    
+    // Assert
+    \$response->assertForbidden();
+});\n\n";
+
+        $tests .= "it('forbids unauthorized user from deleting {$modelVariable}', function () {
+    // Arrange
+    \$user = User::factory()->create();
+    \$model = {$modelName}::factory()->create();
+    Sanctum::actingAs(\$user);
+    
+    // Act
+    \$response = \$this->deleteJson(\"{$routePath}/\" . \$model->id);
+    
+    // Assert
+    \$response->assertForbidden();
+});\n\n";
+
+        return $tests;
+    }
+
+    /**
+     * Generate edge case tests.
+     *
+     * @param array $modelData
+     * @param string $model
+     * @param array $columns
+     * @param string $routePath
+     * @return string
+     */
+    private function generateEdgeCaseTests(array $modelData, string $model, array $columns, string $routePath): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+        $modelPlural = Str::plural(Str::snake($modelName, ' '));
+        $tests = '';
+
+        // Test empty payload
+        $tests .= "it('handles empty payload gracefully', function () {
+    // Arrange
+    \$payload = [];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(422);
+});\n\n";
+
+        // Test SQL injection attempt
+        $sqlInjection = TestDataHelper::sqlInjectionAttempt();
+        $tests .= "it('sanitizes SQL injection attempts in string fields', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, ['name' => "'{$sqlInjection}'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    // Should either validate and reject, or sanitize and accept
+    expect(\$response->status())->toBeIn([201, 422]);
+});\n\n";
+
+        // Test XSS attempt
+        $xssAttempt = TestDataHelper::xssAttempt();
+        $tests .= "it('sanitizes XSS attempts in string fields', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, ['name' => "'{$xssAttempt}'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    // Should either validate and reject, or sanitize and accept
+    expect(\$response->status())->toBeIn([201, 422]);
+});\n\n";
+
+        // Test boundary values for numeric fields
+        foreach ($columns as $column) {
+            $columnName = $column['name'];
+            $camelCaseName = Str::camel($columnName);
+            $type = $column['type'];
+
+            if (in_array($type, ['integer', 'bigint', 'smallint'])) {
+                $tests .= "it('handles negative values for {$camelCaseName}', function () {
+    // Arrange
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => '-1']) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    // Should either validate and reject, or accept if negative values are allowed
+    expect(\$response->status())->toBeIn([201, 422]);
+});\n\n";
+            }
+
+            // Test max length boundary
+            if (isset($column['maxLength']) && $column['maxLength'] > 0) {
+                $maxLength = (int) $column['maxLength'];
+                $tests .= "it('handles max length boundary for {$camelCaseName}', function () {
+    // Arrange
+    \$maxLengthString = str_repeat('a', {$maxLength});
+    \$payload = [" . $this->generatePayloadString($columns, [$camelCaseName => "'\$maxLengthString'"]) . "];
+    
+    // Act
+    \$response = \$this->postJson('{$routePath}', \$payload);
+    
+    // Assert
+    \$response->assertStatus(201);
+});\n\n";
+            }
+        }
+
+        return $tests;
+    }
+
+    /**
+     * Generate relationship tests.
+     *
+     * @param array $modelData
+     * @param string $model
+     * @param array $relationships
+     * @param string $routePath
+     * @return string
+     */
+    private function generateRelationshipTests(array $modelData, string $model, array $relationships, string $routePath): string
+    {
+        if (empty($relationships)) {
+            return '';
+        }
+
+        $modelName = $modelData['modelName'];
+        $modelVariable = lcfirst($modelName);
+        $modelPlural = Str::plural(Str::snake($modelName, ' '));
+        $tests = '';
+
+        // Test eager loading relationships
+        $belongsToRelations = array_filter($relationships, fn($rel) => $rel['type'] === 'belongsTo');
+        if (!empty($belongsToRelations)) {
+            $firstRelation = reset($belongsToRelations);
+            $relationName = Str::camel($firstRelation['name']);
+            $tests .= "it('can eager load {$relationName} relationship', function () {
+    // Arrange
+    \${$modelVariable} = {$modelName}::factory()->create();
+    
+    // Act
+    \$response = \$this->getJson(\"{$routePath}/\" . \${$modelVariable}->id . '?with=' . '{$relationName}');
+    
+    // Assert
+    \$response->assertOk();
+    \$data = \$response->json('data');
+    expect(\$data)->toHaveKey('{$relationName}');
+});\n\n";
+        }
+
+        // Test relationship data in responses
+        foreach ($belongsToRelations as $relationship) {
+            $relationName = Str::camel($relationship['name']);
+            $tests .= "it('includes {$relationName} relationship data when loaded', function () {
+    // Arrange
+    \${$modelVariable} = {$modelName}::factory()->with('{$relationship['name']}')->create();
+    
+    // Act
+    \$response = \$this->getJson(\"{$routePath}/\" . \${$modelVariable}->id);
+    
+    // Assert
+    \$response->assertOk();
+    \$data = \$response->json('data');
+    if (isset(\$data['{$relationName}'])) {
+        expect(\$data['{$relationName}'])->toBeArray();
+    }
+});\n\n";
+        }
+
+        return $tests;
+    }
+
+    /**
+     * Generate pagination tests.
+     *
+     * @param array $modelData
+     * @param string $model
+     * @param string $routePath
+     * @return string
+     */
+    private function generatePaginationTests(array $modelData, string $model, string $routePath): string
+    {
+        $modelName = $modelData['modelName'];
+        $modelPlural = Str::plural(Str::snake($modelName, ' '));
+        $defaultPagination = config('laravel_auto_crud.default_pagination', 20);
+
+        $tests = "it('paginates {$modelPlural} with default per page', function () {
+    // Arrange
+    {$modelName}::factory()->count(25)->create();
+    
+    // Act
+    \$response = \$this->getJson('{$routePath}');
+    
+    // Assert
+    \$response->assertOk();
+    \$data = \$response->json('data');
+    expect(\$data)->toHaveCount({$defaultPagination});
+    expect(\$response->json('meta.current_page'))->toBe(1);
+    expect(\$response->json('meta.per_page'))->toBe({$defaultPagination});
+});\n\n";
+
+        $tests .= "it('paginates {$modelPlural} with custom per page', function () {
+    // Arrange
+    {$modelName}::factory()->count(15)->create();
+    
+    // Act
+    \$response = \$this->getJson('{$routePath}?per_page=5');
+    
+    // Assert
+    \$response->assertOk();
+    \$data = \$response->json('data');
+    expect(\$data)->toHaveCount(5);
+    expect(\$response->json('meta.per_page'))->toBe(5);
+});\n\n";
+
+        $tests .= "it('handles pagination for empty result set', function () {
+    // Arrange
+    // No models created
+    
+    // Act
+    \$response = \$this->getJson('{$routePath}');
+    
+    // Assert
+    \$response->assertOk();
+    \$data = \$response->json('data');
+    expect(\$data)->toBeArray();
+    expect(\$data)->toHaveCount(0);
+    expect(\$response->json('meta.total'))->toBe(0);
+});\n\n";
+
+        $tests .= "it('handles pagination beyond last page', function () {
+    // Arrange
+    {$modelName}::factory()->count(5)->create();
+    
+    // Act
+    \$response = \$this->getJson('{$routePath}?page=999');
+    
+    // Assert
+    \$response->assertOk();
+    \$data = \$response->json('data');
+    expect(\$data)->toBeArray();
+    expect(\$data)->toHaveCount(0);
+});\n\n";
+
+        $tests .= "it('includes pagination metadata', function () {
+    // Arrange
+    {$modelName}::factory()->count(25)->create();
+    
+    // Act
+    \$response = \$this->getJson('{$routePath}');
+    
+    // Assert
+    \$response->assertOk();
+    expect(\$response->json('meta'))->toHaveKeys(['current_page', 'per_page', 'total', 'last_page']);
+});\n\n";
+
+        return $tests;
+    }
+
+    /**
+     * Generate payload string with optional overrides.
+     *
+     * @param array $columns
+     * @param array $overrides
+     * @return string
+     */
+    private function generatePayloadString(array $columns, array $overrides = []): string
+    {
+        $payload = [];
+        foreach ($columns as $column) {
+            $camelCaseName = Str::camel($column['name']);
+            
+            if (isset($overrides[$camelCaseName])) {
+                $payload[] = "        '{$camelCaseName}' => {$overrides[$camelCaseName]},";
+            } else {
+                $value = $this->generateValueForType($column, false);
+                $payload[] = "        '{$camelCaseName}' => {$value},";
+            }
+        }
+
+        return implode("\n", $payload);
+    }
+
+    /**
+     * Create unit test for Service class.
+     *
+     * @param array $modelData
+     * @param bool $overwrite
+     * @return string
+     */
+    public function createServiceUnitTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_unit_service', 'tests/Unit/Services', 'ServiceTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $serviceClass = 'App\\Services\\' . $modelData['modelName'] . 'Service';
+            $dataClass = 'App\\Data\\' . $modelData['modelName'] . 'Data';
+            $modelVariable = lcfirst($modelData['modelName']);
+
+            $createPayload = $this->generatePayload($columns);
+            $updatePayload = $this->generatePayload($columns, true);
+
+            $databaseAssertions = [];
+            $updateDatabaseAssertions = [];
+            foreach ($columns as $column) {
+                if (!in_array($column['name'], ['id', 'created_at', 'updated_at', 'deleted_at'])) {
+                    $camelCase = Str::camel($column['name']);
+                    $value = $this->generateValueForType($column, false);
+                    $databaseAssertions[] = "        '{$column['name']}' => " . (str_starts_with($value, "'") ? $value : "{$value}") . ",";
+                    
+                    $updateValue = $this->generateValueForType($column, true);
+                    $updateDatabaseAssertions[] = "        '{$column['name']}' => " . (str_starts_with($updateValue, "'") ? $updateValue : "{$updateValue}") . ",";
+                }
+            }
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelVariable }}' => $modelVariable,
+                '{{ serviceNamespace }}' => $serviceClass,
+                '{{ serviceClass }}' => $modelData['modelName'] . 'Service',
+                '{{ dataNamespace }}' => $dataClass,
+                '{{ dataClass }}' => $modelData['modelName'] . 'Data',
+                '{{ tableName }}' => $tableName,
+                '{{ createPayload }}' => $createPayload,
+                '{{ updatePayload }}' => $updatePayload,
+                '{{ databaseAssertions }}' => implode("\n", $databaseAssertions),
+                '{{ updateDatabaseAssertions }}' => implode("\n", $updateDatabaseAssertions),
+            ];
+        });
+    }
+
+    /**
+     * Create unit test for Form Request class.
+     *
+     * @param array $modelData
+     * @param string $requestType 'store' or 'update'
+     * @param bool $overwrite
+     * @return string
+     */
+    public function createRequestValidationTest(array $modelData, string $requestType, bool $overwrite = false): string
+    {
+        $suffix = $requestType === 'store' ? 'Store' : 'Update';
+        return $this->fileService->createFromStub($modelData, 'pest_unit_request', 'tests/Unit/Requests', $suffix . 'RequestTest', $overwrite, function ($modelData) use ($requestType, $suffix) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $requestClass = 'App\\Http\\Requests\\' . $modelData['modelName'] . 'Requests\\' . $modelData['modelName'] . $suffix . 'Request';
+
+            $requiredFields = [];
+            $typeAssertions = [];
+            $formatAssertions = [];
+
+            foreach ($columns as $column) {
+                $camelCase = Str::camel($column['name']);
+                $isNullable = $column['isNullable'] ?? false;
+
+                if (!$isNullable && !in_array($column['name'], ['id', 'created_at', 'updated_at', 'deleted_at'])) {
+                    $requiredFields[] = "    expect(\$rules)->toHaveKey('{$camelCase}');";
+                }
+
+                if (in_array($column['type'], ['integer', 'bigint', 'smallint'])) {
+                    $typeAssertions[] = "    expect(\$rules['{$camelCase}'])->toContain('integer');";
+                }
+
+                if (str_contains(strtolower($column['name']), 'email')) {
+                    $formatAssertions[] = "    expect(\$rules['{$camelCase}'])->toContain('email');";
+                }
+
+                if (str_contains(strtolower($column['name']), 'url')) {
+                    $formatAssertions[] = "    expect(\$rules['{$camelCase}'])->toContain('url');";
+                }
+            }
+
+            return [
+                '{{ requestNamespace }}' => $requestClass,
+                '{{ requestClass }}' => $modelData['modelName'] . $suffix . 'Request',
+                '{{ requiredFieldsAssertions }}' => implode("\n", $requiredFields),
+                '{{ typeValidationAssertions }}' => implode("\n", $typeAssertions),
+                '{{ formatValidationAssertions }}' => implode("\n", $formatAssertions),
+            ];
+        });
+    }
+
+    /**
+     * Create unit test for Policy class.
+     *
+     * @param array $modelData
+     * @param bool $overwrite
+     * @return string
+     */
+    public function createPolicyTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_unit_policy', 'tests/Unit/Policies', 'PolicyTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $policyClass = 'App\\Policies\\' . $modelData['modelName'] . 'Policy';
+            $modelVariable = lcfirst($modelData['modelName']);
+            $modelPlural = Str::plural(Str::snake($modelData['modelName'], ' '));
+            $seederClass = $this->getSeederClass();
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelVariable }}' => $modelVariable,
+                '{{ modelPlural }}' => $modelPlural,
+                '{{ policyNamespace }}' => $policyClass,
+                '{{ policyClass }}' => $modelData['modelName'] . 'Policy',
+                '{{ seederCall }}' => $this->generateSeederCall($seederClass),
+            ];
+        });
+    }
+
+    /**
+     * Create unit test for Resource class.
+     *
+     * @param array $modelData
+     * @param bool $overwrite
+     * @return string
+     */
+    public function createResourceTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_unit_resource', 'tests/Unit/Resources', 'ResourceTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $resourceClass = 'App\\Http\\Resources\\' . $modelData['modelName'] . 'Resource';
+            $modelVariable = lcfirst($modelData['modelName']);
+
+            $relationships = \Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector::detectRelationships($model);
+            
+            $resourcePropertyAssertions = [];
+            foreach ($columns as $column) {
+                if (!in_array($column['name'], ['id', 'created_at', 'updated_at', 'deleted_at'])) {
+                    $camelCase = Str::camel($column['name']);
+                    $resourcePropertyAssertions[] = "    expect(\$array)->toHaveKey('{$camelCase}');";
+                }
+            }
+
+            $relationshipSetup = '';
+            $relationshipAssertions = [];
+            if (!empty($relationships)) {
+                $firstRelation = reset($relationships);
+                $relationName = $firstRelation['name'];
+                $camelCase = Str::camel($relationName);
+                $relationshipSetup = "    \${$modelVariable}->load('{$relationName}');";
+                $relationshipAssertions[] = "    if (isset(\$array['{$camelCase}'])) {";
+                $relationshipAssertions[] = "        expect(\$array['{$camelCase}'])->toBeArray();";
+                $relationshipAssertions[] = "    }";
+            }
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelVariable }}' => $modelVariable,
+                '{{ resourceNamespace }}' => $resourceClass,
+                '{{ resourceClass }}' => $modelData['modelName'] . 'Resource',
+                '{{ resourcePropertyAssertions }}' => implode("\n", $resourcePropertyAssertions),
+                '{{ relationshipSetup }}' => $relationshipSetup,
+                '{{ relationshipAssertions }}' => implode("\n", $relationshipAssertions),
+            ];
+        });
     }
 }

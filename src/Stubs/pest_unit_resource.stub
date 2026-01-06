@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use {{ resourceNamespace }};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Tests\TestCase;
+
+uses(TestCase::class, RefreshDatabase::class);
+
+it('transforms {{ modelVariable }} to array', function () {
+    // Arrange
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+    $resource = new {{ resourceClass }}(${{ modelVariable }});
+    $request = Request::create('/');
+
+    // Act
+    $array = $resource->toArray($request);
+
+    // Assert
+    expect($array)->toBeArray();
+    expect($array)->toHaveKey('id');
+{{ resourcePropertyAssertions }}
+});
+
+it('includes relationship data when loaded', function () {
+    // Arrange
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+{{ relationshipSetup }}
+    $resource = new {{ resourceClass }}(${{ modelVariable }});
+    $request = Request::create('/');
+
+    // Act
+    $array = $resource->toArray($request);
+
+    // Assert
+{{ relationshipAssertions }}
+});
+

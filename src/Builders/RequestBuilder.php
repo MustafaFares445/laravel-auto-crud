@@ -10,22 +10,22 @@ use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 
-class RequestBuilder extends BaseBuilder
+class RequestBuilder
 {
+    use ModelHelperTrait;
     use TableColumnsTrait;
 
+    protected FileService $fileService;
     protected TableColumnsService $tableColumnsService;
     protected ModelService $modelService;
     protected EnumBuilder $enumBuilder;
     
-    /**
-     * Initialize the RequestBuilder with required services.
-     */
     public function __construct(FileService $fileService, TableColumnsService $tableColumnsService, ModelService $modelService, EnumBuilder $enumBuilder)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->tableColumnsService = $tableColumnsService;
         $this->modelService = $modelService;
         $this->enumBuilder = $enumBuilder;
@@ -72,6 +72,226 @@ class RequestBuilder extends BaseBuilder
             'store' => $storeRequestPath,
             'update' => $updateRequestPath,
         ];
+    }
+
+    /**
+     * Create bulk request classes based on selected bulk endpoints.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param array $bulkEndpoints Selected bulk endpoints (e.g., ['create', 'update', 'delete'])
+     * @param string $pattern Data pattern ('normal' or 'spatie-data')
+     * @param bool $overwrite Whether to overwrite existing request files
+     * @return array Returns array with 'bulkStore', 'bulkUpdate', 'bulkDelete' keys (if created)
+     */
+    public function createBulkRequests(array $modelData, array $bulkEndpoints, string $pattern = 'normal', bool $overwrite = false): array
+    {
+        $bulkRequests = [];
+
+        if (in_array('create', $bulkEndpoints, true)) {
+            if ($pattern === 'spatie-data') {
+                $bulkRequests['bulkStore'] = $this->createBulkStoreRequestForSpatieData($modelData, $overwrite);
+            } else {
+                $bulkRequests['bulkStore'] = $this->createBulkStoreRequest($modelData, $overwrite);
+            }
+        }
+
+        if (in_array('update', $bulkEndpoints, true)) {
+            if ($pattern === 'spatie-data') {
+                $bulkRequests['bulkUpdate'] = $this->createBulkUpdateRequestForSpatieData($modelData, $overwrite);
+            } else {
+                $bulkRequests['bulkUpdate'] = $this->createBulkUpdateRequest($modelData, $overwrite);
+            }
+        }
+
+        if (in_array('delete', $bulkEndpoints, true)) {
+            $bulkRequests['bulkDelete'] = $this->createBulkDeleteRequest($modelData, $overwrite);
+        }
+
+        return $bulkRequests;
+    }
+
+    /**
+     * Create a BulkStoreRequest class for standard CRUD operations.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created BulkStoreRequest file
+     */
+    protected function createBulkStoreRequest(array $modelData, bool $overwrite = false): string
+    {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'bulk_store_request', $requestPath, 'BulkStoreRequest', $overwrite, function ($modelData) {
+            $storeData = $this->getRequestData($modelData, 'store');
+            $bulkRules = $this->formatBulkStoreRules($storeData['rules'], $modelData);
+            return [
+                '{{ data }}' => $this->formatRulesAsString($bulkRules),
+                '{{ useStatements }}' => $this->generateUseStatements($storeData['useStatements']),
+            ];
+        });
+    }
+
+    /**
+     * Create a BulkStoreRequest class for Spatie Data pattern.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created BulkStoreRequest file
+     */
+    protected function createBulkStoreRequestForSpatieData(array $modelData, bool $overwrite = false): string
+    {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'bulk_store_request', $requestPath, 'BulkStoreRequest', $overwrite, function ($modelData) {
+            $data = $this->getRequestData($modelData, 'store');
+            
+            // Add media field validation rules
+            $model = $this->getFullModelNamespace($modelData);
+            $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
+
+            foreach ($mediaFields as $field) {
+                $data['rules'][$field['name']] = $this->convertValidationToArray($field['validation']);
+            }
+
+            $bulkRules = $this->formatBulkStoreRules($data['rules'], $modelData);
+            return [
+                '{{ data }}' => $this->formatRulesAsString($bulkRules),
+                '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
+            ];
+        });
+    }
+
+    /**
+     * Create a BulkUpdateRequest class for standard CRUD operations.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created BulkUpdateRequest file
+     */
+    protected function createBulkUpdateRequest(array $modelData, bool $overwrite = false): string
+    {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'bulk_update_request', $requestPath, 'BulkUpdateRequest', $overwrite, function ($modelData) {
+            $updateData = $this->getRequestData($modelData, 'update');
+            $tableName = $this->modelService->getTableName($modelData, fn($modelName) => new $modelName);
+            $bulkRules = $this->formatBulkUpdateRules($updateData['rules'], $modelData, $tableName);
+            return [
+                '{{ data }}' => $this->formatRulesAsString($bulkRules),
+                '{{ useStatements }}' => $this->generateUseStatements($updateData['useStatements']),
+            ];
+        });
+    }
+
+    /**
+     * Create a BulkUpdateRequest class for Spatie Data pattern.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created BulkUpdateRequest file
+     */
+    protected function createBulkUpdateRequestForSpatieData(array $modelData, bool $overwrite = false): string
+    {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'bulk_update_request', $requestPath, 'BulkUpdateRequest', $overwrite, function ($modelData) {
+            $data = $this->getRequestData($modelData, 'update');
+            
+            // Add media field validation rules
+            $model = $this->getFullModelNamespace($modelData);
+            $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
+
+            foreach ($mediaFields as $field) {
+                $data['rules'][$field['name']] = $this->convertValidationToArray($field['validation']);
+            }
+
+            $tableName = $this->modelService->getTableName($modelData, fn($modelName) => new $modelName);
+            $bulkRules = $this->formatBulkUpdateRules($data['rules'], $modelData, $tableName);
+            return [
+                '{{ data }}' => $this->formatRulesAsString($bulkRules),
+                '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
+            ];
+        });
+    }
+
+    /**
+     * Create a BulkDeleteRequest class.
+     *
+     * @param array $modelData Model information including name, namespace, etc.
+     * @param bool $overwrite Whether to overwrite existing request file
+     * @return string Path to the created BulkDeleteRequest file
+     */
+    protected function createBulkDeleteRequest(array $modelData, bool $overwrite = false): string
+    {
+        $requestPath = $this->getRequestFolderPath($modelData);
+        return $this->fileService->createFromStub($modelData, 'bulk_delete_request', $requestPath, 'BulkDeleteRequest', $overwrite, function ($modelData) {
+            $tableName = $this->modelService->getTableName($modelData, fn($modelName) => new $modelName);
+            $bulkRules = [
+                'ids' => 'required|array',
+                'ids.*' => "required|integer|exists:{$tableName},id",
+            ];
+            return [
+                '{{ data }}' => $this->formatRulesAsString($bulkRules),
+                '{{ useStatements }}' => '',
+            ];
+        });
+    }
+
+    /**
+     * Format bulk store validation rules.
+     * Wraps store rules in items array validation.
+     *
+     * @param array $storeRules Original store validation rules
+     * @param array $modelData Model information
+     * @return array Bulk validation rules
+     */
+    private function formatBulkStoreRules(array $storeRules, array $modelData): array
+    {
+        $bulkRules = [
+            'items' => 'required|array',
+        ];
+
+        foreach ($storeRules as $field => $rule) {
+            if (is_array($rule)) {
+                // Handle array rules with Rule:: calls
+                $bulkRules["items.*.{$field}"] = $rule;
+            } else {
+                // Handle string rules
+                $bulkRules["items.*.{$field}"] = $rule;
+            }
+        }
+
+        return $bulkRules;
+    }
+
+    /**
+     * Format bulk update validation rules.
+     * Wraps update rules in items array validation with id requirement.
+     *
+     * @param array $updateRules Original update validation rules
+     * @param array $modelData Model information
+     * @param string $tableName Database table name
+     * @return array Bulk validation rules
+     */
+    private function formatBulkUpdateRules(array $updateRules, array $modelData, string $tableName): array
+    {
+        $bulkRules = [
+            'items' => 'required|array',
+            'items.*.id' => "required|integer|exists:{$tableName},id",
+        ];
+
+        foreach ($updateRules as $field => $rule) {
+            // Skip id field as it's already handled above
+            if ($field === 'id') {
+                continue;
+            }
+
+            if (is_array($rule)) {
+                // Handle array rules with Rule:: calls
+                $bulkRules["items.*.{$field}"] = $rule;
+            } else {
+                // Handle string rules
+                $bulkRules["items.*.{$field}"] = $rule;
+            }
+        }
+
+        return $bulkRules;
     }
 
     /**

@@ -10,18 +10,21 @@ use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 
-class ResourceBuilder extends BaseBuilder
+class ResourceBuilder
 {
+    use ModelHelperTrait;
     use TableColumnsTrait;
 
+    protected FileService $fileService;
     protected ModelService $modelService;
     protected TableColumnsService $tableColumnsService;
 
     public function __construct(FileService $fileService, ModelService $modelService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->modelService = $modelService;
         $this->tableColumnsService = $tableColumnsService;
     }

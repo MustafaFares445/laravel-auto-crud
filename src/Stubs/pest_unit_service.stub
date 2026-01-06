@@ -1,0 +1,92 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use {{ serviceNamespace }};
+use {{ dataNamespace }};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+uses(TestCase::class, RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->service = new {{ serviceClass }}();
+});
+
+it('stores a {{ modelVariable }} successfully', function () {
+    // Arrange
+    $data = {{ dataClass }}::from([
+{{ createPayload }}
+    ]);
+
+    // Act
+    $result = $this->service->store($data);
+
+    // Assert
+    expect($result)->toBeInstanceOf({{ model }}::class);
+    $this->assertDatabaseHas('{{ tableName }}', [
+        'id' => $result->id,
+{{ databaseAssertions }}
+    ]);
+});
+
+it('updates a {{ modelVariable }} successfully', function () {
+    // Arrange
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+    $data = {{ dataClass }}::from([
+{{ updatePayload }}
+    ]);
+
+    // Act
+    $result = $this->service->update($data, ${{ modelVariable }});
+
+    // Assert
+    expect($result)->toBeInstanceOf({{ model }}::class);
+    expect($result->id)->toBe(${{ modelVariable }}->id);
+    $this->assertDatabaseHas('{{ tableName }}', [
+        'id' => ${{ modelVariable }}->id,
+{{ updateDatabaseAssertions }}
+    ]);
+});
+
+it('wraps store operation in database transaction', function () {
+    // Arrange
+    $data = {{ dataClass }}::from([
+{{ createPayload }}
+    ]);
+
+    DB::shouldReceive('transaction')
+        ->once()
+        ->andReturnUsing(function ($callback) {
+            return $callback();
+        });
+
+    // Act
+    $this->service->store($data);
+
+    // Assert
+    // Transaction was called
+});
+
+it('wraps update operation in database transaction', function () {
+    // Arrange
+    ${{ modelVariable }} = {{ model }}::factory()->create();
+    $data = {{ dataClass }}::from([
+{{ updatePayload }}
+    ]);
+
+    DB::shouldReceive('transaction')
+        ->once()
+        ->andReturnUsing(function ($callback) {
+            return $callback();
+        });
+
+    // Act
+    $this->service->update($data, ${{ modelVariable }});
+
+    // Assert
+    // Transaction was called
+});
+

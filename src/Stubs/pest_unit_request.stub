@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ requestNamespace }};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+uses(TestCase::class, RefreshDatabase::class);
+
+it('authorizes request by default', function () {
+    // Arrange
+    $request = new {{ requestClass }}();
+
+    // Act
+    $authorized = $request->authorize();
+
+    // Assert
+    expect($authorized)->toBeTrue();
+});
+
+it('validates required fields', function () {
+    // Arrange
+    $request = new {{ requestClass }}();
+    $rules = $request->rules();
+
+    // Assert
+    expect($rules)->toBeArray();
+{{ requiredFieldsAssertions }}
+});
+
+it('validates field types correctly', function () {
+    // Arrange
+    $request = new {{ requestClass }}();
+    $rules = $request->rules();
+
+    // Assert
+{{ typeValidationAssertions }}
+});
+
+it('validates field formats correctly', function () {
+    // Arrange
+    $request = new {{ requestClass }}();
+    $rules = $request->rules();
+
+    // Assert
+{{ formatValidationAssertions }}
+});
+

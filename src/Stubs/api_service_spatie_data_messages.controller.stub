@@ -10,7 +10,7 @@ use {{ spatieDataNamespace }};
 use {{ serviceNamespace }};
 use {{ storeRequestNamespace }};
 use {{ updateRequestNamespace }};
-use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
+{{ bulkRequestImports }}use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -89,5 +89,5 @@ class {{ class }}
 
         return {{ resource }}::make(${{ modelVariable }})
             ->additional(['message' => ResponseMessages::DELETED->message()]);
-    }{{ softDeleteMethods }}
+    }{{ softDeleteMethods }}{{ bulkMethods }}
 }

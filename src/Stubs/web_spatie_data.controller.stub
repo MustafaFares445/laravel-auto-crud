@@ -4,7 +4,7 @@ namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
 use {{ spatieDataNamespace }};
-use {{ modelNamespace }};
+{{ bulkRequestImports }}use {{ modelNamespace }};
 
 class {{ class }} extends Controller
 {
@@ -47,5 +47,5 @@ class {{ class }} extends Controller
     {
         ${{ modelVariable }}->delete();
         return redirect()->route('{{ routeName }}.index')->with('success', 'Deleted successfully');
-    }
+    }{{ bulkMethods }}
 }

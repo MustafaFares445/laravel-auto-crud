@@ -25,23 +25,44 @@ use function Laravel\Prompts\info;
 
 class CRUDGenerator
 {
+    private ControllerBuilder $controllerBuilder;
+    private ResourceBuilder $resourceBuilder;
+    private RequestBuilder $requestBuilder;
+    private RouteBuilder $routeBuilder;
+    private ViewBuilder $viewBuilder;
+    private ServiceBuilder $serviceBuilder;
+    private SpatieDataBuilder $spatieDataBuilder;
+    private SpatieFilterBuilder $spatieFilterBuilder;
+    private PolicyBuilder $policyBuilder;
+    private PestBuilder $pestBuilder;
+    private FactoryBuilder $factoryBuilder;
+    private PermissionSeederBuilder $permissionSeederBuilder;
+    private PermissionGroupEnumBuilder $permissionGroupEnumBuilder;
+
     public function __construct(
-        private ControllerBuilder $controllerBuilder,
-        private ResourceBuilder $resourceBuilder,
-        private RequestBuilder $requestBuilder,
-        private RouteBuilder $routeBuilder,
-        private ViewBuilder $viewBuilder,
-        private ServiceBuilder $serviceBuilder,
-        private SpatieDataBuilder $spatieDataBuilder,
-        private SpatieFilterBuilder $spatieFilterBuilder,
-        private PolicyBuilder $policyBuilder,
-        private PestBuilder $pestBuilder,
-        private FactoryBuilder $factoryBuilder,
-        private PermissionSeederBuilder $permissionSeederBuilder,
-        private PermissionGroupEnumBuilder $permissionGroupEnumBuilder,
+        private FileService $fileService,
         private ModelTraitService $modelTraitService,
+        private TableColumnsService $tableColumnsService,
+        private ModelService $modelService,
     ) {
-        // Dependencies are injected via Laravel's service container
+        $this->initializeBuilders();
+    }
+
+    private function initializeBuilders(): void
+    {
+        $this->controllerBuilder = new ControllerBuilder($this->fileService);
+        $this->resourceBuilder = new ResourceBuilder($this->fileService, $this->modelService, $this->tableColumnsService);
+        $this->requestBuilder = new RequestBuilder($this->fileService, $this->tableColumnsService, $this->modelService, new \Mrmarchone\LaravelAutoCrud\Builders\EnumBuilder($this->fileService));
+        $this->routeBuilder = new RouteBuilder();
+        $this->viewBuilder = new ViewBuilder();
+        $this->serviceBuilder = new ServiceBuilder($this->fileService);
+        $this->spatieDataBuilder = new SpatieDataBuilder($this->fileService, new \Mrmarchone\LaravelAutoCrud\Builders\EnumBuilder($this->fileService), $this->modelService, $this->tableColumnsService);
+        $this->spatieFilterBuilder = new SpatieFilterBuilder($this->fileService, $this->tableColumnsService, $this->modelService);
+        $this->policyBuilder = new PolicyBuilder($this->fileService);
+        $this->pestBuilder = new PestBuilder($this->fileService, $this->tableColumnsService);
+        $this->factoryBuilder = new FactoryBuilder($this->fileService, $this->tableColumnsService);
+        $this->permissionSeederBuilder = new PermissionSeederBuilder($this->fileService);
+        $this->permissionGroupEnumBuilder = new PermissionGroupEnumBuilder($this->fileService);
     }
 
     /**
@@ -82,7 +103,7 @@ class CRUDGenerator
             }
         }
 
-        $requests = $spatieDataName = $service = null;
+        $requests = $bulkRequests = $spatieDataName = $service = null;
 
         if ($options['pattern'] === 'spatie-data') {
             $spatieDataName = $this->spatieDataBuilder->create($modelData, $options['overwrite']);
@@ -93,6 +114,17 @@ class CRUDGenerator
             }
         } else {
             $requests = $this->requestBuilder->create($modelData, $options['overwrite']);
+        }
+
+        // Create bulk requests if bulk endpoints are selected
+        $bulkEndpoints = $options['bulk'] ?? [];
+        if (!empty($bulkEndpoints)) {
+            $bulkRequests = $this->requestBuilder->createBulkRequests(
+                $modelData,
+                $bulkEndpoints,
+                $options['pattern'] ?? 'normal',
+                $options['overwrite'] ?? false
+            );
         }
 
         if ($options['service'] ?? false) {
@@ -119,10 +151,36 @@ class CRUDGenerator
             if (($options['filter'] ?? false) && $options['pattern'] === 'spatie-data') {
                 $this->pestBuilder->createFilterTest($modelData, $options['overwrite']);
             }
+
+            // Generate unit tests if enabled in config (when pest is selected)
+            $generateUnitTests = config('laravel_auto_crud.test_settings.generate_unit_tests', false);
+            if ($generateUnitTests) {
+                // Generate service unit tests if service is generated
+                if ($options['service'] ?? false) {
+                    $this->pestBuilder->createServiceUnitTest($modelData, $options['overwrite']);
+                }
+
+                // Generate request validation tests if requests are generated
+                if (!empty($requests)) {
+                    $this->pestBuilder->createRequestValidationTest($modelData, 'store', $options['overwrite']);
+                    $this->pestBuilder->createRequestValidationTest($modelData, 'update', $options['overwrite']);
+                }
+
+                // Generate policy tests if policy is generated
+                if ($options['policy'] ?? false) {
+                    $this->pestBuilder->createPolicyTest($modelData, $options['overwrite']);
+                }
+
+                // Generate resource tests if resources are generated (always generated for API)
+                if (in_array('api', $checkForType, true)) {
+                    $this->pestBuilder->createResourceTest($modelData, $options['overwrite']);
+                }
+            }
         }
 
         $data = [
             'requests' => $requests ?? [],
+            'bulkRequests' => $bulkRequests ?? [],
             'service' => $service ?? '',
             'spatieData' => $spatieDataName ?? '',
             'filterBuilder' => $filterBuilder ?? '',
@@ -134,7 +192,8 @@ class CRUDGenerator
         $modelClass = ModelService::getFullModelNamespace($modelData);
         $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
         
-        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $hasSoftDeletes);
+        $bulkEndpoints = $options['bulk'] ?? [];
+        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $hasSoftDeletes, $bulkEndpoints);
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
     }
@@ -144,11 +203,11 @@ class CRUDGenerator
         $controllerName = null;
 
         if (in_array('api', $types, true)) {
-            $controllerName = $this->generateAPIController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null);
+            $controllerName = $this->generateAPIController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null, $data['bulkRequests'] ?? []);
         }
 
         if (in_array('web', $types, true)) {
-            $controllerName = $this->generateWebController($modelData, $data['requests'], $data['service'], $options, $data['spatieData']);
+            $controllerName = $this->generateWebController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['bulkRequests'] ?? []);
         }
 
         if (! $controllerName) {
@@ -158,7 +217,7 @@ class CRUDGenerator
         return $controllerName;
     }
 
-    private function generateAPIController(array $modelData, array $requests, string $service, array $options, ?string $spatieData = null, ?string $filterBuilder = null, ?string $filterRequest = null): string
+    private function generateAPIController(array $modelData, array $requests, string $service, array $options, ?string $spatieData = null, ?string $filterBuilder = null, ?string $filterRequest = null, array $bulkRequests = []): string
     {
         $controllerName = null;
 
@@ -176,6 +235,7 @@ class CRUDGenerator
             'no-pagination' => $options['no-pagination'] ?? false,
             'controller-folder' => $options['controller-folder'] ?? null,
             'hasSoftDeletes' => $hasSoftDeletes,
+            'bulkRequests' => $bulkRequests,
         ];
 
         if ($options['pattern'] === 'spatie-data') {
@@ -196,15 +256,21 @@ class CRUDGenerator
         return $controllerName;
     }
 
-    private function generateWebController(array $modelData, array $requests, string $service, array $options, string $spatieData = ''): string
+    private function generateWebController(array $modelData, array $requests, string $service, array $options, string $spatieData = '', array $bulkRequests = []): string
     {
         $controllerName = null;
         $controllerFolder = $options['controller-folder'] ?? null;
 
+        $controllerOptions = [
+            'overwrite' => $options['overwrite'] ?? false,
+            'controller-folder' => $controllerFolder,
+            'bulkRequests' => $bulkRequests,
+        ];
+
         if ($options['pattern'] === 'spatie-data') {
-            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $options['overwrite'], $controllerFolder);
+            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $controllerOptions);
         } elseif ($options['pattern'] === 'normal') {
-            $controllerName = $this->controllerBuilder->createWeb($modelData, $requests, $options['overwrite'], $controllerFolder);
+            $controllerName = $this->controllerBuilder->createWeb($modelData, $requests, $controllerOptions);
         }
 
         $this->viewBuilder->create($modelData, $options['overwrite']);

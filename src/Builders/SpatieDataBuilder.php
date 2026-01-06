@@ -9,27 +9,25 @@ use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use Mrmarchone\LaravelAutoCrud\Transformers\SpatieDataTransformer;
 
-class SpatieDataBuilder extends BaseBuilder
+class SpatieDataBuilder
 {
+    use ModelHelperTrait;
     use TableColumnsTrait;
 
+    protected FileService $fileService;
     protected ModelService $modelService;
     protected TableColumnsService $tableColumnsService;
     private EnumBuilder $enumBuilder;
 
-    /**
-     * Track processed models to avoid infinite loops in recursive generation
-     *
-     * @var array<string>
-     */
     private static array $processedModels = [];
 
     public function __construct(FileService $fileService, EnumBuilder $enumBuilder, ModelService $modelService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->enumBuilder = $enumBuilder;
         $this->modelService = $modelService;
         $this->tableColumnsService = $tableColumnsService;

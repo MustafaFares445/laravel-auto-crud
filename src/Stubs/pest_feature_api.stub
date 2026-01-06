@@ -80,4 +80,4 @@ it('deletes a {{ modelVariable }}', function () {
     
     $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}->id]);
 });
-{{ authorizationTests }}{{ extraTests }}
+{{ validationTests }}{{ notFoundTests }}{{ authorizationTests }}{{ edgeCaseTests }}{{ relationshipTests }}{{ paginationTests }}{{ extraTests }}

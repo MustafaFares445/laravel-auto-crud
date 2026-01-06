@@ -6,19 +6,22 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Traits\TableColumnsTrait;
 use ReflectionClass;
 use Throwable;
 
-class FilterBuilderBuilder extends BaseBuilder
+class FilterBuilderBuilder
 {
+    use ModelHelperTrait;
     use TableColumnsTrait;
 
+    protected FileService $fileService;
     protected TableColumnsService $tableColumnsService;
 
     public function __construct(FileService $fileService, TableColumnsService $tableColumnsService)
     {
-        parent::__construct($fileService);
+        $this->fileService = $fileService;
         $this->tableColumnsService = $tableColumnsService;
     }
 

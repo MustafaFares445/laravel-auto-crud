@@ -5,30 +5,20 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 
-class ServiceBuilder extends BaseBuilder
+class ServiceBuilder
 {
-    public function create(array $modelData, string $repository, bool $overwrite = false): string
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
+
+    public function __construct(FileService $fileService)
     {
-        return $this->fileService->createFromStub($modelData, 'service', 'Services', 'Service', $overwrite, function ($modelData) use ($repository) {
-            $model = $this->getFullModelNamespace($modelData);
-            $repositorySplitting = explode('\\', $repository);
-            $repositoryNamespace = $repository;
-            $repository = end($repositorySplitting);
-            $repositoryVariable = lcfirst($repository);
-
-            return [
-                '{{ modelNamespace }}' => $model,
-                '{{ model }}' => $modelData['modelName'],
-                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
-                '{{ repository }}' => $repository,
-                '{{ repositoryNamespace }}' => $repositoryNamespace,
-                '{{ repositoryVariable }}' => $repositoryVariable,
-            ];
-        });
+        $this->fileService = $fileService;
     }
-
     public function createServiceOnly(array $modelData, bool $overwrite = false): string
     {
         return $this->fileService->createFromStub($modelData, 'service_only', 'Services', 'Service', $overwrite, function ($modelData) {

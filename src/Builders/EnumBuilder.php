@@ -6,11 +6,21 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\EnumDetector;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Transformers\EnumTransformer;
 
-class EnumBuilder extends BaseBuilder
+class EnumBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
+
+    public function __construct(FileService $fileService)
+    {
+        $this->fileService = $fileService;
+    }
     public function create(array $modelData, array $values, string $columnName, bool $overwrite = false): string
     {
         $modelClass = ModelService::getFullModelNamespace($modelData);

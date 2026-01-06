@@ -7,12 +7,21 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\FileService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 
-class PermissionGroupEnumBuilder extends BaseBuilder
+class PermissionGroupEnumBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
+
+    public function __construct(FileService $fileService)
+    {
+        $this->fileService = $fileService;
+    }
     public function updateEnum(array $modelData, bool $overwrite = false): string
     {
         $enumPath = config('laravel_auto_crud.permission_group_enum_path', 'app/Enums/PermissionGroup.php');

@@ -41,7 +41,8 @@ class GenerateAutoCrudCommand extends Command
     {--PT|pest : Generate Pest test files (Feature and Unit)}
     {--FC|factory : Generate Model Factory}
     {--PS|permissions-seeder : Generate permission seeder and update PermissionGroup enum}
-    {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}';
+    {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}
+    {--bulk=* : Bulk endpoints to generate (e.g., --bulk=create --bulk=update --bulk=delete or --bulk=all)}';
 
     protected $description = 'Generate complete CRUD scaffolding (Controller, Request, Resource, Routes, Service) for Eloquent models';
 
@@ -197,7 +198,7 @@ class GenerateAutoCrudCommand extends Command
             'service' => '🔧 Service Layer - Extract business logic to service classes',
             'response-messages' => '💬 Response Messages - Add ResponseMessages enum for standardized API responses',
             'policy' => '🔐 Policy - Generate Policy class with permission-based authorization',
-            'pest' => '🧪 Pest Tests - Generate Pest test files (Feature and Unit)',
+            'pest' => '🧪 Pest Tests - Generate Pest test files (Feature and Unit tests)',
             'factory' => '🏭 Factory - Generate Model Factory',
             'permissions-seeder' => '🔑 Permissions Seeder - Generate permission seeder and update PermissionGroup enum',
         ];
@@ -250,7 +251,31 @@ class GenerateAutoCrudCommand extends Command
             }
         }
 
-        // Step 6: Overwrite confirmation
+        // Step 6.5: Select Bulk Endpoints
+        $selectedBulkEndpoints = [];
+        [$bulkOptions, $bulkLookup] = $this->indexedOptions(
+            [
+                'create' => '📝 Bulk Create - Create multiple records',
+                'update' => '✏️  Bulk Update - Update multiple records',
+                'delete' => '🗑️  Bulk Delete - Delete multiple records',
+            ],
+            includeAll: true,
+            allLabel: '✨ All Bulk Endpoints'
+        );
+        $selectedBulkIndexes = multiselect(
+            label: '📦 Select bulk endpoints to generate',
+            options: $bulkOptions,
+            default: [],
+            hint: 'Type number to jump, space to select, enter to confirm (optional)'
+        );
+        $selectedBulkEndpoints = $this->collectSelections($bulkLookup, $selectedBulkIndexes);
+
+        // Handle "All" selection
+        if (in_array('all', $selectedBulkEndpoints)) {
+            $selectedBulkEndpoints = ['create', 'update', 'delete'];
+        }
+
+        // Step 7: Overwrite confirmation
                 $overwrite = confirm(
                     label: '🔄 Overwrite existing files without asking?',
                     default: false,
@@ -258,7 +283,7 @@ class GenerateAutoCrudCommand extends Command
                 );
 
                 // Step 8: Show summary and confirm
-                $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $overwrite, $controllerFolder);
+                $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $selectedBulkEndpoints, $overwrite, $controllerFolder);
 
         if (! confirm(label: '🚀 Proceed with generation?', default: true)) {
             warning('Generation cancelled.');
@@ -281,6 +306,7 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('curl', in_array('curl', $selectedDocs));
         $this->input->setOption('postman', in_array('postman', $selectedDocs));
         $this->input->setOption('swagger-api', in_array('swagger-api', $selectedDocs));
+        $this->input->setOption('bulk', $selectedBulkEndpoints);
         $this->input->setOption('overwrite', $overwrite);
         if ($controllerFolder) {
             $this->input->setOption('controller-folder', $controllerFolder);
@@ -290,7 +316,7 @@ class GenerateAutoCrudCommand extends Command
         $this->generateForModels($selectedModels);
     }
 
-    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, bool $overwrite, ?string $controllerFolder = null): void
+    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, array $bulkEndpoints, bool $overwrite, ?string $controllerFolder = null): void
     {
         note('📋 Generation Summary');
 
@@ -308,6 +334,10 @@ class GenerateAutoCrudCommand extends Command
 
         if (! empty($docs)) {
             info('Documentation: ' . implode(', ', $docs));
+        }
+
+        if (! empty($bulkEndpoints)) {
+            info('Bulk Endpoints: ' . implode(', ', $bulkEndpoints));
         }
 
         info('Overwrite: ' . ($overwrite ? 'Yes' : 'No'));
@@ -432,6 +462,7 @@ class GenerateAutoCrudCommand extends Command
             || $this->option('curl')
             || $this->option('postman')
             || $this->option('swagger-api')
+            || count($this->option('bulk')) > 0
             || $this->option('pattern') !== 'normal';
     }
 

@@ -5,12 +5,22 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\RelationshipDetector;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use ReflectionClass;
 
-class ControllerBuilder extends BaseBuilder
+class ControllerBuilder
 {
+    use ModelHelperTrait;
+
+    protected FileService $fileService;
+
+    public function __construct(FileService $fileService)
+    {
+        $this->fileService = $fileService;
+    }
     public function createAPI(array $modelData, string $resource, array $requests, array $options = []): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
@@ -23,7 +33,8 @@ class ControllerBuilder extends BaseBuilder
 
         $stubName = $useResponseMessages ? 'api_messages.controller' : 'api.controller';
 
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes) {
+        $bulkRequests = $options['bulkRequests'] ?? [];
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes, $bulkRequests) {
             $model = $this->getFullModelNamespace($modelData);
             $resourceName = explode('\\', $resource);
             $storeRequestName = explode('\\', $requests['store']);
@@ -54,10 +65,28 @@ class ControllerBuilder extends BaseBuilder
 
             $scrambleData = $this->generateScrambleAttributes($modelData['modelName'], $modelVariable);
             $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages, false, false);
+
+            // Build bulk request imports
+            $bulkRequestImports = '';
+            $bulkRequestNamespaces = [];
+            if (isset($bulkRequests['bulkStore'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkStore'];
+            }
+            if (isset($bulkRequests['bulkUpdate'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkUpdate'];
+            }
+            if (isset($bulkRequests['bulkDelete'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkDelete'];
+            }
+            foreach ($bulkRequestNamespaces as $bulkRequestNamespace) {
+                $bulkRequestImports .= "use {$bulkRequestNamespace};\n";
+            }
 
             return [
                 '{{ storeRequestNamespace }}' => $requests['store'],
                 '{{ updateRequestNamespace }}' => $requests['update'],
+                '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ resourceNamespace }}' => $resource,
                 '{{ modelNamespace }}' => $model,
                 '{{ resource }}' => $resourceClass,
@@ -80,6 +109,7 @@ class ControllerBuilder extends BaseBuilder
                 '{{ scrambleUpdateAttribute }}' => $scrambleData['updateAttribute'],
                 '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
                 '{{ softDeleteMethods }}' => $softDeleteMethods,
+                '{{ bulkMethods }}' => $bulkMethods,
             ];
         });
     }
@@ -96,8 +126,9 @@ class ControllerBuilder extends BaseBuilder
         $stubName = $useResponseMessages ? 'api_spatie_data_messages.controller' : 'api_spatie_data.controller';
 
         $hasSoftDeletes = $options['hasSoftDeletes'] ?? false;
+        $bulkRequests = $options['bulkRequests'] ?? [];
         
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes) {
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes, $bulkRequests) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $resourceName = explode('\\', $resource);
@@ -128,6 +159,23 @@ class ControllerBuilder extends BaseBuilder
             $scrambleData = $this->generateScrambleAttributes($modelData['modelName'], $modelVariable);
             $spatieDataClass = end($spatieDataName);
             $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $spatieDataClass, $useResponseMessages, true);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages, true, false);
+
+            // Build bulk request imports
+            $bulkRequestImports = '';
+            $bulkRequestNamespaces = [];
+            if (isset($bulkRequests['bulkStore'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkStore'];
+            }
+            if (isset($bulkRequests['bulkUpdate'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkUpdate'];
+            }
+            if (isset($bulkRequests['bulkDelete'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkDelete'];
+            }
+            foreach ($bulkRequestNamespaces as $bulkRequestNamespace) {
+                $bulkRequestImports .= "use {$bulkRequestNamespace};\n";
+            }
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
@@ -153,161 +201,105 @@ class ControllerBuilder extends BaseBuilder
                 '{{ scrambleUpdateAttribute }}' => $scrambleData['updateAttribute'],
                 '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
                 '{{ softDeleteMethods }}' => $softDeleteMethods,
+                '{{ bulkMethods }}' => $bulkMethods,
+                '{{ bulkRequestImports }}' => $bulkRequestImports,
             ];
         });
     }
 
-    public function createAPIRepository(array $modelData, string $resource, array $requests, string $service, array $options = []): string
+
+    public function createWeb(array $modelData, array $requests, array $options = []): string
     {
         $overwrite = $options['overwrite'] ?? false;
-        $useResponseMessages = $options['response-messages'] ?? false;
-        $hasSoftDeletes = $options['hasSoftDeletes'] ?? false;
-        $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
-
-        $stubName = $useResponseMessages ? 'api_repository_messages.controller' : 'api_repository.controller';
-
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $requests, $service, $hasSoftDeletes, $useResponseMessages) {
-            $resourceName = explode('\\', $resource);
-            $storeRequestName = explode('\\', $requests['store']);
-            $updateRequestName = explode('\\', $requests['update']);
-            $serviceName = explode('\\', $service);
-            $modelVariable = lcfirst($modelData['modelName']);
-            $resourceClass = end($resourceName);
-            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages);
-
-            return [
-                '{{ storeRequestNamespace }}' => $requests['store'],
-                '{{ updateRequestNamespace }}' => $requests['update'],
-                '{{ resourceNamespace }}' => $resource,
-                '{{ resource }}' => $resourceClass,
-                '{{ storeRequest }}' => end($storeRequestName),
-                '{{ updateRequest }}' => end($updateRequestName),
-                '{{ serviceNamespace }}' => $service,
-                '{{ service }}' => end($serviceName),
-                '{{ serviceVariable }}' => lcfirst(end($serviceName)),
-                '{{ softDeleteMethods }}' => $softDeleteMethods,
-            ];
-        });
-    }
-
-    public function createAPIRepositorySpatieData(array $modelData, string $spatieData, string $service, bool $overwrite = false, ?string $controllerFolder = null, bool $hasSoftDeletes = false): string
-    {
-        $controllerFolder = $controllerFolder ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
-        return $this->fileService->createFromStub($modelData, 'api_repository_spatie_data.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $service, $hasSoftDeletes) {
-            $spatieDataName = explode('\\', $spatieData);
-            $serviceName = explode('\\', $service);
-            $modelVariable = lcfirst($modelData['modelName']);
-            $spatieDataClass = end($spatieDataName);
-            $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $spatieDataClass, false, true);
-
-            return [
-                '{{ spatieDataNamespace }}' => $spatieData,
-                '{{ spatieData }}' => $spatieDataClass,
-                '{{ serviceNamespace }}' => $service,
-                '{{ service }}' => end($serviceName),
-                '{{ serviceVariable }}' => lcfirst(end($serviceName)),
-                '{{ softDeleteMethods }}' => $softDeleteMethods,
-            ];
-        });
-    }
-
-    public function createWeb(array $modelData, array $requests, bool $overwrite = false, ?string $controllerFolder = null): string
-    {
-        $controllerFolder = $controllerFolder ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
-        return $this->fileService->createFromStub($modelData, 'web.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($requests) {
+        $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
+        $bulkRequests = $options['bulkRequests'] ?? [];
+        return $this->fileService->createFromStub($modelData, 'web.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($requests, $bulkRequests) {
             $model = $this->getFullModelNamespace($modelData);
             $storeRequestName = explode('\\', $requests['store']);
             $updateRequestName = explode('\\', $requests['update']);
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
+            $modelVariable = lcfirst($modelData['modelName']);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, '', false, false, true);
+
+            // Build bulk request imports
+            $bulkRequestImports = '';
+            $bulkRequestNamespaces = [];
+            if (isset($bulkRequests['bulkStore'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkStore'];
+            }
+            if (isset($bulkRequests['bulkUpdate'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkUpdate'];
+            }
+            if (isset($bulkRequests['bulkDelete'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkDelete'];
+            }
+            foreach ($bulkRequestNamespaces as $bulkRequestNamespace) {
+                $bulkRequestImports .= "use {$bulkRequestNamespace};\n";
+            }
 
             return [
                 '{{ storeRequestNamespace }}' => $requests['store'],
                 '{{ updateRequestNamespace }}' => $requests['update'],
+                '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ modelNamespace }}' => $model,
                 '{{ storeRequest }}' => end($storeRequestName),
                 '{{ updateRequest }}' => end($updateRequestName),
                 '{{ model }}' => $modelData['modelName'],
-                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ modelVariable }}' => $modelVariable,
                 '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
+                '{{ bulkMethods }}' => $bulkMethods,
             ];
         });
     }
 
-    public function createWebRepository(array $modelData, array $requests, string $service, bool $overwrite = false, ?string $controllerFolder = null): string
-    {
-        $controllerFolder = $controllerFolder ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
-        return $this->fileService->createFromStub($modelData, 'web_repository.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($service, $requests) {
-            $model = $this->getFullModelNamespace($modelData);
-            $serviceName = explode('\\', $service);
-            $storeRequestName = explode('\\', $requests['store']);
-            $updateRequestName = explode('\\', $requests['update']);
 
-            return [
-                '{{ storeRequestNamespace }}' => $requests['store'],
-                '{{ updateRequestNamespace }}' => $requests['update'],
-                '{{ storeRequest }}' => end($storeRequestName),
-                '{{ updateRequest }}' => end($updateRequestName),
-                '{{ serviceNamespace }}' => $service,
-                '{{ service }}' => end($serviceName),
-                '{{ serviceVariable }}' => lcfirst(end($serviceName)),
-                '{{ modelNamespace }}' => $model,
-                '{{ model }}' => $modelData['modelName'],
-                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
-                '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
-                '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
-                '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
-            ];
-        });
-    }
-
-    public function createWebSpatieData(array $modelData, string $spatieData, bool $overwrite = false, ?string $controllerFolder = null): string
+    public function createWebSpatieData(array $modelData, string $spatieData, array $options = []): string
     {
-        $controllerFolder = $controllerFolder ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
-        return $this->fileService->createFromStub($modelData, 'web_spatie_data.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData) {
+        $overwrite = $options['overwrite'] ?? false;
+        $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
+        $bulkRequests = $options['bulkRequests'] ?? [];
+        return $this->fileService->createFromStub($modelData, 'web_spatie_data.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $bulkRequests) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
+            $modelVariable = lcfirst($modelData['modelName']);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, '', false, true, true);
+
+            // Build bulk request imports
+            $bulkRequestImports = '';
+            $bulkRequestNamespaces = [];
+            if (isset($bulkRequests['bulkStore'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkStore'];
+            }
+            if (isset($bulkRequests['bulkUpdate'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkUpdate'];
+            }
+            if (isset($bulkRequests['bulkDelete'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkDelete'];
+            }
+            foreach ($bulkRequestNamespaces as $bulkRequestNamespace) {
+                $bulkRequestImports .= "use {$bulkRequestNamespace};\n";
+            }
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
                 '{{ modelNamespace }}' => $model,
                 '{{ spatieData }}' => end($spatieDataName),
                 '{{ model }}' => $modelData['modelName'],
-                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ modelVariable }}' => $modelVariable,
                 '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
+                '{{ bulkMethods }}' => $bulkMethods,
+                '{{ bulkRequestImports }}' => $bulkRequestImports,
             ];
         });
     }
 
-    public function createWebRepositorySpatieData(array $modelData, string $spatieData, string $service, bool $overwrite = false, ?string $controllerFolder = null): string
-    {
-        $controllerFolder = $controllerFolder ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
-        return $this->fileService->createFromStub($modelData, 'web_repository_spatie_data.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($service, $spatieData) {
-            $model = $this->getFullModelNamespace($modelData);
-            $serviceName = explode('\\', $service);
-            $spatieDataName = explode('\\', $spatieData);
-
-            return [
-                '{{ spatieDataNamespace }}' => $spatieData,
-                '{{ spatieData }}' => end($spatieDataName),
-                '{{ serviceNamespace }}' => $service,
-                '{{ service }}' => end($serviceName),
-                '{{ serviceVariable }}' => lcfirst(end($serviceName)),
-                '{{ modelNamespace }}' => $model,
-                '{{ model }}' => $modelData['modelName'],
-                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
-                '{{ viewPath }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
-                '{{ modelPlural }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
-                '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
-            ];
-        });
-    }
 
     public function createAPIServiceSpatieData(array $modelData, string $spatieData, array $requests, string $service, string $resource, array $options = []): string
     {
@@ -320,8 +312,9 @@ class ControllerBuilder extends BaseBuilder
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
 
         $stubName = $useResponseMessages ? 'api_service_spatie_data_messages.controller' : 'api_service_spatie_data.controller';
+        $bulkRequests = $options['bulkRequests'] ?? [];
 
-        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $requests, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes) {
+        return $this->fileService->createFromStub($modelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($spatieData, $requests, $service, $resource, $filterBuilder, $filterRequest, $useResponseMessages, $noPagination, $hasSoftDeletes, $bulkRequests) {
             $model = $this->getFullModelNamespace($modelData);
             $spatieDataName = explode('\\', $spatieData);
             $storeRequestName = explode('\\', $requests['store']);
@@ -355,6 +348,23 @@ class ControllerBuilder extends BaseBuilder
 
             $scrambleData = $this->generateScrambleAttributes($modelData['modelName'], $modelVariable);
             $softDeleteMethods = $this->generateSoftDeleteMethods($hasSoftDeletes, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, $resourceClass, $useResponseMessages, true, false);
+
+            // Build bulk request imports
+            $bulkRequestImports = '';
+            $bulkRequestNamespaces = [];
+            if (isset($bulkRequests['bulkStore'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkStore'];
+            }
+            if (isset($bulkRequests['bulkUpdate'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkUpdate'];
+            }
+            if (isset($bulkRequests['bulkDelete'])) {
+                $bulkRequestNamespaces[] = $bulkRequests['bulkDelete'];
+            }
+            foreach ($bulkRequestNamespaces as $bulkRequestNamespace) {
+                $bulkRequestImports .= "use {$bulkRequestNamespace};\n";
+            }
 
             return [
                 '{{ spatieDataNamespace }}' => $spatieData,
@@ -379,6 +389,8 @@ class ControllerBuilder extends BaseBuilder
                 '{{ filterRequest }}' => $filterRequestClass,
                 '{{ indexMethodBody }}' => $indexMethodBody,
                 '{{ softDeleteMethods }}' => $softDeleteMethods,
+                '{{ bulkMethods }}' => $bulkMethods,
+                '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ loadRelations }}' => $loadRelations,
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
                 '{{ scrambleUseStatements }}' => $scrambleData['useStatements'],
@@ -486,6 +498,86 @@ class ControllerBuilder extends BaseBuilder
             : "'Permanently deleted successfully'";
         
         return "\n\n    /**\n     * Restore a soft-deleted {$modelVariable}.\n     *\n     * @param int \$id\n     * @return {$returnClass}|\\Illuminate\\Http\\JsonResponse\n     */\n    public function restore(int \$id): {$returnClass}|\\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \${$modelVariable} = {$model}::withTrashed()->findOrFail(\$id);\n            \${$modelVariable}->restore();\n            " . ($isSpatieData ? "return {$restoreReturn}{$restoreMessage};" : "return ({$restoreReturn}){$restoreMessage};") . "\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }\n\n    /**\n     * Permanently delete a {$modelVariable}.\n     *\n     * @param int \$id\n     * @return \\Illuminate\\Http\\JsonResponse\n     */\n    public function forceDelete(int \$id): \\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \${$modelVariable} = {$model}::withTrashed()->findOrFail(\$id);\n            \${$modelVariable}->forceDelete();\n            return response()->json(['message' => {$forceDeleteMessage}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+    }
+
+    /**
+     * Generate bulk methods (bulkStore, bulkUpdate, bulkDestroy) based on selected bulk endpoints.
+     *
+     * @param array $bulkRequests Array of bulk request classes with keys 'bulkStore', 'bulkUpdate', 'bulkDelete'
+     * @param string $modelName Model name
+     * @param string $modelVariable Model variable name (camelCase)
+     * @param string $resourceClass Resource class name
+     * @param bool $useResponseMessages Whether to use response messages
+     * @param bool $isSpatieData Whether using Spatie Data pattern
+     * @param bool $isWeb Whether this is a web controller
+     * @return string Generated bulk methods code
+     */
+    private function generateBulkMethods(array $bulkRequests, string $modelName, string $modelVariable, string $resourceClass, bool $useResponseMessages = false, bool $isSpatieData = false, bool $isWeb = false): string
+    {
+        if (empty($bulkRequests)) {
+            return '';
+        }
+
+        $model = $this->getFullModelNamespace(['modelName' => $modelName]);
+        $methods = '';
+
+        $routeName = HelperService::toSnakeCase(Str::plural($modelName));
+        
+        // Bulk Store
+        if (isset($bulkRequests['bulkStore'])) {
+            $bulkStoreRequest = explode('\\', $bulkRequests['bulkStore']);
+            $bulkStoreRequestClass = end($bulkStoreRequest);
+            
+            if ($isWeb) {
+                $methods .= "\n\n    /**\n     * Create multiple {$modelVariable}s.\n     *\n     * @param {$bulkStoreRequestClass} \$request\n     * @return \\Illuminate\\Http\\RedirectResponse\n     */\n    public function bulkStore({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                {$model}::create(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+            } else {
+                $createMessage = $useResponseMessages
+                    ? "->additional(['message' => ResponseMessages::CREATED->message()])"
+                    : '';
+                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection|\\Illuminate\\Http\\JsonResponse" : "\\Illuminate\\Http\\JsonResponse";
+                $messageText = $useResponseMessages ? 'ResponseMessages::CREATED->message()' : "'Created successfully'";
+                $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                
+                $methods .= "\n\n    /**\n     * Create multiple {$modelVariable}s.\n     *\n     * @param {$bulkStoreRequestClass} \$request\n     * @return {$returnType}\n     */\n    public function bulkStore({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = {$model}::create(\$item);\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+            }
+        }
+
+        // Bulk Update
+        if (isset($bulkRequests['bulkUpdate'])) {
+            $bulkUpdateRequest = explode('\\', $bulkRequests['bulkUpdate']);
+            $bulkUpdateRequestClass = end($bulkUpdateRequest);
+            
+            if ($isWeb) {
+                $methods .= "\n\n    /**\n     * Update multiple {$modelVariable}s.\n     *\n     * @param {$bulkUpdateRequestClass} \$request\n     * @return \\Illuminate\\Http\\RedirectResponse\n     */\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}->update(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+            } else {
+                $updateMessage = $useResponseMessages
+                    ? "->additional(['message' => ResponseMessages::UPDATED->message()])"
+                    : '';
+                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection|\\Illuminate\\Http\\JsonResponse" : "\\Illuminate\\Http\\JsonResponse";
+                $messageText = $useResponseMessages ? 'ResponseMessages::UPDATED->message()' : "'Updated successfully'";
+                $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                
+                $methods .= "\n\n    /**\n     * Update multiple {$modelVariable}s.\n     *\n     * @param {$bulkUpdateRequestClass} \$request\n     * @return {$returnType}\n     */\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}->update(\$item);\n                \${$modelVariable}s[] = \${$modelVariable}->fresh();\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+            }
+        }
+
+        // Bulk Destroy
+        if (isset($bulkRequests['bulkDelete'])) {
+            $bulkDeleteRequest = explode('\\', $bulkRequests['bulkDelete']);
+            $bulkDeleteRequestClass = end($bulkDeleteRequest);
+            
+            $deleteMessage = $useResponseMessages
+                ? "ResponseMessages::DELETED->message()"
+                : "'Deleted successfully'";
+            
+            if ($isWeb) {
+                $methods .= "\n\n    /**\n     * Delete multiple {$modelVariable}s.\n     *\n     * @param {$bulkDeleteRequestClass} \$request\n     * @return \\Illuminate\\Http\\RedirectResponse\n     */\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            {$model}::whereIn('id', \$ids)->delete();\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.');\n        }\n    }";
+            } else {
+                $methods .= "\n\n    /**\n     * Delete multiple {$modelVariable}s.\n     *\n     * @param {$bulkDeleteRequestClass} \$request\n     * @return \\Illuminate\\Http\\JsonResponse\n     */\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            {$model}::whereIn('id', \$ids)->delete();\n            \n            return response()->json(['message' => {$deleteMessage}, 'deleted_count' => count(\$ids)], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+            }
+        }
+
+        return $methods;
     }
 
     private function generateIndexMethodBody(

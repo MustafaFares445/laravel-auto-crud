@@ -8,7 +8,7 @@ use {{ spatieDataNamespace }};
 use {{ serviceNamespace }};
 use {{ storeRequestNamespace }};
 use {{ updateRequestNamespace }};
-use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
+{{ bulkRequestImports }}use {{ resourceNamespace }};{{ filterBuilderImport }}{{ filterRequestImport }}
 use Illuminate\Http\Response;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Throwable;
@@ -53,6 +53,6 @@ class {{ class }}
         ${{ modelVariable }}->delete();
 
         return response()->noContent();
-    }{{ softDeleteMethods }}
+    }{{ softDeleteMethods }}{{ bulkMethods }}
 }
 
