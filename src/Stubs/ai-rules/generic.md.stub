@@ -1,0 +1,103 @@
+# Laravel Auto CRUD - AI Coding Rules
+
+Comprehensive coding rules and guidelines for AI coding assistants working with the Laravel Auto CRUD package.
+
+## Package Overview
+
+Laravel Auto CRUD is a Laravel package that automatically generates complete CRUD scaffolding including:
+- Controllers (API/Web)
+- Form Requests (Store/Update/Bulk)
+- API Resources
+- Service Classes
+- Policy Classes
+- Model Factories
+- Routes
+- Pest Tests
+- Spatie Data Classes (optional)
+- Filter Builders (optional)
+
+## Architecture and Coding Flow
+
+{{ coding_flow }}
+
+## Helper Classes Reference
+
+{{ helpers_documentation }}
+
+## Traits Reference
+
+{{ traits_documentation }}
+
+## Design Patterns and Best Practices
+
+{{ patterns }}
+
+## Quick Reference
+
+### Common Helper Usage
+
+```php
+// Media handling
+MediaHelper::uploadMedia($file, $model, 'collection');
+MediaHelper::updateMedia($file, $model, 'collection');
+MediaHelper::deleteCollection($model, 'collection');
+
+// Permission resolution
+PermissionNameResolver::resolve('users', 'create'); // Returns: "create users"
+
+// Search escaping
+SearchTermEscaper::escape($term); // Returns: "%escaped%term%"
+
+// Test data generation
+TestDataHelper::validPayload($columns);
+TestDataHelper::invalidPayload($columns, 'field');
+```
+
+### Common Trait Usage
+
+```php
+// In Data classes
+use HasModelAttributes;
+$attributes = $data->onlyModelAttributes();
+$data->syncRelationships($model);
+
+// In Policies
+use AuthorizesByPermissionGroup;
+return $this->authorizeAction($user, 'create');
+
+// In Controllers
+use MessageTrait;
+return $this->successMessage('Success', $data);
+return $this->errorMessage('Error', 400, $errors);
+```
+
+### Service Pattern
+
+```php
+public function store(StoreRequest $request): Model
+{
+    return DB::transaction(function () use ($request) {
+        $model = Model::create($request->validated());
+        
+        if ($model instanceof HasMedia) {
+            MediaHelper::uploadMedia($request->file('image'), $model, 'primary-image');
+        }
+        
+        return $model;
+    });
+}
+```
+
+## Code Generation Checklist
+
+When generating code for this package:
+
+- [ ] Use helper classes for common operations
+- [ ] Wrap database writes in transactions
+- [ ] Use Service layer for business logic
+- [ ] Exclude hidden properties from all generated files
+- [ ] Use type-safe Data classes when pattern is `spatie-data`
+- [ ] Follow Laravel conventions and PSR standards
+- [ ] Add proper type hints and return types
+- [ ] Use traits for reusable functionality
+- [ ] Maintain consistency with existing patterns

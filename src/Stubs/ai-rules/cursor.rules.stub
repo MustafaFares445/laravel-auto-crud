@@ -1,0 +1,45 @@
+# Laravel Auto CRUD - Coding Rules for Cursor AI
+
+This file contains coding rules and guidelines for the Laravel Auto CRUD package. Follow these patterns when generating or modifying code in this package.
+
+## Package Overview
+
+Laravel Auto CRUD is a package that automatically generates complete CRUD scaffolding including controllers, requests, resources, services, policies, factories, routes, views, and Pest tests for Eloquent models.
+
+{{ coding_flow }}
+
+{{ helpers_documentation }}
+
+{{ traits_documentation }}
+
+{{ patterns }}
+
+## Code Generation Guidelines
+
+When generating code for this package:
+
+1. **Always use helper classes** instead of writing inline logic for common operations
+2. **Follow the Service layer pattern** - put business logic in Services, not Controllers
+3. **Use transactions** for all database write operations
+4. **Respect hidden properties** - exclude them from all generated files
+5. **Use type-safe Data classes** when using Spatie Data pattern
+6. **Follow Laravel conventions** - use proper namespaces, follow PSR standards
+7. **Maintain consistency** - use the same patterns across all generated files
+
+## File Structure Conventions
+
+- Controllers: `app/Http/Controllers/API/` or `app/Http/Controllers/`
+- Requests: `app/Http/Requests/{Model}Requests/`
+- Resources: `app/Http/Resources/`
+- Services: `app/Services/`
+- Policies: `app/Policies/`
+- Data Classes: `app/Data/`
+- Filter Builders: `app/FilterBuilders/`
+- Tests: `tests/Feature/{Model}/` and `tests/Unit/`
+
+## Import Conventions
+
+Always import classes with full `use` statements at the top:
+- Use package helpers: `use Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper;`
+- Use package traits: `use Mrmarchone\LaravelAutoCrud\Traits\HasModelAttributes;`
+- Use Laravel helpers when possible: `auth()->id()` instead of `Auth::id()`

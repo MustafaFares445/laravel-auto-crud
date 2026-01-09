@@ -1,0 +1,45 @@
+# Laravel Auto CRUD - Coding Rules for Junie AI
+
+This document provides comprehensive coding guidelines for the Laravel Auto CRUD package to help Junie AI understand the codebase structure and generate consistent code.
+
+## Package Overview
+
+Laravel Auto CRUD automatically generates complete CRUD scaffolding for Eloquent models, including controllers, requests, resources, services, policies, factories, routes, and tests.
+
+{{ coding_flow }}
+
+{{ helpers_documentation }}
+
+{{ traits_documentation }}
+
+{{ patterns }}
+
+## Junie-Specific Guidelines
+
+When working with this codebase in Junie:
+
+1. **Understand the generation flow** before making changes
+2. **Use existing helpers and traits** - don't duplicate functionality
+3. **Maintain consistency** with existing generated code patterns
+4. **Test changes** by running the generation commands
+5. **Follow the architecture** - Services for logic, Builders for generation, Helpers for utilities
+
+## Common Tasks
+
+### Adding a New Builder
+1. Create Builder class in `src/Builders/`
+2. Initialize in `CRUDGenerator::initializeBuilders()`
+3. Create stub template in `src/Stubs/`
+4. Use `FileService::createFromStub()` to generate files
+
+### Adding a New Helper
+1. Create Helper class in `src/Helpers/`
+2. Make methods static
+3. Add comprehensive PHPDoc comments
+4. Update this documentation
+
+### Adding a New Trait
+1. Create Trait in `src/Traits/`
+2. Document usage patterns
+3. Update this documentation
+4. Use in appropriate generated classes

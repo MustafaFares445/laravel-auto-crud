@@ -1,0 +1,42 @@
+# Laravel Auto CRUD - GitHub Copilot Instructions
+
+Instructions for GitHub Copilot when working with the Laravel Auto CRUD package.
+
+## Context
+
+This package generates CRUD scaffolding for Laravel applications. When suggesting code, follow these patterns:
+
+{{ coding_flow }}
+
+{{ helpers_documentation }}
+
+{{ traits_documentation }}
+
+{{ patterns }}
+
+## Copilot Instructions
+
+### When Generating Code
+
+1. **Use Helper Classes**: Always suggest using `MediaHelper`, `PermissionNameResolver`, `SearchTermEscaper`, etc. instead of inline implementations
+2. **Service Layer**: Put business logic in Service classes, keep Controllers thin
+3. **Transactions**: Wrap database write operations in `DB::transaction()`
+4. **Type Safety**: Use Spatie Data classes with proper type hints when pattern is `spatie-data`
+5. **Hidden Properties**: Always exclude properties in model's `$hidden` array
+
+### Code Suggestions
+
+- **Controllers**: Should be thin, delegate to Services
+- **Services**: Should contain business logic, use transactions, handle media via MediaHelper
+- **Requests**: Use one-line validation rules, `required` for store, `sometimes` for update
+- **Resources**: Exclude hidden properties, include media URLs if HasMedia, support translations
+- **Data Classes**: Use `HasModelAttributes` trait, implement `syncRelationships()` for belongsToMany
+
+### Import Suggestions
+
+Always suggest proper imports:
+```php
+use Mrmarchone\LaravelAutoCrud\Helpers\MediaHelper;
+use Mrmarchone\LaravelAutoCrud\Traits\HasModelAttributes;
+use Illuminate\Support\Facades\DB;
+```

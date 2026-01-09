@@ -1,0 +1,63 @@
+# Laravel Auto CRUD - Codeium AI Rules
+
+Coding rules and patterns for Codeium AI when working with Laravel Auto CRUD package.
+
+## Package Context
+
+Laravel Auto CRUD generates complete CRUD scaffolding. Understand the architecture before suggesting code.
+
+{{ coding_flow }}
+
+{{ helpers_documentation }}
+
+{{ traits_documentation }}
+
+{{ patterns }}
+
+## Codeium Suggestions
+
+### Code Completion Guidelines
+
+1. **Helper Methods**: Complete with `MediaHelper::`, `PermissionNameResolver::`, `SearchTermEscaper::`
+2. **Trait Methods**: Suggest `onlyModelAttributes()`, `syncIfSet()`, `authorizeAction()` when appropriate
+3. **Service Patterns**: Suggest transaction wrapping, media handling, relationship syncing
+4. **Request Patterns**: Suggest validation rules following one-line format
+
+### Common Patterns to Suggest
+
+**Service Store Method**:
+```php
+public function store(StoreRequest $request): Model
+{
+    return DB::transaction(function () use ($request) {
+        $model = Model::create($request->validated());
+        MediaHelper::uploadMedia($request->file('image'), $model, 'primary-image');
+        return $model;
+    });
+}
+```
+
+**Data Class with Relationships**:
+```php
+class ModelData extends Data
+{
+    use HasModelAttributes;
+    
+    public ?array $relationIds;
+    
+    public function syncRelationships(Model $model): void
+    {
+        $this->syncIfSet($model, 'relation', $this->relationIds);
+    }
+}
+```
+
+**Policy Authorization**:
+```php
+use AuthorizesByPermissionGroup;
+
+public function create($user): bool
+{
+    return $this->authorizeAction($user, 'create');
+}
+```

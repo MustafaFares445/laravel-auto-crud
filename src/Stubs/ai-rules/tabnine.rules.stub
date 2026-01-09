@@ -1,0 +1,50 @@
+# Laravel Auto CRUD - Tabnine AI Rules
+
+Coding guidelines for Tabnine AI when working with Laravel Auto CRUD package.
+
+## Package Overview
+
+This package generates CRUD scaffolding. Follow these patterns for consistent code suggestions.
+
+{{ coding_flow }}
+
+{{ helpers_documentation }}
+
+{{ traits_documentation }}
+
+{{ patterns }}
+
+## Tabnine Autocomplete Rules
+
+### When Autocompleting
+
+1. **Static Helper Methods**: Suggest `MediaHelper::uploadMedia()`, `PermissionNameResolver::resolve()`, etc.
+2. **Trait Methods**: Suggest methods from `HasModelAttributes`, `AuthorizesByPermissionGroup`, etc.
+3. **Service Patterns**: Complete with transaction wrapping and helper usage
+4. **Request Validation**: Suggest one-line validation rules
+
+### Preferred Completions
+
+**Media Operations**:
+- `MediaHelper::uploadMedia(` → complete with parameters
+- `MediaHelper::updateMedia(` → complete with parameters
+- `MediaHelper::deleteCollection(` → complete with parameters
+
+**Permission Operations**:
+- `PermissionNameResolver::resolve(` → complete with group and action
+
+**Data Operations**:
+- `$data->onlyModelAttributes()` → suggest after Data instance
+- `$data->syncRelationships(` → suggest for belongsToMany relationships
+- `$this->syncIfSet(` → suggest in Data classes
+
+**Service Patterns**:
+- `DB::transaction(function () use (` → suggest for write operations
+- `MediaHelper::` → suggest after model creation in services
+
+### Context-Aware Suggestions
+
+- In Services: Suggest transaction wrapping, MediaHelper usage
+- In Data Classes: Suggest `HasModelAttributes` trait, `syncRelationships()` method
+- In Policies: Suggest `AuthorizesByPermissionGroup` trait, `authorizeAction()` method
+- In Controllers: Suggest Service injection, thin controller pattern
