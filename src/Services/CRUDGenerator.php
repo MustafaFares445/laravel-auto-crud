@@ -19,6 +19,7 @@ use Mrmarchone\LaravelAutoCrud\Builders\RouteBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ServiceBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\SpatieDataBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ViewBuilder;
+use Mrmarchone\LaravelAutoCrud\Services\BulkEndpointsGenerator;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
@@ -38,6 +39,7 @@ class CRUDGenerator
     private FactoryBuilder $factoryBuilder;
     private PermissionSeederBuilder $permissionSeederBuilder;
     private PermissionGroupEnumBuilder $permissionGroupEnumBuilder;
+    private BulkEndpointsGenerator $bulkEndpointsGenerator;
 
     public function __construct(
         private FileService $fileService,
@@ -63,6 +65,7 @@ class CRUDGenerator
         $this->factoryBuilder = new FactoryBuilder($this->fileService, $this->tableColumnsService);
         $this->permissionSeederBuilder = new PermissionSeederBuilder($this->fileService);
         $this->permissionGroupEnumBuilder = new PermissionGroupEnumBuilder($this->fileService);
+        $this->bulkEndpointsGenerator = new BulkEndpointsGenerator($this->fileService, $this->modelService, $this->tableColumnsService);
     }
 
     /**
@@ -116,16 +119,9 @@ class CRUDGenerator
             $requests = $this->requestBuilder->create($modelData, $options['overwrite']);
         }
 
-        // Create bulk requests if bulk endpoints are selected
+        // Note: Bulk requests are now created by BulkEndpointsGenerator, not here
+        // This prevents bulk methods from being added to the main controller
         $bulkEndpoints = $options['bulk'] ?? [];
-        if (!empty($bulkEndpoints)) {
-            $bulkRequests = $this->requestBuilder->createBulkRequests(
-                $modelData,
-                $bulkEndpoints,
-                $options['pattern'] ?? 'normal',
-                $options['overwrite'] ?? false
-            );
-        }
 
         if ($options['service'] ?? false) {
             $service = $this->serviceBuilder->createServiceOnly($modelData, $options['overwrite']);
@@ -180,7 +176,7 @@ class CRUDGenerator
 
         $data = [
             'requests' => $requests ?? [],
-            'bulkRequests' => $bulkRequests ?? [],
+            'bulkRequests' => [], // Empty - bulk methods go to separate controller
             'service' => $service ?? '',
             'spatieData' => $spatieDataName ?? '',
             'filterBuilder' => $filterBuilder ?? '',
@@ -192,8 +188,13 @@ class CRUDGenerator
         $modelClass = ModelService::getFullModelNamespace($modelData);
         $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
         
-        $bulkEndpoints = $options['bulk'] ?? [];
-        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $hasSoftDeletes, $bulkEndpoints);
+        // Generate routes for main controller (without bulk routes)
+        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $hasSoftDeletes, []);
+
+        // Generate separate bulk controller if bulk endpoints are selected
+        if (!empty($bulkEndpoints)) {
+            $this->bulkEndpointsGenerator->generate($modelData, $options);
+        }
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
     }
@@ -203,11 +204,11 @@ class CRUDGenerator
         $controllerName = null;
 
         if (in_array('api', $types, true)) {
-            $controllerName = $this->generateAPIController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null, $data['bulkRequests'] ?? []);
+            $controllerName = $this->generateAPIController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null, []);
         }
 
         if (in_array('web', $types, true)) {
-            $controllerName = $this->generateWebController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['bulkRequests'] ?? []);
+            $controllerName = $this->generateWebController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], []);
         }
 
         if (! $controllerName) {

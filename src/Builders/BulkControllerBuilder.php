@@ -25,7 +25,7 @@ class BulkControllerBuilder
         $overwrite = $options['overwrite'] ?? false;
         $useResponseMessages = $options['response-messages'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
-        $service = $options['service'] ?? null;
+        $service = !empty($options['service']) ? $options['service'] : null;
         $pattern = $options['pattern'] ?? 'normal';
 
         $originalModelName = $modelData['modelName'];
@@ -77,7 +77,7 @@ class BulkControllerBuilder
     {
         $overwrite = $options['overwrite'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
-        $service = $options['service'] ?? null;
+        $service = !empty($options['service']) ? $options['service'] : null;
         $pattern = $options['pattern'] ?? 'normal';
 
         $originalModelName = $modelData['modelName'];

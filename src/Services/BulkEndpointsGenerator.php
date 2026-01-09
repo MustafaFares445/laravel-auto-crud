@@ -43,7 +43,7 @@ class BulkEndpointsGenerator
         $bulkEndpoints = $options['bulk'] ?? [];
         $pattern = $options['pattern'] ?? 'normal';
         $overwrite = $options['overwrite'] ?? false;
-        $service = $options['service'] ?? null;
+        $service = !empty($options['service']) ? $options['service'] : null;
 
         if (empty($bulkEndpoints)) {
             return;
