@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
-use Mrmarchone\LaravelAutoCrud\Helpers\TestDataHelper;
 use Mrmarchone\LaravelAutoCrud\Services\FileService;
+use Mrmarchone\LaravelAutoCrud\Helpers\TestDataHelper;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 
 class PestBuilder

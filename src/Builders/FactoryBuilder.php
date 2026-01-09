@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Mrmarchone\LaravelAutoCrud\Builders;
 
-use Illuminate\Support\Facades\File;
-use Mrmarchone\LaravelAutoCrud\Services\FileService;
-use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
-
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
+use Illuminate\Support\Facades\File;
+use function Laravel\Prompts\confirm;
+
+use Mrmarchone\LaravelAutoCrud\Services\FileService;
+use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
+use Mrmarchone\LaravelAutoCrud\Services\TableColumnsService;
 
 class FactoryBuilder
 {
