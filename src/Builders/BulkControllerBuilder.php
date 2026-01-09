@@ -33,7 +33,9 @@ class BulkControllerBuilder
         $modifiedModelData = $modelData;
         $modifiedModelData['modelName'] = $originalModelName . 'Bulk';
 
-        $stubName = $service ? 'bulk_api_service.controller' : 'bulk.controller';
+        // Ensure service is a string or null for stub selection
+        $serviceForStub = (is_string($service) && !empty($service)) ? $service : null;
+        $stubName = $serviceForStub ? 'bulk_api_service.controller' : 'bulk.controller';
 
         return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $bulkRequests, $useResponseMessages, $originalModelName, $service, $pattern) {
             $originalModelData = $modelData;
@@ -43,7 +45,9 @@ class BulkControllerBuilder
             $modelVariable = lcfirst($originalModelName);
             $resourceClass = end($resourceName);
 
-            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, $resourceClass, $useResponseMessages, $pattern === 'spatie-data', false, $service);
+            // Ensure service is a string or null, not a boolean
+            $serviceForMethods = (is_string($service) && !empty($service)) ? $service : null;
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, $resourceClass, $useResponseMessages, $pattern === 'spatie-data', false, $serviceForMethods);
 
             $bulkRequestImports = $this->buildBulkRequestImports($bulkRequests);
             $responseMessagesImport = $useResponseMessages ? "use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;\n" : '';
@@ -51,7 +55,7 @@ class BulkControllerBuilder
             $serviceImport = '';
             $serviceConstructor = '';
             
-            if ($service) {
+            if ($serviceForMethods) {
                 $serviceNamespace = "App\\Services\\" . $originalModelName . "Service";
                 $serviceClass = $originalModelName . "Service";
                 $serviceVariable = lcfirst($serviceClass);
@@ -86,7 +90,9 @@ class BulkControllerBuilder
         $modifiedModelData = $modelData;
         $modifiedModelData['modelName'] = $originalModelName . 'Bulk';
 
-        $stubName = $service ? 'bulk_web_service.controller' : 'bulk.controller';
+        // Ensure service is a string or null for stub selection
+        $serviceForStub = (is_string($service) && !empty($service)) ? $service : null;
+        $stubName = $serviceForStub ? 'bulk_web_service.controller' : 'bulk.controller';
 
         return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($bulkRequests, $originalModelName, $service, $pattern) {
             $originalModelData = $modelData;
@@ -94,13 +100,15 @@ class BulkControllerBuilder
             $model = $this->getFullModelNamespace($originalModelData);
             $modelVariable = lcfirst($originalModelName);
 
-            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, '', false, $pattern === 'spatie-data', true, $service);
+            // Ensure service is a string or null, not a boolean
+            $serviceForMethods = (is_string($service) && !empty($service)) ? $service : null;
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, '', false, $pattern === 'spatie-data', true, $serviceForMethods);
 
             $bulkRequestImports = $this->buildBulkRequestImports($bulkRequests);
             $serviceImport = '';
             $serviceConstructor = '';
             
-            if ($service) {
+            if ($serviceForMethods) {
                 $serviceNamespace = "App\\Services\\" . $originalModelName . "Service";
                 $serviceClass = $originalModelName . "Service";
                 $serviceVariable = lcfirst($serviceClass);
