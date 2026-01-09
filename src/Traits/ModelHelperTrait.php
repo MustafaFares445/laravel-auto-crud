@@ -8,7 +8,10 @@ trait ModelHelperTrait
 {
     protected function getFullModelNamespace(array $modelData): string
     {
-        return $modelData['namespace'] ? $modelData['namespace'].'\\'.$modelData['modelName'] : $modelData['modelName'];
+        $namespace = $modelData['namespace'] ?? null;
+        $modelName = $modelData['modelName'] ?? '';
+        
+        return $namespace ? $namespace.'\\'.$modelName : $modelName;
     }
 
     protected function getHiddenProperties(string $modelClass): array

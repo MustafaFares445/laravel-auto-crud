@@ -23,7 +23,8 @@ class SoftDeleteDetector
 
         try {
             $reflection = new ReflectionClass($modelClass);
-            return $reflection->hasTrait(SoftDeletes::class);
+            $traitNames = $reflection->getTraitNames();
+            return in_array(SoftDeletes::class, $traitNames, true);
         } catch (\ReflectionException $e) {
             return false;
         }
