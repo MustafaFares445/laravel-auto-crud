@@ -43,7 +43,8 @@ class BulkEndpointsGenerator
         $bulkEndpoints = $options['bulk'] ?? [];
         $pattern = $options['pattern'] ?? 'normal';
         $overwrite = $options['overwrite'] ?? false;
-        $service = !empty($options['service']) ? $options['service'] : null;
+        // Only use service if it's a non-empty string (namespace), not a boolean
+        $service = (isset($options['service']) && is_string($options['service']) && !empty($options['service'])) ? $options['service'] : null;
 
         if (empty($bulkEndpoints)) {
             return;

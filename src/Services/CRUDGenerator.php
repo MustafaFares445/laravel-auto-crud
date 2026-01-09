@@ -193,7 +193,14 @@ class CRUDGenerator
 
         // Generate separate bulk controller if bulk endpoints are selected
         if (!empty($bulkEndpoints)) {
-            $this->bulkEndpointsGenerator->generate($modelData, $options);
+            // Update options to include actual service namespace instead of boolean
+            $bulkOptions = $options;
+            if (!empty($service)) {
+                $bulkOptions['service'] = $service;
+            } else {
+                unset($bulkOptions['service']);
+            }
+            $this->bulkEndpointsGenerator->generate($modelData, $bulkOptions);
         }
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
