@@ -11,6 +11,7 @@ use Mrmarchone\LaravelAutoCrud\Traits\ModelHelperTrait;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\warning;
 
 class PermissionGroupEnumBuilder
 {
@@ -38,6 +39,11 @@ class PermissionGroupEnumBuilder
         if (file_exists($fullPath)) {
             $enumContent = File::get($fullPath);
             $existingCases = $this->extractExistingCases($enumContent);
+            
+            // Safety check: if file exists but we couldn't extract any cases, warn the user
+            if (empty($existingCases) && !empty(trim($enumContent))) {
+                warning("Warning: Could not extract existing enum cases from {$fullPath}. Existing cases may be lost. Please check the file format.");
+            }
             
             // Check if case already exists
             if (in_array($enumCaseName, array_keys($existingCases))) {
@@ -88,10 +94,15 @@ class PermissionGroupEnumBuilder
     {
         $cases = [];
         
-        // Match pattern: case CASE_NAME = 'value';
-        if (preg_match_all("/case\s+([A-Z_]+)\s*=\s*['\"]([^'\"]+)['\"];/", $content, $matches, PREG_SET_ORDER)) {
+        // Match pattern: case CASE_NAME = 'value'; (more robust regex)
+        // Handles: single quotes, double quotes, various whitespace, multi-line cases
+        if (preg_match_all("/case\s+([A-Z_][A-Z0-9_]*)\s*=\s*['\"]([^'\"]+)['\"]\s*;/m", $content, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $cases[$match[1]] = $match[2];
+                $caseName = trim($match[1]);
+                $caseValue = trim($match[2]);
+                if (!empty($caseName) && !empty($caseValue)) {
+                    $cases[$caseName] = $caseValue;
+                }
             }
         }
         

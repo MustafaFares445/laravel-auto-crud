@@ -447,11 +447,15 @@ class PestBuilder
             }
         }
         
+        // Start with the first assertion (ID check)
         if ($isUuid) {
-            $assertions[] = "        expect({$itemVar}['id'])->toBeString();";
+            $firstAssertion = "        expect({$itemVar}['id'])->toBeString()";
         } else {
-            $assertions[] = "        expect({$itemVar}['id'])->toBeInt();";
+            $firstAssertion = "        expect({$itemVar}['id'])->toBeInt()";
         }
+        
+        // Chain subsequent assertions using ->and()
+        $chainedAssertions = [];
         
         // Check other important columns (skip timestamps for now, they're always present)
         foreach ($columns as $column) {
@@ -466,14 +470,19 @@ class PestBuilder
             
             // For translatable fields, check if it's an array
             if ($column['isTranslatable'] ?? false) {
-                $assertions[] = "        expect({$itemVar}['{$camelCase}'])->toBeArray();";
+                $chainedAssertions[] = "\n            ->and({$itemVar}['{$camelCase}'])->toBeArray()";
             } else {
                 // For non-translatable, just check that the key exists
-                $assertions[] = "        expect({$itemVar})->toHaveKey('{$camelCase}');";
+                $chainedAssertions[] = "\n            ->and({$itemVar})->toHaveKey('{$camelCase}')";
             }
         }
         
-        return implode("\n", $assertions);
+        // Combine first assertion with chained ones
+        if (!empty($chainedAssertions)) {
+            return $firstAssertion . implode('', $chainedAssertions) . ';';
+        }
+        
+        return $firstAssertion . ';';
     }
 
     /**
@@ -1321,3 +1330,4 @@ class PestBuilder
         });
     }
 }
+

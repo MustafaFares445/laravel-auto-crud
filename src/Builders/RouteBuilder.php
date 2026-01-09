@@ -90,6 +90,86 @@ class RouteBuilder
     }
 
     /**
+     * Create bulk routes for bulk controller.
+     *
+     * @param string $modelName Model name (singular)
+     * @param string $controller Full controller class name
+     * @param array $types Controller types (api, web)
+     * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
+     * @return void
+     */
+    public function createBulkRoutes(string $modelName, string $controller, array $types, array $bulkEndpoints = []): void
+    {
+        $modelName = HelperService::toSnakeCase(Str::plural($modelName));
+
+        if (in_array('api', $types)) {
+            $routesPath = base_path('routes/api.php');
+            $routeCode = $this->generateBulkApiRouteCode($modelName, $controller, $bulkEndpoints);
+            $this->createRoutes($routesPath, $routeCode);
+        }
+
+        if (in_array('web', $types)) {
+            $routesPath = base_path('routes/web.php');
+            $routeCode = $this->generateBulkWebRouteCode($modelName, $controller, $bulkEndpoints);
+            $this->createRoutes($routesPath, $routeCode);
+        }
+    }
+
+    /**
+     * Generate API bulk route code.
+     *
+     * @param string $modelName Plural model name (snake_case)
+     * @param string $controller Full controller class name
+     * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
+     * @return string Generated route code
+     */
+    private function generateBulkApiRouteCode(string $modelName, string $controller, array $bulkEndpoints = []): string
+    {
+        $bulkRoutes = '';
+
+        if (in_array('create', $bulkEndpoints, true)) {
+            $bulkRoutes .= "Route::post('/{$modelName}/bulk', [{$controller}::class, 'bulkStore']);";
+        }
+
+        if (in_array('update', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::put('/{$modelName}/bulk', [{$controller}::class, 'bulkUpdate']);";
+        }
+
+        if (in_array('delete', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::delete('/{$modelName}/bulk', [{$controller}::class, 'bulkDestroy']);";
+        }
+
+        return $bulkRoutes;
+    }
+
+    /**
+     * Generate Web bulk route code.
+     *
+     * @param string $modelName Plural model name (snake_case)
+     * @param string $controller Full controller class name
+     * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
+     * @return string Generated route code
+     */
+    private function generateBulkWebRouteCode(string $modelName, string $controller, array $bulkEndpoints = []): string
+    {
+        $bulkRoutes = '';
+
+        if (in_array('create', $bulkEndpoints, true)) {
+            $bulkRoutes .= "Route::post('/{$modelName}/bulk', [{$controller}::class, 'bulkStore']);";
+        }
+
+        if (in_array('update', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::put('/{$modelName}/bulk', [{$controller}::class, 'bulkUpdate']);";
+        }
+
+        if (in_array('delete', $bulkEndpoints, true)) {
+            $bulkRoutes .= "\nRoute::delete('/{$modelName}/bulk', [{$controller}::class, 'bulkDestroy']);";
+        }
+
+        return $bulkRoutes;
+    }
+
+    /**
      * Create or append routes to the routes file.
      *
      * @param string $routesPath Path to routes file
