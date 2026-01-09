@@ -25,12 +25,16 @@ class BulkControllerBuilder
         $overwrite = $options['overwrite'] ?? false;
         $useResponseMessages = $options['response-messages'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
+        $service = $options['service'] ?? null;
+        $pattern = $options['pattern'] ?? 'normal';
 
         $originalModelName = $modelData['modelName'];
         $modifiedModelData = $modelData;
-        $modifiedModelData['modelName'] = 'Bulk' . $originalModelName;
+        $modifiedModelData['modelName'] = $originalModelName . 'Bulk';
 
-        return $this->fileService->createFromStub($modifiedModelData, 'bulk.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $bulkRequests, $useResponseMessages, $originalModelName) {
+        $stubName = $service ? 'bulk_api_service.controller' : 'bulk.controller';
+
+        return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $bulkRequests, $useResponseMessages, $originalModelName, $service, $pattern) {
             $originalModelData = $modelData;
             $originalModelData['modelName'] = $originalModelName;
             $model = $this->getFullModelNamespace($originalModelData);
@@ -38,16 +42,28 @@ class BulkControllerBuilder
             $modelVariable = lcfirst($originalModelName);
             $resourceClass = end($resourceName);
 
-            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, $resourceClass, $useResponseMessages, false, false);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, $resourceClass, $useResponseMessages, $pattern === 'spatie-data', false, $service);
 
             $bulkRequestImports = $this->buildBulkRequestImports($bulkRequests);
             $responseMessagesImport = $useResponseMessages ? "use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;\n" : '';
             $resourceImport = $resource ? "use {$resource};\n" : '';
+            $serviceImport = '';
+            $serviceConstructor = '';
+            
+            if ($service) {
+                $serviceNamespace = "App\\Services\\" . $originalModelName . "Service";
+                $serviceClass = $originalModelName . "Service";
+                $serviceVariable = lcfirst($serviceClass);
+                $serviceImport = "use {$serviceNamespace};\n";
+                $serviceConstructor = "public function __construct(protected {$serviceClass} \${$serviceVariable}){}\n\n";
+            }
 
             return [
                 '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ responseMessagesImport }}' => $responseMessagesImport,
                 '{{ resourceImport }}' => $resourceImport,
+                '{{ serviceImport }}' => $serviceImport,
+                '{{ serviceConstructor }}' => $serviceConstructor,
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $originalModelName,
                 '{{ modelVariable }}' => $modelVariable,
@@ -61,25 +77,41 @@ class BulkControllerBuilder
     {
         $overwrite = $options['overwrite'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
+        $service = $options['service'] ?? null;
+        $pattern = $options['pattern'] ?? 'normal';
 
         $originalModelName = $modelData['modelName'];
         $modifiedModelData = $modelData;
-        $modifiedModelData['modelName'] = 'Bulk' . $originalModelName;
+        $modifiedModelData['modelName'] = $originalModelName . 'Bulk';
 
-        return $this->fileService->createFromStub($modifiedModelData, 'bulk.controller', $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($bulkRequests, $originalModelName) {
+        $stubName = $service ? 'bulk_web_service.controller' : 'bulk.controller';
+
+        return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($bulkRequests, $originalModelName, $service, $pattern) {
             $originalModelData = $modelData;
             $originalModelData['modelName'] = $originalModelName;
             $model = $this->getFullModelNamespace($originalModelData);
             $modelVariable = lcfirst($originalModelName);
 
-            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, '', false, false, true);
+            $bulkMethods = $this->generateBulkMethods($bulkRequests, $originalModelName, $modelVariable, '', false, $pattern === 'spatie-data', true, $service);
 
             $bulkRequestImports = $this->buildBulkRequestImports($bulkRequests);
+            $serviceImport = '';
+            $serviceConstructor = '';
+            
+            if ($service) {
+                $serviceNamespace = "App\\Services\\" . $originalModelName . "Service";
+                $serviceClass = $originalModelName . "Service";
+                $serviceVariable = lcfirst($serviceClass);
+                $serviceImport = "use {$serviceNamespace};\n";
+                $serviceConstructor = "public function __construct(protected {$serviceClass} \${$serviceVariable}){}\n\n";
+            }
 
             return [
                 '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ responseMessagesImport }}' => '',
                 '{{ resourceImport }}' => '',
+                '{{ serviceImport }}' => $serviceImport,
+                '{{ serviceConstructor }}' => $serviceConstructor,
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $originalModelName,
                 '{{ modelVariable }}' => $modelVariable,
@@ -111,7 +143,7 @@ class BulkControllerBuilder
         return $bulkRequestImports;
     }
 
-    private function generateBulkMethods(array $bulkRequests, string $modelName, string $modelVariable, string $resourceClass, bool $useResponseMessages = false, bool $isSpatieData = false, bool $isWeb = false): string
+    private function generateBulkMethods(array $bulkRequests, string $modelName, string $modelVariable, string $resourceClass, bool $useResponseMessages = false, bool $isSpatieData = false, bool $isWeb = false, ?string $service = null): string
     {
         if (empty($bulkRequests)) {
             return '';
@@ -121,22 +153,37 @@ class BulkControllerBuilder
         $methods = '';
 
         $routeName = HelperService::toSnakeCase(Str::plural($modelName));
+        $serviceVariable = $service ? lcfirst($modelName . 'Service') : null;
 
         if (isset($bulkRequests['bulkStore'])) {
             $bulkStoreRequest = explode('\\', $bulkRequests['bulkStore']);
             $bulkStoreRequestClass = end($bulkStoreRequest);
 
             if ($isWeb) {
-                $methods .= "\n    /**\n     * Create multiple {$modelVariable}s.\n     *\n     * @param {$bulkStoreRequestClass} \$request\n     * @return \\Illuminate\\Http\\RedirectResponse\n     */\n    public function bulkStore({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                {$model}::create(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+                if ($service) {
+                    $methods .= "\n    public function bulkStore({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                \$this->{$serviceVariable}->store(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+                } else {
+                    $methods .= "\n    public function bulkStore({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                {$model}::create(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+                }
             } else {
                 $createMessage = $useResponseMessages
                     ? "->additional(['message' => ResponseMessages::CREATED->message()])"
                     : '';
                 $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection|\\Illuminate\\Http\\JsonResponse" : "\\Illuminate\\Http\\JsonResponse";
                 $messageText = $useResponseMessages ? 'ResponseMessages::CREATED->message()' : "'Created successfully'";
-                $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
-
-                $methods .= "\n    /**\n     * Create multiple {$modelVariable}s.\n     *\n     * @param {$bulkStoreRequestClass} \$request\n     * @return {$returnType}\n     */\n    public function bulkStore({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = {$model}::create(\$item);\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                
+                if ($service) {
+                    if ($isSpatieData) {
+                        $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                        $methods .= "\n    public function bulkStore({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = \$this->{$serviceVariable}->store(\$item);\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                    } else {
+                        $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                        $methods .= "\n    public function bulkStore({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = \$this->{$serviceVariable}->store(\$item);\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                    }
+                } else {
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                    $methods .= "\n    public function bulkStore({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = {$model}::create(\$item);\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                }
             }
         }
 
@@ -145,16 +192,30 @@ class BulkControllerBuilder
             $bulkUpdateRequestClass = end($bulkUpdateRequest);
 
             if ($isWeb) {
-                $methods .= "\n\n    /**\n     * Update multiple {$modelVariable}s.\n     *\n     * @param {$bulkUpdateRequestClass} \$request\n     * @return \\Illuminate\\Http\\RedirectResponse\n     */\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}->update(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+                if ($service) {
+                    $methods .= "\n\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \$this->{$serviceVariable}->update(\$item, \${$modelVariable});\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+                } else {
+                    $methods .= "\n\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}->update(\$item);\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.')->withInput();\n        }\n    }";
+                }
             } else {
                 $updateMessage = $useResponseMessages
                     ? "->additional(['message' => ResponseMessages::UPDATED->message()])"
                     : '';
                 $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection|\\Illuminate\\Http\\JsonResponse" : "\\Illuminate\\Http\\JsonResponse";
                 $messageText = $useResponseMessages ? 'ResponseMessages::UPDATED->message()' : "'Updated successfully'";
-                $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
-
-                $methods .= "\n\n    /**\n     * Update multiple {$modelVariable}s.\n     *\n     * @param {$bulkUpdateRequestClass} \$request\n     * @return {$returnType}\n     */\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}->update(\$item);\n                \${$modelVariable}s[] = \${$modelVariable}->fresh();\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                
+                if ($service) {
+                    if ($isSpatieData) {
+                        $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                        $methods .= "\n\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}s[] = \$this->{$serviceVariable}->update(\$item, \${$modelVariable});\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                    } else {
+                        $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                        $methods .= "\n\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}s[] = \$this->{$serviceVariable}->update(\$item, \${$modelVariable});\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                    }
+                } else {
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                    $methods .= "\n\n    public function bulkUpdate({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        try {\n            \$items = \$request->validated()['items'];\n            \${$modelVariable}s = [];\n            \n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \${$modelVariable}->update(\$item);\n                \${$modelVariable}s[] = \${$modelVariable}->fresh();\n            }\n            \n            {$returnStatement}\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                }
             }
         }
 
@@ -167,9 +228,17 @@ class BulkControllerBuilder
                 : "'Deleted successfully'";
 
             if ($isWeb) {
-                $methods .= "\n\n    /**\n     * Delete multiple {$modelVariable}s.\n     *\n     * @param {$bulkDeleteRequestClass} \$request\n     * @return \\Illuminate\\Http\\RedirectResponse\n     */\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            {$model}::whereIn('id', \$ids)->delete();\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.');\n        }\n    }";
+                if ($service) {
+                    $methods .= "\n\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            \n            foreach (\$ids as \$id) {\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \$this->{$serviceVariable}->delete(\${$modelVariable});\n            }\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.');\n        }\n    }";
+                } else {
+                    $methods .= "\n\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            {$model}::whereIn('id', \$ids)->delete();\n            \n            return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return redirect()->back()->with('error', 'There is an error.');\n        }\n    }";
+                }
             } else {
-                $methods .= "\n\n    /**\n     * Delete multiple {$modelVariable}s.\n     *\n     * @param {$bulkDeleteRequestClass} \$request\n     * @return \\Illuminate\\Http\\JsonResponse\n     */\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            {$model}::whereIn('id', \$ids)->delete();\n            \n            return response()->json(['message' => {$deleteMessage}, 'deleted_count' => count(\$ids)], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                if ($service) {
+                    $methods .= "\n\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            \n            foreach (\$ids as \$id) {\n                \${$modelVariable} = {$model}::findOrFail(\$id);\n                \$this->{$serviceVariable}->delete(\${$modelVariable});\n            }\n            \n            return response()->json(['message' => {$deleteMessage}, 'deleted_count' => count(\$ids)], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                } else {
+                    $methods .= "\n\n    public function bulkDestroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        try {\n            \$ids = \$request->validated()['ids'];\n            {$model}::whereIn('id', \$ids)->delete();\n            \n            return response()->json(['message' => {$deleteMessage}, 'deleted_count' => count(\$ids)], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n        } catch (\\Exception \$exception) {\n            report(\$exception);\n            return response()->json(['error' => 'There is an error.'], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_INTERNAL_SERVER_ERROR);\n        }\n    }";
+                }
             }
         }
 

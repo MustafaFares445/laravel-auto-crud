@@ -1330,5 +1330,46 @@ class PestBuilder
             ];
         });
     }
+
+    public function createBulkFeatureTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_feature_bulk', 'tests/Feature/' . $modelData['modelName'], 'BulkEndpointsTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+
+            $createPayloadItems = $this->generatePayload($columns);
+            $lines = explode("\n", trim($createPayloadItems));
+            $createPayloadItems = implode(",\n", $lines) . ",\n" . implode(",\n", $lines);
+
+            $updatePayloadItem = $this->generatePayload($columns, true);
+
+            $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
+            $seederClass = $this->getSeederClass();
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelPlural }}' => Str::plural(Str::snake($modelData['modelName'], ' ')),
+                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ routePath }}' => $routePath,
+                '{{ tableName }}' => $tableName,
+                '{{ seederClass }}' => $seederClass,
+                '{{ seederCall }}' => $this->generateSeederCall($seederClass),
+                '{{ responseMessagesNamespace }}' => 'Mrmarchone\\LaravelAutoCrud\\Enums\\ResponseMessages',
+                '{{ createPayloadItems }}' => $createPayloadItems,
+                '{{ updatePayloadItem }}' => $updatePayloadItem,
+                '{{ enumUseStatements }}' => $enumUseStatements,
+            ];
+        });
+    }
 }
 

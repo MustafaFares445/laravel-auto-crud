@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use App\Models\User;
+use {{ responseMessagesNamespace }};
+use Laravel\Sanctum\Sanctum;
+{{ enumUseStatements }}
+
+beforeEach(function () {
+{{ seederCall }}    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+});
+
+it('bulk creates {{ modelPlural }}', function () {
+    $payload = [
+        'items' => [
+{{ createPayloadItems }}
+        ]
+    ];
+
+    $response = $this->postJson('{{ routePath }}/bulk', $payload);
+    $response->assertCreated()->assertJsonPath('message', ResponseMessages::CREATED->message());
+    
+    $createdItems = $response->json('data');
+    expect($createdItems)->toBeArray();
+    expect(count($createdItems))->toBe(2);
+});
+
+it('bulk updates {{ modelPlural }}', function () {
+    ${{ modelVariable }}1 = {{ model }}::factory()->create();
+    ${{ modelVariable }}2 = {{ model }}::factory()->create();
+    
+    $payload = [
+        'items' => [
+            array_merge(['id' => ${{ modelVariable }}1->id], {{ updatePayloadItem }}),
+            array_merge(['id' => ${{ modelVariable }}2->id], {{ updatePayloadItem }}),
+        ]
+    ];
+
+    $response = $this->putJson('{{ routePath }}/bulk', $payload);
+    $response->assertOk()->assertJsonPath('message', ResponseMessages::UPDATED->message());
+    
+    $updatedItems = $response->json('data');
+    expect($updatedItems)->toBeArray();
+    expect(count($updatedItems))->toBe(2);
+});
+
+it('bulk deletes {{ modelPlural }}', function () {
+    ${{ modelVariable }}1 = {{ model }}::factory()->create();
+    ${{ modelVariable }}2 = {{ model }}::factory()->create();
+    
+    $payload = [
+        'ids' => [${{ modelVariable }}1->id, ${{ modelVariable }}2->id]
+    ];
+
+    $response = $this->deleteJson('{{ routePath }}/bulk', $payload);
+    $response->assertOk()->assertJsonPath('message', ResponseMessages::DELETED->message());
+    $response->assertJsonPath('deleted_count', 2);
+    
+    $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}1->id]);
+    $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}2->id]);
+});
