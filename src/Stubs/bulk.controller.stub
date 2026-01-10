@@ -6,7 +6,7 @@ namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
 {{ bulkRequestImports }}use {{ modelNamespace }};
-{{ responseMessagesImport }}{{ resourceImport }}{{ serviceImport }}use Illuminate\Http\JsonResponse;
+{{ responseMessagesImport }}{{ resourceImport }}{{ serviceImport }}{{ dataImport }}{{ dbImport }}use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class {{ class }} extends Controller

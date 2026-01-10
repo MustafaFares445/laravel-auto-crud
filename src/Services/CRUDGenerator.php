@@ -200,6 +200,11 @@ class CRUDGenerator
             } else {
                 unset($bulkOptions['service']);
             }
+            if (!empty($spatieDataName)) {
+                $bulkOptions['spatieData'] = $spatieDataName;
+            } else {
+                unset($bulkOptions['spatieData']);
+            }
             $this->bulkEndpointsGenerator->generate($modelData, $bulkOptions);
         }
 

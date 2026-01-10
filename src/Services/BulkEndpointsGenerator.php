@@ -45,6 +45,7 @@ class BulkEndpointsGenerator
         $overwrite = $options['overwrite'] ?? false;
         // Only use service if it's a non-empty string (namespace), not a boolean
         $service = (isset($options['service']) && is_string($options['service']) && !empty($options['service'])) ? $options['service'] : null;
+        $spatieData = $options['spatieData'] ?? null;
 
         if (empty($bulkEndpoints)) {
             return;
@@ -68,6 +69,7 @@ class BulkEndpointsGenerator
             'controller-folder' => $options['controller-folder'] ?? null,
             'service' => $service,
             'pattern' => $pattern,
+            'spatieData' => $spatieData,
         ];
 
         if (in_array('api', $controllerTypes, true)) {
