@@ -78,5 +78,31 @@ class ServiceBuilder
             ];
         });
     }
+
+    public function createBulkService(array $modelData, bool $overwrite = false, ?string $uniqueKey = null): string
+    {
+        $modifiedModelData = $modelData;
+        $modifiedModelData['modelName'] = $modelData['modelName'] . 'Bulk';
+
+        return $this->fileService->createFromStub($modifiedModelData, 'bulk_service', 'Services', 'Service', $overwrite, function ($modelData) use ($uniqueKey) {
+            $originalModelName = str_replace('Bulk', '', $modelData['modelName']);
+            $model = $this->getFullModelNamespace(['modelName' => $originalModelName]);
+            $dataClass = 'App\\Data\\' . $originalModelName . 'Data';
+
+            $uniqueKeyProperty = $uniqueKey
+                ? "\n    protected ?string \$uniqueKey = '{$uniqueKey}';\n"
+                : '';
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ dataNamespace }}' => $dataClass,
+                '{{ model }}' => $originalModelName,
+                '{{ data }}' => $originalModelName . 'Data',
+                '{{ uniqueKeyProperty }}' => $uniqueKeyProperty,
+            ];
+        });
+    }
 }
+
+
 

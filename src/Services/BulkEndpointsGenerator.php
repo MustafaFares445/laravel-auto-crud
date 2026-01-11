@@ -9,12 +9,14 @@ use Mrmarchone\LaravelAutoCrud\Builders\PestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RequestBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\ResourceBuilder;
 use Mrmarchone\LaravelAutoCrud\Builders\RouteBuilder;
+use Mrmarchone\LaravelAutoCrud\Builders\ServiceBuilder;
 
 use function Laravel\Prompts\info;
 
 class BulkEndpointsGenerator
 {
     private BulkControllerBuilder $bulkControllerBuilder;
+    private ServiceBuilder $serviceBuilder;
     private ResourceBuilder $resourceBuilder;
     private RequestBuilder $requestBuilder;
     private RouteBuilder $routeBuilder;
@@ -31,6 +33,7 @@ class BulkEndpointsGenerator
     private function initializeBuilders(): void
     {
         $this->bulkControllerBuilder = new BulkControllerBuilder($this->fileService);
+        $this->serviceBuilder = new ServiceBuilder($this->fileService);
         $this->resourceBuilder = new ResourceBuilder($this->fileService, $this->modelService, $this->tableColumnsService);
         $this->requestBuilder = new RequestBuilder($this->fileService, $this->tableColumnsService, $this->modelService, new \Mrmarchone\LaravelAutoCrud\Builders\EnumBuilder($this->fileService));
         $this->routeBuilder = new RouteBuilder();
@@ -72,6 +75,11 @@ class BulkEndpointsGenerator
             'spatieData' => $spatieData,
         ];
 
+        if ($service) {
+            $uniqueKey = $options['uniqueKey'] ?? null;
+            $this->serviceBuilder->createBulkService($modelData, $overwrite, $uniqueKey);
+        }
+
         if (in_array('api', $controllerTypes, true)) {
             $apiControllerName = $this->bulkControllerBuilder->createAPI(
                 $modelData,
@@ -103,6 +111,11 @@ class BulkEndpointsGenerator
 
         if ($options['pest'] ?? false) {
             $this->pestBuilder->createBulkFeatureTest($modelData, $overwrite);
+            
+            if ($service) {
+                $uniqueKey = $options['uniqueKey'] ?? null;
+                $this->pestBuilder->createBulkServiceUnitTest($modelData, $overwrite, $uniqueKey);
+            }
         }
 
         info('Bulk endpoints generated successfully for ' . $modelData['modelName'] . ' Model');

@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ modelNamespace }};
+use {{ dataNamespace }};
+use Illuminate\Support\Collection;
+use Mrmarchone\LaravelAutoCrud\Services\BulkService;
+
+class {{ class }} extends BulkService
+{
+    protected string $modelClass = {{ model }}::class;
+
+    {{ uniqueKeyProperty }}
+    protected function transformToDataObjects(array $dataArray): Collection
+    {
+        return collect($dataArray)->map(fn (array $data) => {{ data }}::from($data));
+    }
+}

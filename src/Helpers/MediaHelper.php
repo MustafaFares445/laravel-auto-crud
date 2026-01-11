@@ -175,6 +175,59 @@ final class MediaHelper
     }
 
     /**
+     * Attach media to models with optimized database operations.
+     *
+     * File uploads are still O(n) - this is unavoidable with Spatie.
+     * This method optimizes database queries only.
+     *
+     * @param  Collection<Model>|array<Model>  $models
+     * @param  Collection<object>|array<object>  $dataObjects
+     * @param  array<string, string>  $mediaMap  ['propertyName' => 'collectionName']
+     * @param  bool  $isUpdate  Clear existing media before upload
+     * @return void
+     */
+    public static function attachBulkMedia(
+        Collection|array $models,
+        Collection|array $dataObjects,
+        array $mediaMap,
+        bool $isUpdate = false
+    ): void {
+        $modelsCollection = $models instanceof Collection ? $models : collect($models);
+        $dataCollection = $dataObjects instanceof Collection ? $dataObjects : collect($dataObjects);
+
+        if ($modelsCollection->isEmpty() || empty($mediaMap)) {
+            return;
+        }
+
+        $modelClass = $modelsCollection->first()::class;
+        $modelIds = $modelsCollection->pluck('id')->all();
+
+        // Optimize: Batch delete all media collections at once
+        if ($isUpdate) {
+            $collectionNames = array_values($mediaMap);
+            
+            Media::whereIn('model_id', $modelIds)
+                ->where('model_type', $modelClass)
+                ->whereIn('collection_name', $collectionNames)
+                ->delete();
+        }
+
+        // File uploads - O(n) complexity is unavoidable
+        $modelsCollection->each(function ($model, $index) use ($dataCollection, $mediaMap) {
+            $dataObject = $dataCollection->get($index);
+
+            if ($dataObject) {
+                foreach ($mediaMap as $property => $collection) {
+                    if (isset($dataObject->$property)) {
+                        self::uploadMedia($dataObject->$property, $model, $collection);
+                    }
+                }
+            }
+        });
+    }
+
+
+    /**
      * Handle media upload for a single file.
      *
      * Internal method used by uploadMedia() to handle single file uploads.

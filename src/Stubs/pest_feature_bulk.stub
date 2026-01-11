@@ -28,6 +28,15 @@ it('bulk creates {{ modelPlural }}', function () {
     expect(count($createdItems))->toBe(2);
 });
 
+it('validates maximum bulk size on store', function () {
+    $payload = [
+        'items' => array_fill(0, 101, {{ createPayloadItem }})
+    ];
+
+    $response = $this->postJson('{{ routePath }}/bulk', $payload);
+    $response->assertStatus(422);
+});
+{{ uniqueKeyStoreTests }}
 it('bulk updates {{ modelPlural }}', function () {
     ${{ modelVariable }}1 = {{ model }}::factory()->create();
     ${{ modelVariable }}2 = {{ model }}::factory()->create();
@@ -47,6 +56,17 @@ it('bulk updates {{ modelPlural }}', function () {
     expect(count($updatedItems))->toBe(2);
 });
 
+it('validates missing model IDs on update', function () {
+    $payload = [
+        'items' => [
+            ['id' => 9999, {{ updatePayloadItem }}]
+        ]
+    ];
+
+    $response = $this->putJson('{{ routePath }}/bulk', $payload);
+    $response->assertStatus(422);
+});
+{{ uniqueKeyUpdateTests }}
 it('bulk deletes {{ modelPlural }}', function () {
     ${{ modelVariable }}1 = {{ model }}::factory()->create();
     ${{ modelVariable }}2 = {{ model }}::factory()->create();
@@ -61,4 +81,13 @@ it('bulk deletes {{ modelPlural }}', function () {
     
     $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}1->id]);
     $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}2->id]);
+});
+
+it('validates missing model IDs on delete', function () {
+    $payload = [
+        'ids' => [9999]
+    ];
+
+    $response = $this->deleteJson('{{ routePath }}/bulk', $payload);
+    $response->assertStatus(422);
 });

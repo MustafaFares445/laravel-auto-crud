@@ -59,8 +59,8 @@ class BulkControllerBuilder
             $dataImport = '';
             
             if ($serviceForMethods) {
-                $serviceNamespace = "App\\Services\\" . $originalModelName . "Service";
-                $serviceClass = $originalModelName . "Service";
+                $serviceNamespace = "App\\Services\\" . $originalModelName . "BulkService";
+                $serviceClass = $originalModelName . "BulkService";
                 $serviceVariable = lcfirst($serviceClass);
                 $serviceImport = "use {$serviceNamespace};\n";
                 $serviceConstructor = "public function __construct(protected {$serviceClass} \${$serviceVariable}){}\n\n";
@@ -125,8 +125,8 @@ class BulkControllerBuilder
             $dataImport = '';
             
             if ($serviceForMethods) {
-                $serviceNamespace = "App\\Services\\" . $originalModelName . "Service";
-                $serviceClass = $originalModelName . "Service";
+                $serviceNamespace = "App\\Services\\" . $originalModelName . "BulkService";
+                $serviceClass = $originalModelName . "BulkService";
                 $serviceVariable = lcfirst($serviceClass);
                 $serviceImport = "use {$serviceNamespace};\n";
                 $serviceConstructor = "public function __construct(protected {$serviceClass} \${$serviceVariable}){}\n\n";
@@ -188,7 +188,7 @@ class BulkControllerBuilder
         $methods = '';
 
         $routeName = HelperService::toSnakeCase(Str::plural($modelName));
-        $serviceVariable = $service ? lcfirst($modelName . 'Service') : null;
+        $serviceVariable = $service ? lcfirst($modelName . 'BulkService') : null;
         $spatieDataNameParts = $spatieDataClass ? explode('\\', $spatieDataClass) : [];
         $spatieDataName = !empty($spatieDataNameParts) ? end($spatieDataNameParts) : null;
 
@@ -197,10 +197,8 @@ class BulkControllerBuilder
             $bulkStoreRequestClass = end($bulkStoreRequest);
 
             if ($isWeb) {
-                if ($service && $isSpatieData && $spatieDataName) {
-                    $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$items = \$request->validated('items');\n        \n        DB::transaction(static function () use (\$items) {\n            foreach (\$items as \$item) {\n                \$this->{$serviceVariable}->store({$spatieDataName}::from(\$item));\n            }\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n    }";
-                } elseif ($service) {
-                    $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$items = \$request->validated('items');\n        \n        DB::transaction(static function () use (\$items) {\n            foreach (\$items as \$item) {\n                \$this->{$serviceVariable}->store(\$item);\n            }\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n    }";
+                if ($service) {
+                    $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$this->{$serviceVariable}->store(\$request->validated('items'));\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n    }";
                 } else {
                     $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$items = \$request->validated('items');\n        \n        DB::transaction(static function () use (\$items) {\n            {$model}::insert(\$items);\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk created successfully');\n    }";
                 }
@@ -208,15 +206,12 @@ class BulkControllerBuilder
                 $createMessage = $useResponseMessages
                     ? "->additional(['message' => ResponseMessages::CREATED->message()])"
                     : '';
-                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection|\\Illuminate\\Http\\JsonResponse" : "\\Illuminate\\Http\\JsonResponse";
+                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection" : "\\Illuminate\\Http\\JsonResponse";
                 $messageText = $useResponseMessages ? 'ResponseMessages::CREATED->message()' : "'Created successfully'";
                 
-                if ($service && $isSpatieData && $spatieDataName) {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
-                    $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \${$modelVariable}s = [];\n        \n        DB::transaction(static function () use (\$items, &\${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = \$this->{$serviceVariable}->store({$spatieDataName}::from(\$item));\n            }\n        });\n        \n        {$returnStatement}\n    }";
-                } elseif ($service) {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
-                    $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \${$modelVariable}s = [];\n        \n        DB::transaction(static function () use (\$items, &\${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \${$modelVariable}s[] = \$this->{$serviceVariable}->store(\$item);\n            }\n        });\n        \n        {$returnStatement}\n    }";
+                if ($service) {
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(\${$modelVariable}s){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s->toArray(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                    $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        \${$modelVariable}s = \$this->{$serviceVariable}->store(\$request->validated('items'));\n        \n        {$returnStatement}\n    }";
                 } else {
                     $returnStatement = $resourceClass ? "return {$resourceClass}::collection({$model}::latest()->take(count(\$items))->get()){$createMessage};" : "return response()->json(['data' => {$model}::latest()->take(count(\$items))->get(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
                     $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \n        DB::transaction(static function () use (\$items) {\n            {$model}::insert(\$items);\n        });\n        \n        {$returnStatement}\n    }";
@@ -229,10 +224,8 @@ class BulkControllerBuilder
             $bulkUpdateRequestClass = end($bulkUpdateRequest);
 
             if ($isWeb) {
-                if ($service && $isSpatieData && $spatieDataName) {
-                    $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \$this->{$serviceVariable}->update({$spatieDataName}::from(\$item), \${$modelVariable});\n            }\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n    }";
-                } elseif ($service) {
-                    $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \$this->{$serviceVariable}->update(\$item, \${$modelVariable});\n            }\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n    }";
+                if ($service) {
+                    $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$this->{$serviceVariable}->update(\$request->validated('items'));\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n    }";
                 } else {
                     $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \${$modelVariable}->update(\$item);\n            }\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk updated successfully');\n    }";
                 }
@@ -240,15 +233,12 @@ class BulkControllerBuilder
                 $updateMessage = $useResponseMessages
                     ? "->additional(['message' => ResponseMessages::UPDATED->message()])"
                     : '';
-                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection|\\Illuminate\\Http\\JsonResponse" : "\\Illuminate\\Http\\JsonResponse";
+                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection" : "\\Illuminate\\Http\\JsonResponse";
                 $messageText = $useResponseMessages ? 'ResponseMessages::UPDATED->message()' : "'Updated successfully'";
                 
-                if ($service && $isSpatieData && $spatieDataName) {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
-                    $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \$updated{$modelName}s = [];\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s, &\$updated{$modelName}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \$updated{$modelName}s[] = \$this->{$serviceVariable}->update({$spatieDataName}::from(\$item), \${$modelVariable});\n            }\n        });\n        \n        {$returnStatement}\n    }";
-                } elseif ($service) {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(collect(\${$modelVariable}s)){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s, 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
-                    $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \$updated{$modelName}s = [];\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s, &\$updated{$modelName}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \$updated{$modelName}s[] = \$this->{$serviceVariable}->update(\$item, \${$modelVariable});\n            }\n        });\n        \n        {$returnStatement}\n    }";
+                if ($service) {
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(\${$modelVariable}s){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s->toArray(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                    $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        \${$modelVariable}s = \$this->{$serviceVariable}->update(\$request->validated('items'));\n        \n        {$returnStatement}\n    }";
                 } else {
                     $returnStatement = $resourceClass ? "return {$resourceClass}::collection({$model}::whereIn('id', \$ids)->get()){$updateMessage};" : "return response()->json(['data' => {$model}::whereIn('id', \$ids)->get(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
                     $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \${$modelVariable}->update(\$item);\n            }\n        });\n        \n        {$returnStatement}\n    }";
@@ -266,13 +256,13 @@ class BulkControllerBuilder
 
             if ($isWeb) {
                 if ($service) {
-                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$ids = \$request->validated('ids');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get();\n        \n        DB::transaction(static function () use (\${$modelVariable}s) {\n            foreach (\${$modelVariable}s as \${$modelVariable}) {\n                \$this->{$serviceVariable}->delete(\${$modelVariable});\n            }\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n    }";
+                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$this->{$serviceVariable}->delete(\$request->validated('ids'));\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n    }";
                 } else {
                     $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\RedirectResponse\n    {\n        \$ids = \$request->validated('ids');\n        \n        DB::transaction(static function () use (\$ids) {\n            {$model}::whereIn('id', \$ids)->delete();\n        });\n        \n        return redirect()->route('{$routeName}.index')->with('success', 'Bulk deleted successfully');\n    }";
                 }
             } else {
                 if ($service) {
-                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        \$ids = \$request->validated('ids');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get();\n        \$count = \${$modelVariable}s->count();\n        \n        DB::transaction(static function () use (\${$modelVariable}s) {\n            foreach (\${$modelVariable}s as \${$modelVariable}) {\n                \$this->{$serviceVariable}->delete(\${$modelVariable});\n            }\n        });\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n    }";
+                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        \$count = \$this->{$serviceVariable}->delete(\$request->validated('ids'));\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n    }";
                 } else {
                     $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        \$ids = \$request->validated('ids');\n        \$count = count(\$ids);\n        \n        DB::transaction(static function () use (\$ids) {\n            {$model}::whereIn('id', \$ids)->delete();\n        });\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n    }";
                 }

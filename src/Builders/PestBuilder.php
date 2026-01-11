@@ -1345,31 +1345,199 @@ class PestBuilder
             });
 
             $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+            $modelVariable = lcfirst($modelData['modelName']);
 
+            $createPayloadItem = '[' . $this->generatePayload($columns) . ']';
             $createPayloadItems = $this->generatePayload($columns);
             $lines = explode("\n", trim($createPayloadItems));
             $createPayloadItems = implode(",\n", $lines) . ",\n" . implode(",\n", $lines);
 
-            $updatePayloadItem = $this->generatePayload($columns, true);
+            $updatePayloadItem = '[' . $this->generatePayload($columns, true) . ']';
 
             $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
             $seederClass = $this->getSeederClass();
+
+            $uniqueKey = $this->detectUniqueKey($columns);
+            $uniqueKeyStoreTests = '';
+            $uniqueKeyUpdateTests = '';
+
+            if ($uniqueKey) {
+                $uniqueKeyStoreTests = $this->generateUniqueKeyStoreTests($modelData, $routePath, $createPayloadItem);
+                $uniqueKeyUpdateTests = $this->generateUniqueKeyUpdateTests($modelData, $routePath, $modelVariable, $updatePayloadItem);
+            }
 
             return [
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $modelData['modelName'],
                 '{{ modelPlural }}' => Str::plural(Str::snake($modelData['modelName'], ' ')),
-                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ modelVariable }}' => $modelVariable,
                 '{{ routePath }}' => $routePath,
                 '{{ tableName }}' => $tableName,
                 '{{ seederClass }}' => $seederClass,
                 '{{ seederCall }}' => $this->generateSeederCall($seederClass),
                 '{{ responseMessagesNamespace }}' => 'Mrmarchone\\LaravelAutoCrud\\Enums\\ResponseMessages',
+                '{{ createPayloadItem }}' => $createPayloadItem,
                 '{{ createPayloadItems }}' => $createPayloadItems,
                 '{{ updatePayloadItem }}' => $updatePayloadItem,
+                '{{ uniqueKeyStoreTests }}' => $uniqueKeyStoreTests,
+                '{{ uniqueKeyUpdateTests }}' => $uniqueKeyUpdateTests,
                 '{{ enumUseStatements }}' => $enumUseStatements,
             ];
         });
+    }
+
+    private function detectUniqueKey(array $columns): ?string
+    {
+        $uniqueFieldNames = ['slug', 'code', 'sku', 'email', 'username', 'uuid'];
+        
+        foreach ($columns as $column) {
+            if (in_array($column['name'], $uniqueFieldNames, true)) {
+                return $column['name'];
+            }
+        }
+        
+        return null;
+    }
+
+    private function generateUniqueKeyStoreTests(array $modelData, string $routePath, string $createPayloadItem): string
+    {
+        return "\n" . "it('validates duplicate unique keys on store', function () {
+    \$payload = [
+        'items' => [
+            {$createPayloadItem},
+            {$createPayloadItem},
+        ]
+    ];
+
+    \$response = \$this->postJson('{$routePath}/bulk', \$payload);
+    \$response->assertStatus(422);
+});\n";
+    }
+
+    private function generateUniqueKeyUpdateTests(array $modelData, string $routePath, string $modelVariable, string $updatePayloadItem): string
+    {
+        $modelName = $modelData['modelName'];
+        
+        return "\n" . "it('validates duplicate unique keys on update', function () {
+    \${$modelVariable}1 = {$modelName}::factory()->create();
+    \${$modelVariable}2 = {$modelName}::factory()->create();
+    
+    \$payload = [
+        'items' => [
+            array_merge(['id' => \${$modelVariable}1->id], {$updatePayloadItem}),
+            array_merge(['id' => \${$modelVariable}2->id], {$updatePayloadItem}),
+        ]
+    ];
+
+    \$response = \$this->putJson('{$routePath}/bulk', \$payload);
+    \$response->assertStatus(422);
+});\n";
+    }
+
+    public function createBulkServiceUnitTest(array $modelData, bool $overwrite = false, ?string $uniqueKey = null): string
+    {
+        $modifiedModelData = $modelData;
+        $modifiedModelData['modelName'] = $modelData['modelName'] . 'Bulk';
+
+        return $this->fileService->createFromStub($modifiedModelData, 'pest_unit_bulk_service', 'tests/Unit/Services', 'ServiceTest', $overwrite, function ($modelData) use ($uniqueKey) {
+            $originalModelName = str_replace('Bulk', '', $modelData['modelName']);
+            $model = $this->getFullModelNamespace(['modelName' => $originalModelName]);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $modelVariable = lcfirst($originalModelName);
+            $serviceClass = 'App\\Services\\' . $originalModelName . 'BulkService';
+            $dataClass = 'App\\Data\\' . $originalModelName . 'Data';
+
+            $createPayloadItem = '[' . $this->generatePayload($columns) . ']';
+            $createPayloadItems = $this->generatePayload($columns);
+            $lines = explode("\n", trim($createPayloadItems));
+            $createPayloadItems = "            [" . implode(",\n            ", array_map('trim', $lines)) . "],\n            [" . implode(",\n            ", array_map('trim', $lines)) . "]";
+
+            $updatePayloadItem = $this->generatePayload($columns, true);
+
+            $detectedUniqueKey = $uniqueKey ?? $this->detectUniqueKey($columns);
+            $uniqueKeyStoreTests = '';
+            $uniqueKeyUpdateTests = '';
+
+            if ($detectedUniqueKey) {
+                $uniqueKeyStoreTests = $this->generateBulkServiceUniqueKeyStoreTests($originalModelName, $model, $createPayloadItem, $detectedUniqueKey);
+                $uniqueKeyUpdateTests = $this->generateBulkServiceUniqueKeyUpdateTests($originalModelName, $model, $modelVariable, $updatePayloadItem, $detectedUniqueKey);
+            }
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $originalModelName,
+                '{{ modelVariable }}' => $modelVariable,
+                '{{ serviceNamespace }}' => $serviceClass,
+                '{{ service }}' => $originalModelName . 'BulkService',
+                '{{ dataNamespace }}' => $dataClass,
+                '{{ tableName }}' => $tableName,
+                '{{ createPayloadItem }}' => $createPayloadItem,
+                '{{ createPayloadItems }}' => $createPayloadItems,
+                '{{ updatePayloadItem }}' => $updatePayloadItem,
+                '{{ uniqueKeyStoreTests }}' => $uniqueKeyStoreTests,
+                '{{ uniqueKeyUpdateTests }}' => $uniqueKeyUpdateTests,
+            ];
+        });
+    }
+
+    private function generateBulkServiceUniqueKeyStoreTests(string $modelName, string $model, string $createPayloadItem, string $uniqueKey): string
+    {
+        return "\n" . "it('validates duplicate {$uniqueKey} on store', function () {
+    \$service = app({$modelName}BulkService::class);
+    \$dataArray = [
+        {$createPayloadItem},
+        {$createPayloadItem},
+    ];
+
+    expect(fn () => \$service->store(\$dataArray))->toThrow(ValidationException::class);
+});
+
+it('validates existing {$uniqueKey} on store', function () {
+    \$service = app({$modelName}BulkService::class);
+    {$modelName}::factory()->create({$createPayloadItem});
+
+    \$dataArray = [
+        {$createPayloadItem},
+    ];
+
+    expect(fn () => \$service->store(\$dataArray))->toThrow(ValidationException::class);
+});\n";
+    }
+
+    private function generateBulkServiceUniqueKeyUpdateTests(string $modelName, string $model, string $modelVariable, string $updatePayloadItem, string $uniqueKey): string
+    {
+        return "\n" . "it('validates duplicate {$uniqueKey} on update', function () {
+    \$service = app({$modelName}BulkService::class);
+    \${$modelVariable}1 = {$modelName}::factory()->create();
+    \${$modelVariable}2 = {$modelName}::factory()->create();
+
+    \$dataArray = [
+        array_merge(['id' => \${$modelVariable}1->id], [{$updatePayloadItem}]),
+        array_merge(['id' => \${$modelVariable}2->id], [{$updatePayloadItem}]),
+    ];
+
+    expect(fn () => \$service->update(\$dataArray))->toThrow(ValidationException::class);
+});
+
+it('validates {$uniqueKey} conflicts on update', function () {
+    \$service = app({$modelName}BulkService::class);
+    \$existing = {$modelName}::factory()->create();
+    \${$modelVariable}1 = {$modelName}::factory()->create();
+
+    \$dataArray = [
+        ['id' => \${$modelVariable}1->id, '{$uniqueKey}' => \$existing->{$uniqueKey}],
+    ];
+
+    expect(fn () => \$service->update(\$dataArray))->toThrow(ValidationException::class);
+});\n";
     }
 }
 

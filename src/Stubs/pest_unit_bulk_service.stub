@@ -1,0 +1,69 @@
+<?php
+
+use {{ modelNamespace }};
+use {{ dataNamespace }};
+use {{ serviceNamespace }};
+use Illuminate\Validation\ValidationException;
+
+it('validates maximum bulk size on store', function () {
+    $service = app({{ service }}::class);
+    $dataArray = array_fill(0, 101, {{ createPayloadItem }});
+
+    expect(fn () => $service->store($dataArray))->toThrow(ValidationException::class);
+});
+{{ uniqueKeyStoreTests }}
+it('validates missing model IDs on update', function () {
+    $service = app({{ service }}::class);
+
+    expect(fn () => $service->update([
+        ['id' => 9999],
+    ]))->toThrow(ValidationException::class);
+});
+{{ uniqueKeyUpdateTests }}
+it('validates missing model IDs on delete', function () {
+    $service = app({{ service }}::class);
+
+    expect(fn () => $service->delete([9999]))->toThrow(ValidationException::class);
+});
+
+it('stores multiple records successfully', function () {
+    $service = app({{ service }}::class);
+    $dataArray = [
+{{ createPayloadItems }}
+    ];
+
+    $models = $service->store($dataArray);
+
+    expect($models)->toHaveCount(2);
+    expect($models->first())->toBeInstanceOf({{ model }}::class);
+    expect($models->last())->toBeInstanceOf({{ model }}::class);
+});
+
+it('updates multiple records successfully', function () {
+    $service = app({{ service }}::class);
+    ${{ modelVariable }}1 = {{ model }}::factory()->create();
+    ${{ modelVariable }}2 = {{ model }}::factory()->create();
+
+    $dataArray = [
+        array_merge(['id' => ${{ modelVariable }}1->id], [{{ updatePayloadItem }}]),
+        array_merge(['id' => ${{ modelVariable }}2->id], [{{ updatePayloadItem }}]),
+    ];
+
+    $updated = $service->update($dataArray);
+
+    expect($updated)->toHaveCount(2);
+    expect($updated->first()->id)->toBe(${{ modelVariable }}1->id);
+    expect($updated->last()->id)->toBe(${{ modelVariable }}2->id);
+});
+
+it('deletes multiple records and returns count', function () {
+    $service = app({{ service }}::class);
+    ${{ modelVariable }}1 = {{ model }}::factory()->create();
+    ${{ modelVariable }}2 = {{ model }}::factory()->create();
+
+    $count = $service->delete([${{ modelVariable }}1->id, ${{ modelVariable }}2->id]);
+
+    expect($count)->toBe(2);
+    $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}1->id]);
+    $this->assertDatabaseMissing('{{ tableName }}', ['id' => ${{ modelVariable }}2->id]);
+});
