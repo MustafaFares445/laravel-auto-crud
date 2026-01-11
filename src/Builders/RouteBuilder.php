@@ -125,21 +125,26 @@ class RouteBuilder
      */
     private function generateBulkApiRouteCode(string $modelName, string $controller, array $bulkEndpoints = []): string
     {
-        $bulkRoutes = '';
-
+        $allowedMethods = [];
+        
         if (in_array('create', $bulkEndpoints, true)) {
-            $bulkRoutes .= "Route::post('/{$modelName}/bulk', [{$controller}::class, 'bulkStore']);";
+            $allowedMethods[] = 'store';
         }
-
+        
         if (in_array('update', $bulkEndpoints, true)) {
-            $bulkRoutes .= "\nRoute::put('/{$modelName}/bulk', [{$controller}::class, 'bulkUpdate']);";
+            $allowedMethods[] = 'update';
         }
-
+        
         if (in_array('delete', $bulkEndpoints, true)) {
-            $bulkRoutes .= "\nRoute::delete('/{$modelName}/bulk', [{$controller}::class, 'bulkDestroy']);";
+            $allowedMethods[] = 'destroy';
         }
-
-        return $bulkRoutes;
+        
+        if (empty($allowedMethods)) {
+            return '';
+        }
+        
+        $methodsString = implode("', '", $allowedMethods);
+        return "Route::apiResource('/{$modelName}/bulk', {$controller}::class)->only(['{$methodsString}']);";
     }
 
     /**
@@ -152,21 +157,26 @@ class RouteBuilder
      */
     private function generateBulkWebRouteCode(string $modelName, string $controller, array $bulkEndpoints = []): string
     {
-        $bulkRoutes = '';
-
+        $allowedMethods = [];
+        
         if (in_array('create', $bulkEndpoints, true)) {
-            $bulkRoutes .= "Route::post('/{$modelName}/bulk', [{$controller}::class, 'bulkStore']);";
+            $allowedMethods[] = 'store';
         }
-
+        
         if (in_array('update', $bulkEndpoints, true)) {
-            $bulkRoutes .= "\nRoute::put('/{$modelName}/bulk', [{$controller}::class, 'bulkUpdate']);";
+            $allowedMethods[] = 'update';
         }
-
+        
         if (in_array('delete', $bulkEndpoints, true)) {
-            $bulkRoutes .= "\nRoute::delete('/{$modelName}/bulk', [{$controller}::class, 'bulkDestroy']);";
+            $allowedMethods[] = 'destroy';
         }
-
-        return $bulkRoutes;
+        
+        if (empty($allowedMethods)) {
+            return '';
+        }
+        
+        $methodsString = implode("', '", $allowedMethods);
+        return "Route::resource('/{$modelName}/bulk', {$controller}::class)->only(['{$methodsString}']);";
     }
 
     /**
