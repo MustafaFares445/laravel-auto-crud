@@ -77,7 +77,7 @@ class BulkEndpointsGenerator
 
         if ($service) {
             $uniqueKey = $options['uniqueKey'] ?? null;
-            $this->serviceBuilder->createBulkService($modelData, $overwrite, $uniqueKey);
+            $this->serviceBuilder->createBulkService($modelData, $overwrite, $uniqueKey, $pattern, $spatieData);
         }
 
         if (in_array('api', $controllerTypes, true)) {
