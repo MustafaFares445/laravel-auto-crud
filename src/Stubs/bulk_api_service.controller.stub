@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use App\Http\Controllers\Controller;
-{{ bulkRequestImports }}use {{ modelNamespace }};
-{{ responseMessagesImport }}{{ resourceImport }}{{ serviceImport }}{{ dataImport }}{{ dbImport }}use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\Response;
+{{ controllerImport }}{{ bulkRequestImports }}use {{ modelNamespace }};
+{{ responseMessagesImport }}{{ resourceImport }}{{ serviceImport }}{{ dataImport }}{{ dbImport }}{{ anonymousResourceCollectionImport }}{{ responseImport }}use Illuminate\Http\JsonResponse;
 
 class {{ class }} extends Controller
 {

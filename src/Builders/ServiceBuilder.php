@@ -79,19 +79,34 @@ class ServiceBuilder
         });
     }
 
-    public function createBulkService(array $modelData, bool $overwrite = false, ?string $uniqueKey = null): string
+    public function createBulkService(array $modelData, bool $overwrite = false, ?string $uniqueKey = null, string $pattern = 'normal', ?string $spatieData = null): string
     {
         $modifiedModelData = $modelData;
         $modifiedModelData['modelName'] = $modelData['modelName'] . 'Bulk';
 
-        return $this->fileService->createFromStub($modifiedModelData, 'bulk_service', 'Services', 'Service', $overwrite, function ($modelData) use ($uniqueKey) {
+        return $this->fileService->createFromStub($modifiedModelData, 'bulk_service', 'Services', 'Service', $overwrite, function ($modelData) use ($uniqueKey, $pattern, $spatieData) {
             $originalModelName = str_replace('Bulk', '', $modelData['modelName']);
-            $model = $this->getFullModelNamespace(['modelName' => $originalModelName]);
+            $originalModelData = [
+                'modelName' => $originalModelName,
+                'namespace' => $modelData['namespace'] ?? null,
+            ];
+            $model = $this->getFullModelNamespace($originalModelData);
             $dataClass = 'App\\Data\\' . $originalModelName . 'Data';
 
             $uniqueKeyProperty = $uniqueKey
                 ? "\n    protected ?string \$uniqueKey = '{$uniqueKey}';\n"
                 : '';
+
+            $dataImport = '';
+            $transformationLogic = '';
+            
+            if ($pattern === 'spatie-data' && $spatieData) {
+                $dataImport = "use {$spatieData};\n";
+                $dataClassShortName = $originalModelName . 'Data';
+                $transformationLogic = "return collect(\$dataArray)->map(fn (array \$data) => {$dataClassShortName}::from(\$data));";
+            } else {
+                $transformationLogic = "return collect(\$dataArray);";
+            }
 
             return [
                 '{{ modelNamespace }}' => $model,
@@ -99,6 +114,8 @@ class ServiceBuilder
                 '{{ model }}' => $originalModelName,
                 '{{ data }}' => $originalModelName . 'Data',
                 '{{ uniqueKeyProperty }}' => $uniqueKeyProperty,
+                '{{ dataImport }}' => $dataImport,
+                '{{ transformationLogic }}' => $transformationLogic,
             ];
         });
     }

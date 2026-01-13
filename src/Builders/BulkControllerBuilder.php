@@ -38,7 +38,7 @@ class BulkControllerBuilder
         $serviceForStub = (is_string($service) && !empty($service)) ? $service : null;
         $stubName = $serviceForStub ? 'bulk_api_service.controller' : 'bulk.controller';
 
-        return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $bulkRequests, $useResponseMessages, $originalModelName, $service, $pattern, $spatieData) {
+        return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($resource, $bulkRequests, $useResponseMessages, $originalModelName, $service, $pattern, $spatieData, $controllerFolder) {
             $originalModelData = $modelData;
             $originalModelData['modelName'] = $originalModelName;
             $model = $this->getFullModelNamespace($originalModelData);
@@ -74,6 +74,10 @@ class BulkControllerBuilder
                 $dbImport = "use Illuminate\\Support\\Facades\\DB;\n";
             }
 
+            $anonymousResourceCollectionImport = $resourceClass ? "use Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection;\n" : '';
+            $responseImport = "use Symfony\\Component\\HttpFoundation\\Response;\n";
+            $controllerImport = $this->getControllerImport($controllerFolder);
+
             return [
                 '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ responseMessagesImport }}' => $responseMessagesImport,
@@ -81,6 +85,9 @@ class BulkControllerBuilder
                 '{{ serviceImport }}' => $serviceImport,
                 '{{ dataImport }}' => $dataImport,
                 '{{ dbImport }}' => $dbImport,
+                '{{ anonymousResourceCollectionImport }}' => $anonymousResourceCollectionImport,
+                '{{ responseImport }}' => $responseImport,
+                '{{ controllerImport }}' => $controllerImport,
                 '{{ serviceConstructor }}' => $serviceConstructor,
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $originalModelName,
@@ -108,7 +115,7 @@ class BulkControllerBuilder
         $serviceForStub = (is_string($service) && !empty($service)) ? $service : null;
         $stubName = $serviceForStub ? 'bulk_web_service.controller' : 'bulk.controller';
 
-        return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($bulkRequests, $originalModelName, $service, $pattern, $spatieData) {
+        return $this->fileService->createFromStub($modifiedModelData, $stubName, $controllerFolder, 'Controller', $overwrite, function ($modelData) use ($bulkRequests, $originalModelName, $service, $pattern, $spatieData, $controllerFolder) {
             $originalModelData = $modelData;
             $originalModelData['modelName'] = $originalModelName;
             $model = $this->getFullModelNamespace($originalModelData);
@@ -139,6 +146,8 @@ class BulkControllerBuilder
                 $dbImport = "use Illuminate\\Support\\Facades\\DB;\n";
             }
 
+            $controllerImport = $this->getControllerImport($controllerFolder);
+
             return [
                 '{{ bulkRequestImports }}' => $bulkRequestImports,
                 '{{ responseMessagesImport }}' => '',
@@ -146,6 +155,7 @@ class BulkControllerBuilder
                 '{{ serviceImport }}' => $serviceImport,
                 '{{ dataImport }}' => $dataImport,
                 '{{ dbImport }}' => $dbImport,
+                '{{ controllerImport }}' => $controllerImport,
                 '{{ serviceConstructor }}' => $serviceConstructor,
                 '{{ modelNamespace }}' => $model,
                 '{{ model }}' => $originalModelName,
@@ -206,14 +216,14 @@ class BulkControllerBuilder
                 $createMessage = $useResponseMessages
                     ? "->additional(['message' => ResponseMessages::CREATED->message()])"
                     : '';
-                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection" : "\\Illuminate\\Http\\JsonResponse";
+                $returnType = $resourceClass ? "AnonymousResourceCollection" : "JsonResponse";
                 $messageText = $useResponseMessages ? 'ResponseMessages::CREATED->message()' : "'Created successfully'";
                 
                 if ($service) {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(\${$modelVariable}s){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s->toArray(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(\${$modelVariable}s){$createMessage};" : "return response()->json(['data' => \${$modelVariable}s->toArray(), 'message' => {$messageText}], Response::HTTP_CREATED);";
                     $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        \${$modelVariable}s = \$this->{$serviceVariable}->store(\$request->validated('items'));\n        \n        {$returnStatement}\n    }";
                 } else {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection({$model}::latest()->take(count(\$items))->get()){$createMessage};" : "return response()->json(['data' => {$model}::latest()->take(count(\$items))->get(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_CREATED);";
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection({$model}::latest()->take(count(\$items))->get()){$createMessage};" : "return response()->json(['data' => {$model}::latest()->take(count(\$items))->get(), 'message' => {$messageText}], Response::HTTP_CREATED);";
                     $methods .= "\n    public function store({$bulkStoreRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \n        DB::transaction(static function () use (\$items) {\n            {$model}::insert(\$items);\n        });\n        \n        {$returnStatement}\n    }";
                 }
             }
@@ -233,14 +243,14 @@ class BulkControllerBuilder
                 $updateMessage = $useResponseMessages
                     ? "->additional(['message' => ResponseMessages::UPDATED->message()])"
                     : '';
-                $returnType = $resourceClass ? "\\Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection" : "\\Illuminate\\Http\\JsonResponse";
+                $returnType = $resourceClass ? "AnonymousResourceCollection" : "JsonResponse";
                 $messageText = $useResponseMessages ? 'ResponseMessages::UPDATED->message()' : "'Updated successfully'";
                 
                 if ($service) {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(\${$modelVariable}s){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s->toArray(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection(\${$modelVariable}s){$updateMessage};" : "return response()->json(['data' => \${$modelVariable}s->toArray(), 'message' => {$messageText}], Response::HTTP_OK);";
                     $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        \${$modelVariable}s = \$this->{$serviceVariable}->update(\$request->validated('items'));\n        \n        {$returnStatement}\n    }";
                 } else {
-                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection({$model}::whereIn('id', \$ids)->get()){$updateMessage};" : "return response()->json(['data' => {$model}::whereIn('id', \$ids)->get(), 'message' => {$messageText}], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);";
+                    $returnStatement = $resourceClass ? "return {$resourceClass}::collection({$model}::whereIn('id', \$ids)->get()){$updateMessage};" : "return response()->json(['data' => {$model}::whereIn('id', \$ids)->get(), 'message' => {$messageText}], Response::HTTP_OK);";
                     $methods .= "\n\n    public function update({$bulkUpdateRequestClass} \$request): {$returnType}\n    {\n        \$items = \$request->validated('items');\n        \$ids = array_column(\$items, 'id');\n        \${$modelVariable}s = {$model}::whereIn('id', \$ids)->get()->keyBy('id');\n        \n        DB::transaction(static function () use (\$items, \${$modelVariable}s) {\n            foreach (\$items as \$item) {\n                \$id = \$item['id'];\n                unset(\$item['id']);\n                \${$modelVariable} = \${$modelVariable}s->get(\$id);\n                \${$modelVariable}->update(\$item);\n            }\n        });\n        \n        {$returnStatement}\n    }";
                 }
             }
@@ -262,13 +272,25 @@ class BulkControllerBuilder
                 }
             } else {
                 if ($service) {
-                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        \$count = \$this->{$serviceVariable}->delete(\$request->validated('ids'));\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n    }";
+                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): JsonResponse\n    {\n        \$count = \$this->{$serviceVariable}->delete(\$request->validated('ids'));\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], Response::HTTP_OK);\n    }";
                 } else {
-                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): \\Illuminate\\Http\\JsonResponse\n    {\n        \$ids = \$request->validated('ids');\n        \$count = count(\$ids);\n        \n        DB::transaction(static function () use (\$ids) {\n            {$model}::whereIn('id', \$ids)->delete();\n        });\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], \\Symfony\\Component\\HttpFoundation\\Response::HTTP_OK);\n    }";
+                    $methods .= "\n\n    public function destroy({$bulkDeleteRequestClass} \$request): JsonResponse\n    {\n        \$ids = \$request->validated('ids');\n        \$count = count(\$ids);\n        \n        DB::transaction(static function () use (\$ids) {\n            {$model}::whereIn('id', \$ids)->delete();\n        });\n        \n        return response()->json(['message' => {$deleteMessage}, 'deleted_count' => \$count], Response::HTTP_OK);\n    }";
                 }
             }
         }
 
         return $methods;
+    }
+
+    private function getControllerImport(string $controllerFolder): string
+    {
+        $normalizedFolder = str_replace('\\', '/', trim($controllerFolder, '/'));
+        $defaultWebFolder = str_replace('\\', '/', trim(config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers'), '/'));
+        
+        if ($normalizedFolder === $defaultWebFolder) {
+            return '';
+        }
+        
+        return "use App\\Http\\Controllers\\Controller;\n";
     }
 }

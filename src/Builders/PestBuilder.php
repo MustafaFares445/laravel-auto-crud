@@ -1441,7 +1441,10 @@ class PestBuilder
 
         return $this->fileService->createFromStub($modifiedModelData, 'pest_unit_bulk_service', 'tests/Unit/Services', 'ServiceTest', $overwrite, function ($modelData) use ($uniqueKey) {
             $originalModelName = str_replace('Bulk', '', $modelData['modelName']);
-            $model = $this->getFullModelNamespace(['modelName' => $originalModelName]);
+            $model = $this->getFullModelNamespace([
+                'modelName' => $originalModelName,
+                'namespace' => $modelData['namespace'] ?? null,
+            ]);
             $modelInstance = new $model;
             $tableName = $modelInstance->getTable();
             $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
