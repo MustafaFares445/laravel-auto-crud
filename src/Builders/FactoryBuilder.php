@@ -172,7 +172,7 @@ class FactoryBuilder
             // Extract short class name for use in factory (use statement will be added)
             $shortClassName = $this->getShortClassName($enumClass);
             // pick a random enum value (map cases to their ->value)
-            return "fake()->randomElement(array_values({$shortClassName}::cases()))";
+            return "fake()->randomElement(array_map(fn(\$case) => \$case->value, {$shortClassName}::cases()))";
         }
 
         return "fake()->randomElement(['" . implode("', '", $column['allowedValues']) . "'])";

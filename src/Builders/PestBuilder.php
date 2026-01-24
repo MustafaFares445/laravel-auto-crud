@@ -25,6 +25,34 @@ class PestBuilder
 
     public function createFeatureTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
     {
+        // Generate the main endpoints test file
+        $endpointsTestPath = $this->createEndpointsTest($modelData, $overwrite, $withPolicy);
+        
+        // Generate validation test file if enabled
+        if (config('laravel_auto_crud.test_settings.include_validation_tests', true)) {
+            $this->createValidationTest($modelData, $overwrite);
+        }
+        
+        // Generate edge cases test file if enabled
+        if (config('laravel_auto_crud.test_settings.include_edge_case_tests', true)) {
+            $this->createEdgeCasesTest($modelData, $overwrite);
+        }
+        
+        // Generate pagination test file
+        $this->createPaginationTest($modelData, $overwrite);
+        
+        // Generate authorization test file if policy is enabled
+        if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {
+            $this->createAuthorizationTest($modelData, $overwrite);
+        }
+        
+        return $endpointsTestPath;
+    }
+
+    private function createEndpointsTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
+    {
+    private function createEndpointsTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
+    {
         return $this->fileService->createFromStub($modelData, 'pest_feature_api', 'tests/Feature/' . $modelData['modelName'], 'EndpointsTest', $overwrite, function ($modelData) use ($withPolicy) {
             $model = $this->getFullModelNamespace($modelData);
             $modelInstance = new $model;
@@ -37,14 +65,6 @@ class PestBuilder
                 return !in_array($column['name'], $hiddenProperties, true);
             });
 
-            $searchField = 'name';
-            foreach ($columns as $column) {
-                if (in_array($column['name'], ['name', 'title', 'label', 'display_name'])) {
-                    $searchField = $column['name'];
-                    break;
-                }
-            }
-
             $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
             
             // Generate property and relationship assertions
@@ -55,28 +75,8 @@ class PestBuilder
             $listRelationshipAssertions = $this->generateRelationshipAssertions($relationships, true);
             $showRelationshipAssertions = $this->generateRelationshipAssertions($relationships, false);
             
-            $authorizationTests = '';
-            if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {
-                $authorizationTests = $this->generateEnhancedAuthorizationTests($modelData, $model, $columns, $routePath);
-            }
-
-            $validationTests = '';
-            if (config('laravel_auto_crud.test_settings.include_validation_tests', true)) {
-                $validationTests = $this->generateValidationTests($modelData, $model, $columns, $routePath);
-            }
-
             $notFoundTests = $this->generateNotFoundTests($modelData, $model, $routePath);
-
-            $edgeCaseTests = '';
-            if (config('laravel_auto_crud.test_settings.include_edge_case_tests', true)) {
-                $edgeCaseTests = $this->generateEdgeCaseTests($modelData, $model, $columns, $routePath);
-            }
-
             $relationshipTests = $this->generateRelationshipTests($modelData, $model, $relationships, $routePath);
-
-            $paginationTests = $this->generatePaginationTests($modelData, $model, $routePath);
-
-            $extraTests = $this->generateExtraTests($modelData, $model, $searchField);
             
             // Collect enum use statements for test file
             $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
@@ -96,17 +96,137 @@ class PestBuilder
                 '{{ responseMessagesNamespace }}' => 'Mrmarchone\\LaravelAutoCrud\\Enums\\ResponseMessages',
                 '{{ createPayload }}' => $this->generatePayload($columns),
                 '{{ updatePayload }}' => $this->generatePayload($columns, true),
-                '{{ authorizationTests }}' => $authorizationTests,
-                '{{ validationTests }}' => $validationTests,
+                '{{ authorizationTests }}' => '', // Moved to separate file
+                '{{ validationTests }}' => '', // Moved to separate file
                 '{{ notFoundTests }}' => $notFoundTests,
-                '{{ edgeCaseTests }}' => $edgeCaseTests,
+                '{{ edgeCaseTests }}' => '', // Moved to separate file
                 '{{ relationshipTests }}' => $relationshipTests,
-                '{{ paginationTests }}' => $paginationTests,
-                '{{ extraTests }}' => $extraTests,
+                '{{ paginationTests }}' => '', // Moved to separate file
+                '{{ extraTests }}' => '',
                 '{{ listPropertyAssertions }}' => $listPropertyAssertions,
                 '{{ showPropertyAssertions }}' => $showPropertyAssertions,
                 '{{ listRelationshipAssertions }}' => $listRelationshipAssertions,
                 '{{ showRelationshipAssertions }}' => $showRelationshipAssertions,
+                '{{ enumUseStatements }}' => $enumUseStatements,
+            ];
+        });
+    }
+
+    private function createValidationTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_feature_validation', 'tests/Feature/' . $modelData['modelName'], 'ValidationTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+            $validationTests = $this->generateValidationTests($modelData, $model, $columns, $routePath);
+            
+            $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
+            $seederClass = $this->getSeederClass();
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelPlural }}' => Str::plural(Str::snake($modelData['modelName'], ' ')),
+                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ routePath }}' => $routePath,
+                '{{ seederClass }}' => $seederClass,
+                '{{ seederCall }}' => $this->generateSeederCall($seederClass),
+                '{{ validationTests }}' => $validationTests,
+                '{{ enumUseStatements }}' => $enumUseStatements,
+            ];
+        });
+    }
+
+    private function createEdgeCasesTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_feature_edge_cases', 'tests/Feature/' . $modelData['modelName'], 'EdgeCasesTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+            $edgeCaseTests = $this->generateEdgeCaseTests($modelData, $model, $columns, $routePath);
+            
+            $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
+            $seederClass = $this->getSeederClass();
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelPlural }}' => Str::plural(Str::snake($modelData['modelName'], ' ')),
+                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ routePath }}' => $routePath,
+                '{{ seederClass }}' => $seederClass,
+                '{{ seederCall }}' => $this->generateSeederCall($seederClass),
+                '{{ edgeCaseTests }}' => $edgeCaseTests,
+                '{{ enumUseStatements }}' => $enumUseStatements,
+            ];
+        });
+    }
+
+    private function createPaginationTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_feature_pagination', 'tests/Feature/' . $modelData['modelName'], 'PaginationTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+            $paginationTests = $this->generatePaginationTests($modelData, $model, $routePath);
+            
+            $seederClass = $this->getSeederClass();
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelPlural }}' => Str::plural(Str::snake($modelData['modelName'], ' ')),
+                '{{ routePath }}' => $routePath,
+                '{{ seederClass }}' => $seederClass,
+                '{{ seederCall }}' => $this->generateSeederCall($seederClass),
+                '{{ paginationTests }}' => $paginationTests,
+            ];
+        });
+    }
+
+    private function createAuthorizationTest(array $modelData, bool $overwrite = false): string
+    {
+        return $this->fileService->createFromStub($modelData, 'pest_feature_authorization', 'tests/Feature/' . $modelData['modelName'], 'AuthorizationTest', $overwrite, function ($modelData) {
+            $model = $this->getFullModelNamespace($modelData);
+            $modelInstance = new $model;
+            $tableName = $modelInstance->getTable();
+            $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
+
+            $hiddenProperties = $this->getHiddenProperties($model);
+            $columns = array_filter($columns, function($column) use ($hiddenProperties) {
+                return !in_array($column['name'], $hiddenProperties, true);
+            });
+
+            $routePath = '/api/' . Str::plural(Str::snake($modelData['modelName']));
+            $authorizationTests = $this->generateEnhancedAuthorizationTests($modelData, $model, $columns, $routePath);
+            
+            $enumUseStatements = $this->collectEnumUseStatements($columns, $modelData);
+            $seederClass = $this->getSeederClass();
+
+            return [
+                '{{ modelNamespace }}' => $model,
+                '{{ model }}' => $modelData['modelName'],
+                '{{ modelPlural }}' => Str::plural(Str::snake($modelData['modelName'], ' ')),
+                '{{ modelVariable }}' => lcfirst($modelData['modelName']),
+                '{{ routePath }}' => $routePath,
+                '{{ seederClass }}' => $seederClass,
+                '{{ seederCall }}' => $this->generateSeederCall($seederClass),
+                '{{ authorizationTests }}' => $authorizationTests,
                 '{{ enumUseStatements }}' => $enumUseStatements,
             ];
         });
@@ -890,7 +1010,7 @@ class PestBuilder
 });\n\n";
 
         // Test SQL injection attempt
-        $sqlInjection = TestDataHelper::sqlInjectionAttempt();
+        $sqlInjection = addslashes(TestDataHelper::sqlInjectionAttempt());
         $tests .= "it('sanitizes SQL injection attempts in string fields', function () {
     // Arrange
     \$payload = [" . $this->generatePayloadString($columns, ['name' => "'{$sqlInjection}'"]) . "];
@@ -904,7 +1024,7 @@ class PestBuilder
 });\n\n";
 
         // Test XSS attempt
-        $xssAttempt = TestDataHelper::xssAttempt();
+        $xssAttempt = addslashes(TestDataHelper::xssAttempt());
         $tests .= "it('sanitizes XSS attempts in string fields', function () {
     // Arrange
     \$payload = [" . $this->generatePayloadString($columns, ['name' => "'{$xssAttempt}'"]) . "];

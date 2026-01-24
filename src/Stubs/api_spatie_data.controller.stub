@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use App\Http\Controllers\Controller;
-use {{ spatieDataNamespace }};
+{{ controllerImport }}use {{ spatieDataNamespace }};
 {{ bulkRequestImports }}use {{ modelNamespace }};
 use Symfony\Component\HttpFoundation\Response;
 
 {{ scrambleClassAttribute }}
-class {{ class }} extends Controller
+class {{ class }}{{ controllerExtends }}
 {
     /**
      * Get a paginated list of {{ modelPlural }}.

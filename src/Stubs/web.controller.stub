@@ -2,12 +2,11 @@
 
 namespace {{ namespace }};
 
-use App\Http\Controllers\Controller;
-use {{ storeRequestNamespace }};
+{{ controllerImport }}use {{ storeRequestNamespace }};
 use {{ updateRequestNamespace }};
 {{ bulkRequestImports }}use {{ modelNamespace }};
 
-class {{ class }} extends Controller
+class {{ class }}{{ controllerExtends }}
 {
     public function index(): \Illuminate\Contracts\View\View
     {

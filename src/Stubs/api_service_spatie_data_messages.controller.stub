@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace {{ namespace }};
 
 use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
-use {{ modelNamespace }};
+{{ controllerImport }}use {{ modelNamespace }};
 use {{ spatieDataNamespace }};
 use {{ serviceNamespace }};
 use {{ storeRequestNamespace }};
@@ -17,7 +17,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
-class {{ class }}
+class {{ class }}{{ controllerExtends }}
 {
     public function __construct(protected {{ service }} ${{ serviceVariable }}) {}
 

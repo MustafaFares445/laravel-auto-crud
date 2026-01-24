@@ -21,6 +21,29 @@ class ControllerBuilder
     {
         $this->fileService = $fileService;
     }
+    
+    /**
+     * Check if Laravel base Controller exists and return appropriate extends clause
+     *
+     * @return array{import: string, extends: string} Array with import and extends strings
+     */
+    private function getControllerBaseClass(): array
+    {
+        $baseControllerClass = 'App\\Http\\Controllers\\Controller';
+        
+        if (class_exists($baseControllerClass)) {
+            return [
+                'import' => "use {$baseControllerClass};\n",
+                'extends' => ' extends Controller',
+            ];
+        }
+        
+        return [
+            'import' => '',
+            'extends' => '',
+        ];
+    }
+    
     public function createAPI(array $modelData, string $resource, array $requests, array $options = []): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
@@ -48,6 +71,9 @@ class ControllerBuilder
             $resourceClass = end($resourceName);
             $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
+            
+            // Get controller base class info
+            $controllerBaseClass = $this->getControllerBaseClass();
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -110,6 +136,8 @@ class ControllerBuilder
                 '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
                 '{{ softDeleteMethods }}' => $softDeleteMethods,
                 '{{ bulkMethods }}' => $bulkMethods,
+                '{{ controllerImport }}' => $controllerBaseClass['import'],
+                '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
         });
     }
@@ -141,6 +169,9 @@ class ControllerBuilder
             $resourceClass = end($resourceName);
             $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
+            
+            // Get controller base class info
+            $controllerBaseClass = $this->getControllerBaseClass();
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -203,6 +234,8 @@ class ControllerBuilder
                 '{{ softDeleteMethods }}' => $softDeleteMethods,
                 '{{ bulkMethods }}' => $bulkMethods,
                 '{{ bulkRequestImports }}' => $bulkRequestImports,
+                '{{ controllerImport }}' => $controllerBaseClass['import'],
+                '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
         });
     }
@@ -220,6 +253,9 @@ class ControllerBuilder
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
             $modelVariable = lcfirst($modelData['modelName']);
             $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, '', false, false, true);
+            
+            // Get controller base class info
+            $controllerBaseClass = $this->getControllerBaseClass();
 
             // Build bulk request imports
             $bulkRequestImports = '';
@@ -251,6 +287,8 @@ class ControllerBuilder
                 '{{ routeName }}' => HelperService::toSnakeCase(Str::plural($modelData['modelName'])),
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
                 '{{ bulkMethods }}' => $bulkMethods,
+                '{{ controllerImport }}' => $controllerBaseClass['import'],
+                '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
         });
     }
@@ -267,6 +305,9 @@ class ControllerBuilder
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
             $modelVariable = lcfirst($modelData['modelName']);
             $bulkMethods = $this->generateBulkMethods($bulkRequests, $modelData['modelName'], $modelVariable, '', false, true, true);
+            
+            // Get controller base class info
+            $controllerBaseClass = $this->getControllerBaseClass();
 
             // Build bulk request imports
             $bulkRequestImports = '';
@@ -296,6 +337,8 @@ class ControllerBuilder
                 '{{ belongsToLoadRelations }}' => $belongsToLoadRelations,
                 '{{ bulkMethods }}' => $bulkMethods,
                 '{{ bulkRequestImports }}' => $bulkRequestImports,
+                '{{ controllerImport }}' => $controllerBaseClass['import'],
+                '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
         });
     }
@@ -331,6 +374,9 @@ class ControllerBuilder
             $additionalMessage = $useResponseMessages ? "\n            ->additional(['message' => ResponseMessages::RETRIEVED->message()])" : '';
             $loadRelations = $this->getLoadRelations($model);
             $belongsToLoadRelations = $this->getBelongsToLoadRelations($model);
+            
+            // Get controller base class info
+            $controllerBaseClass = $this->getControllerBaseClass();
 
             $indexMethodBody = $this->generateIndexMethodBody(
                 $modelData['modelName'],
@@ -400,6 +446,8 @@ class ControllerBuilder
                 '{{ scrambleShowAttribute }}' => $scrambleData['showAttribute'],
                 '{{ scrambleUpdateAttribute }}' => $scrambleData['updateAttribute'],
                 '{{ scrambleDestroyAttribute }}' => $scrambleData['destroyAttribute'],
+                '{{ controllerImport }}' => $controllerBaseClass['import'],
+                '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
         });
     }
@@ -650,6 +698,9 @@ class ControllerBuilder
         
         $loadRelations = array_merge($loadRelations, $eagerLoadRelations);
         
+        // Remove duplicates
+        $loadRelations = array_unique($loadRelations);
+        
         if (empty($loadRelations)) {
             return '';
         }
@@ -685,6 +736,9 @@ class ControllerBuilder
         foreach ($belongsToRelations as $relationship) {
             $loadRelations[] = $relationship['name'];
         }
+        
+        // Remove duplicates
+        $loadRelations = array_unique($loadRelations);
         
         $relationsList = "'" . implode("', '", $loadRelations) . "'";
         return "->load({$relationsList})";

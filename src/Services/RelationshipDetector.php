@@ -235,6 +235,12 @@ class RelationshipDetector
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
                         $morphableId = $relationship['morphable_id'];
                         $morphableType = $relationship['morphable_type'];
+                        
+                        // Skip model_id and model_type (used by Spatie Media Library)
+                        if ($morphableId === 'model_id' && $morphableType === 'model_type') {
+                            break;
+                        }
+                        
                         $properties[] = [
                             'property' => 'public ?int $' . Str::camel($morphableId) . ';',
                             'validation' => '',
@@ -255,6 +261,12 @@ class RelationshipDetector
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
                         $morphableId = $relationship['morphable_id'];
                         $morphableType = $relationship['morphable_type'];
+                        
+                        // Skip model_id and model_type (used by Spatie Media Library)
+                        if ($morphableId === 'model_id' && $morphableType === 'model_type') {
+                            break;
+                        }
+                        
                         $properties[] = [
                             'property' => 'public ?int $' . Str::camel($morphableId) . ';',
                             'validation' => '',
@@ -381,6 +393,12 @@ class RelationshipDetector
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
                         $morphableId = $relationship['morphable_id'];
                         $morphableType = $relationship['morphable_type'];
+                        
+                        // Skip model_id and model_type (used by Spatie Media Library)
+                        if ($morphableId === 'model_id' && $morphableType === 'model_type') {
+                            break;
+                        }
+                        
                         $rules[Str::camel($morphableId)] = ['nullable', 'integer'];
                         $rules[Str::camel($morphableType)] = ['nullable', 'string'];
                     }
@@ -392,6 +410,12 @@ class RelationshipDetector
                     if (isset($relationship['morphable_id']) && isset($relationship['morphable_type'])) {
                         $morphableId = $relationship['morphable_id'];
                         $morphableType = $relationship['morphable_type'];
+                        
+                        // Skip model_id and model_type (used by Spatie Media Library)
+                        if ($morphableId === 'model_id' && $morphableType === 'model_type') {
+                            break;
+                        }
+                        
                         $rules[Str::camel($morphableId)] = ['nullable', 'integer'];
                         $rules[Str::camel($morphableType)] = ['nullable', 'string'];
                     }

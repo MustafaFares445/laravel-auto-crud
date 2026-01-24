@@ -2,8 +2,7 @@
 
 namespace {{ namespace }};
 
-use App\Http\Controllers\Controller;
-use {{ storeRequestNamespace }};
+{{ controllerImport }}use {{ storeRequestNamespace }};
 use {{ updateRequestNamespace }};
 {{ bulkRequestImports }}use {{ resourceNamespace }};
 use {{ modelNamespace }};
@@ -12,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 {{ scrambleClassAttribute }}
-class {{ class }} extends Controller
+class {{ class }}{{ controllerExtends }}
 {
     /**
      * Get a paginated list of {{ modelPlural }}.

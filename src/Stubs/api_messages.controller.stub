@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace {{ namespace }};
 
 use Mrmarchone\LaravelAutoCrud\Enums\ResponseMessages;
-use App\Http\Controllers\Controller;
-use {{ storeRequestNamespace }};
+{{ controllerImport }}use {{ storeRequestNamespace }};
 use {{ updateRequestNamespace }};
 {{ bulkRequestImports }}use {{ resourceNamespace }};
 use {{ modelNamespace }};
@@ -14,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 
-class {{ class }} extends Controller
+class {{ class }}{{ controllerExtends }}
 {
     /**
      * Get a paginated list of {{ modelPlural }}.

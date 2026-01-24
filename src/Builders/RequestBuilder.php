@@ -399,14 +399,16 @@ class RequestBuilder
         foreach ($rules as $field => $rule) {
             $escapedField = addslashes($field);
             
-            // Check if rule is an array (contains Rule:: calls)
+            // Check if rule is an array
             if (is_array($rule)) {
-                // Array format: ['string|rules', Rule::call()]
+                // Array format: ['required', 'string', 'max:255'] or ['string|max:255', Rule::call()]
                 $ruleParts = [];
                 foreach ($rule as $part) {
                     if (str_contains($part, 'Rule::')) {
+                        // This is a Rule:: call, add as-is
                         $ruleParts[] = $part;
                     } else {
+                        // This is a string rule, escape and quote it
                         $escapedPart = addslashes($part);
                         $ruleParts[] = "'{$escapedPart}'";
                     }
@@ -414,7 +416,7 @@ class RequestBuilder
                 $ruleArray = '[' . implode(', ', $ruleParts) . ']';
                 $formatted .= "{$indent}'{$escapedField}' => {$ruleArray},\n";
             } else {
-                // Simple string rule
+                // Simple string rule (shouldn't happen anymore, but keep for backwards compatibility)
                 $escapedRule = addslashes($rule);
                 $formatted .= "{$indent}'{$escapedField}' => '{$escapedRule}',\n";
             }
@@ -516,8 +518,11 @@ class RequestBuilder
                 $combinedRules = !empty($rulesString) ? [$rulesString, ...$ruleCalls] : $ruleCalls;
                 $validationRules[$camelCaseName] = $combinedRules;
             } else {
-                // Only string rules, use simple string format
-                $validationRules[$camelCaseName] = $rulesString;
+                // Only string rules, but format as array for consistency
+                if (!empty($rulesString)) {
+                    // Split into individual rules and format as array
+                    $validationRules[$camelCaseName] = explode('|', $rulesString);
+                }
             }
         }
 

@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ modelNamespace }};
+use App\Models\User;
+use Laravel\Sanctum\Sanctum;
+{{ enumUseStatements }}
+
+beforeEach(function () {
+{{ seederCall }});
+
+{{ authorizationTests }}
