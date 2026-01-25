@@ -10,7 +10,6 @@ use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
 {{ seederCall }}    $user = User::factory()->create();
-    // Assuming the first user gets all permissions from seeder or similar logic
     Sanctum::actingAs($user);
 });
 
@@ -22,7 +21,6 @@ it('lists {{ modelPlural }}', function () {
     $response->assertOk()->assertJsonPath('message', ResponseMessages::RETRIEVED->message());
     expect($response->json('data'))->toBeArray();
     
-    // Check that each item has required properties
     $data = $response->json('data');
     if (!empty($data)) {
         $firstItem = $data[0];
@@ -50,12 +48,8 @@ it('shows a {{ modelVariable }}', function () {
         ->assertJsonPath('message', ResponseMessages::RETRIEVED->message());
     
     $data = $response->json('data');
-    expect($data)->toBeArray();
     
-    // Check required properties
 {{ showPropertyAssertions }}
-    
-    // Check relationships if loaded
 {{ showRelationshipAssertions }}
 });
 

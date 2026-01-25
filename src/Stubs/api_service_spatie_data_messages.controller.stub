@@ -25,7 +25,7 @@ class {{ class }}{{ controllerExtends }}
      * Get a paginated list of {{ modelPlural }} with optional filtering.
      *
      * @param {{ filterRequest }} $request
-     * @return {{ resource }}
+     * @return {{ AnonymousResourceCollection<resource> }}
      */
     public function index({{ filterRequest }} $request): AnonymousResourceCollection
     {

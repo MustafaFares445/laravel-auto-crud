@@ -45,10 +45,14 @@ class FactoryBuilder
         $tableName = $modelInstance->getTable();
         $columns = $this->tableColumnsService->getAvailableColumns($tableName, ['created_at', 'updated_at'], $model);
         
-        // Get hidden properties and filter them out
+        // Get hidden properties and filter them out unless required
         $hiddenProperties = $this->getHiddenProperties($model);
         $columns = array_filter($columns, function($column) use ($hiddenProperties) {
-            return !in_array($column['name'], $hiddenProperties, true);
+            if (!in_array($column['name'], $hiddenProperties, true)) {
+                return true;
+            }
+
+            return !($column['isNullable'] ?? true);
         });
         
         // Detect relationships to identify foreign keys
@@ -138,7 +142,7 @@ class FactoryBuilder
         }
 
         if (str_contains($name, 'name')) return 'fake()->name()';
-        if (str_contains($name, 'email')) return 'fake()->unique()->safeEmail()';
+        if (str_contains($name, 'email') && in_array($type, ['string', 'char', 'varchar', 'text', 'longtext', 'mediumtext'], true)) return 'fake()->unique()->safeEmail()';
         if (str_contains($name, 'password')) return "bcrypt('password')";
         if (str_contains($name, 'phone')) return 'fake()->phoneNumber()';
         if (str_contains($name, 'address')) return 'fake()->address()';

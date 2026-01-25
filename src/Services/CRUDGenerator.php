@@ -78,6 +78,8 @@ class CRUDGenerator
     public function generate(array $modelData, array $options): void
     {
         $checkForType = $options['type'];
+        $onlySelected = (bool) ($options['only-selected'] ?? false);
+        $generateCrud = ! $onlySelected;
 
         // Create filter trait first if needed (before injecting traits)
         $filterBuilder = $filterRequest = null;
@@ -108,15 +110,19 @@ class CRUDGenerator
 
         $requests = $bulkRequests = $spatieDataName = $service = null;
 
-        if ($options['pattern'] === 'spatie-data') {
+        if ($options['pattern'] === 'spatie-data' && ($generateCrud || ($options['service'] ?? false))) {
             $spatieDataName = $this->spatieDataBuilder->create($modelData, $options['overwrite']);
+        }
 
-            // If using service with spatie-data, also create FormRequest
-            if ($options['service'] ?? false) {
-                $requests = $this->requestBuilder->createForSpatieData($modelData, $options['overwrite']);
+        if ($generateCrud) {
+            if ($options['pattern'] === 'spatie-data') {
+                // If using service with spatie-data, also create FormRequest
+                if ($options['service'] ?? false) {
+                    $requests = $this->requestBuilder->createForSpatieData($modelData, $options['overwrite']);
+                }
+            } else {
+                $requests = $this->requestBuilder->create($modelData, $options['overwrite']);
             }
-        } else {
-            $requests = $this->requestBuilder->create($modelData, $options['overwrite']);
         }
 
         // Note: Bulk requests are now created by BulkEndpointsGenerator, not here
@@ -141,7 +147,12 @@ class CRUDGenerator
         }
 
         if ($options['pest'] ?? false) {
-            $this->pestBuilder->createFeatureTest($modelData, $options['overwrite'], (bool) ($options['policy'] ?? false));
+            $this->pestBuilder->createFeatureTest(
+                $modelData,
+                $options['overwrite'],
+                (bool) ($options['policy'] ?? false),
+                (bool) ($options['no-pagination'] ?? false)
+            );
             
             // Generate filter tests if filters are enabled
             if (($options['filter'] ?? false) && $options['pattern'] === 'spatie-data') {
@@ -174,22 +185,31 @@ class CRUDGenerator
             }
         }
 
-        $data = [
-            'requests' => $requests ?? [],
-            'bulkRequests' => [], // Empty - bulk methods go to separate controller
-            'service' => $service ?? '',
-            'spatieData' => $spatieDataName ?? '',
-            'filterBuilder' => $filterBuilder ?? '',
-            'filterRequest' => $filterRequest ?? '',
-        ];
+        if ($generateCrud) {
+            $data = [
+                'requests' => $requests ?? [],
+                'bulkRequests' => [], // Empty - bulk methods go to separate controller
+                'service' => $service ?? '',
+                'spatieData' => $spatieDataName ?? '',
+                'filterBuilder' => $filterBuilder ?? '',
+                'filterRequest' => $filterRequest ?? '',
+            ];
 
-        $controllerName = $this->generateController($checkForType, $modelData, $data, $options);
-        
-        $modelClass = ModelService::getFullModelNamespace($modelData);
-        $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
-        
-        // Generate routes for main controller (without bulk routes)
-        $this->routeBuilder->create($modelData['modelName'], $controllerName, $checkForType, $hasSoftDeletes, []);
+            $controllerName = $this->generateController($checkForType, $modelData, $data, $options);
+            
+            $modelClass = ModelService::getFullModelNamespace($modelData);
+            $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
+            
+            // Generate routes for main controller (without bulk routes)
+            $this->routeBuilder->create(
+                $modelData['modelName'],
+                $controllerName,
+                $checkForType,
+                $hasSoftDeletes,
+                [],
+                $options['controller-folder'] ?? null
+            );
+        }
 
         // Generate separate bulk controller if bulk endpoints are selected
         if (!empty($bulkEndpoints)) {

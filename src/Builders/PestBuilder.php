@@ -23,7 +23,7 @@ class PestBuilder
         $this->tableColumnsService = $tableColumnsService;
     }
 
-    public function createFeatureTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
+    public function createFeatureTest(array $modelData, bool $overwrite = false, bool $withPolicy = false, bool $noPagination = false): string
     {
         // Generate the main endpoints test file
         $endpointsTestPath = $this->createEndpointsTest($modelData, $overwrite, $withPolicy);
@@ -39,7 +39,9 @@ class PestBuilder
         }
         
         // Generate pagination test file
-        $this->createPaginationTest($modelData, $overwrite);
+        if (!$noPagination) {
+            $this->createPaginationTest($modelData, $overwrite);
+        }
         
         // Generate authorization test file if policy is enabled
         if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {

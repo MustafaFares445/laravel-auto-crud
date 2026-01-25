@@ -91,7 +91,8 @@ class BulkEndpointsGenerator
                 $modelData['modelName'],
                 $apiControllerName,
                 ['api'],
-                $bulkEndpoints
+                $bulkEndpoints,
+                $options['controller-folder'] ?? null
             );
         }
 
@@ -105,7 +106,8 @@ class BulkEndpointsGenerator
                 $modelData['modelName'],
                 $webControllerName,
                 ['web'],
-                $bulkEndpoints
+                $bulkEndpoints,
+                $options['controller-folder'] ?? null
             );
         }
 

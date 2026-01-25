@@ -147,9 +147,7 @@ class RequestBuilder
             $model = $this->getFullModelNamespace($modelData);
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
 
-            foreach ($mediaFields as $field) {
-                $data['rules'][$field['name']] = $this->convertValidationToArray($field['validation']);
-            }
+            $this->appendMediaRules($data['rules'], $mediaFields);
 
             $bulkRules = $this->formatBulkStoreRules($data['rules'], $modelData);
             return [
@@ -197,9 +195,7 @@ class RequestBuilder
             $model = $this->getFullModelNamespace($modelData);
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
 
-            foreach ($mediaFields as $field) {
-                $data['rules'][$field['name']] = $this->convertValidationToArray($field['validation']);
-            }
+            $this->appendMediaRules($data['rules'], $mediaFields);
 
             $tableName = $this->modelService->getTableName($modelData, fn($modelName) => new $modelName);
             $bulkRules = $this->formatBulkUpdateRules($data['rules'], $modelData, $tableName);
@@ -353,9 +349,7 @@ class RequestBuilder
             $model = $this->getFullModelNamespace($modelData);
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
 
-            foreach ($mediaFields as $field) {
-                $data['rules'][$field['name']] = $this->convertValidationToArray($field['validation']);
-            }
+            $this->appendMediaRules($data['rules'], $mediaFields);
 
             return [
                 '{{ data }}' => $this->formatRulesAsString($data['rules']),
@@ -374,9 +368,7 @@ class RequestBuilder
             $model = $this->getFullModelNamespace($modelData);
             $mediaFields = \Mrmarchone\LaravelAutoCrud\Services\MediaDetector::detectMediaFields($model);
 
-            foreach ($mediaFields as $field) {
-                $data['rules'][$field['name']] = $this->convertValidationToArray($field['validation']);
-            }
+            $this->appendMediaRules($data['rules'], $mediaFields);
 
             return [
                 '{{ data }}' => $this->formatRulesAsString($data['rules']),
@@ -514,8 +506,11 @@ class RequestBuilder
             
             // Combine string rules and Rule calls
             if (!empty($ruleCalls)) {
-                // If we have Rule calls, use array format: ['string|rules', Rule::call()]
-                $combinedRules = !empty($rulesString) ? [$rulesString, ...$ruleCalls] : $ruleCalls;
+                // If we have Rule calls, use array format: ['string', Rule::call()]
+                $combinedRules = $ruleCalls;
+                if (!empty($rulesString)) {
+                    $combinedRules = [...explode('|', $rulesString), ...$ruleCalls];
+                }
                 $validationRules[$camelCaseName] = $combinedRules;
             } else {
                 // Only string rules, but format as array for consistency
@@ -559,7 +554,7 @@ class RequestBuilder
             case 'char':
             case 'varchar':
                 if ($fieldType === 'email') {
-                    $rules[] = 'email:rfc,dns';
+                    $rules[] = 'email';
                     if ($maxLength) {
                         $rules[] = 'max:'.$maxLength;
                     }
@@ -810,6 +805,37 @@ class RequestBuilder
         }
         
         return explode('|', $validation);
+    }
+
+    private function appendMediaRules(array &$rules, array $mediaFields): void
+    {
+        foreach ($mediaFields as $field) {
+            $fieldName = $field['name'];
+            $validationRules = $this->convertValidationToArray($field['validation']);
+
+            if (!($field['isSingle'] ?? true)) {
+                $rules[$fieldName] = $this->getMediaArrayRules($validationRules);
+                $rules["{$fieldName}.*"] = $this->getMediaItemRules($validationRules);
+                continue;
+            }
+
+            $rules[$fieldName] = $validationRules;
+        }
+    }
+
+    private function getMediaArrayRules(array $rules): array
+    {
+        $parentRules = array_values(array_filter($rules, fn ($rule) => in_array($rule, ['nullable', 'array'], true)));
+        if (!in_array('array', $parentRules, true)) {
+            $parentRules[] = 'array';
+        }
+
+        return $parentRules;
+    }
+
+    private function getMediaItemRules(array $rules): array
+    {
+        return array_values(array_filter($rules, fn ($rule) => !in_array($rule, ['nullable', 'array'], true)));
     }
 
     /**

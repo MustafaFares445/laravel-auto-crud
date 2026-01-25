@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mrmarchone\LaravelAutoCrud\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 use Mrmarchone\LaravelAutoCrud\Services\CRUDGenerator;
 use Mrmarchone\LaravelAutoCrud\Services\DatabaseValidatorService;
 use Mrmarchone\LaravelAutoCrud\Services\DocumentationGenerator;
@@ -31,6 +32,7 @@ class GenerateAutoCrudCommand extends Command
     {--S|service : Include a Service class for business logic}
     {--F|filter : Include Spatie Query Builder filter support (requires --pattern=spatie-data)}
     {--O|overwrite : Overwrite existing files without confirmation}
+    {--only-selected : Generate only selected options (skip core CRUD files)}
     {--P|pattern=normal : Data pattern: "normal" or "spatie-data" for Spatie Laravel Data}
     {--RM|response-messages : Add ResponseMessages enum for standardized API responses (e.g., "data retrieved successfully")}
     {--NP|no-pagination : Use Model::all() instead of pagination in index method}
@@ -137,11 +139,21 @@ class GenerateAutoCrudCommand extends Command
         if (!$controllerFolder) {
             $defaultApiFolder = config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
             $defaultWebFolder = config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
-            
+
+            $existingFolders = $this->getExistingControllerFolders();
+            if (!empty($existingFolders)) {
+                note('Existing controller folders: ' . implode(', ', $existingFolders));
+            }
+
             $folderOptions = [
                 'default' => 'Use default folders (API: ' . $defaultApiFolder . ', Web: ' . $defaultWebFolder . ')',
-                'custom' => 'Enter custom folder path',
             ];
+
+            foreach ($existingFolders as $folder) {
+                $folderOptions[$folder] = $folder;
+            }
+
+            $folderOptions['custom'] = 'Enter custom folder path';
             
             [$folderPromptOptions, $folderLookup] = $this->indexedOptions($folderOptions);
             $selectedFolderIndex = select(
@@ -151,7 +163,8 @@ class GenerateAutoCrudCommand extends Command
                 hint: 'Type number to select, enter to confirm'
             );
             
-            if ($folderLookup[$selectedFolderIndex] === 'custom') {
+            $selectedFolderKey = $folderLookup[$selectedFolderIndex];
+            if ($selectedFolderKey === 'custom') {
                 $controllerFolder = text(
                     label: 'Enter controller folder path',
                     placeholder: 'e.g., Admin or Http/Controllers/Admin',
@@ -162,6 +175,8 @@ class GenerateAutoCrudCommand extends Command
                 
                 // Normalize the path
                 $controllerFolder = $this->normalizeControllerFolderPath($controllerFolder);
+            } elseif ($selectedFolderKey !== 'default') {
+                $controllerFolder = $this->normalizeControllerFolderPath($selectedFolderKey);
             }
         }
 
@@ -275,15 +290,22 @@ class GenerateAutoCrudCommand extends Command
             $selectedBulkEndpoints = ['create', 'update', 'delete'];
         }
 
-        // Step 7: Overwrite confirmation
-                $overwrite = confirm(
-                    label: '🔄 Overwrite existing files without asking?',
-                    default: false,
-                    hint: 'If No, you will be prompted for each existing file'
-                );
+        // Step 7: Generation scope
+        $onlySelected = confirm(
+            label: 'Generate only selected options (skip core CRUD files)?',
+            default: false,
+            hint: 'Use this when you want tests-only or factory-only output'
+        );
 
-                // Step 8: Show summary and confirm
-                $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $selectedBulkEndpoints, $overwrite, $controllerFolder);
+        // Step 8: Overwrite confirmation
+        $overwrite = confirm(
+            label: '🔄 Overwrite existing files without asking?',
+            default: false,
+            hint: 'If No, you will be prompted for each existing file'
+        );
+
+        // Step 9: Show summary and confirm
+        $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $selectedBulkEndpoints, $overwrite, $controllerFolder, $onlySelected);
 
         if (! confirm(label: '🚀 Proceed with generation?', default: true)) {
             warning('Generation cancelled.');
@@ -308,6 +330,7 @@ class GenerateAutoCrudCommand extends Command
         $this->input->setOption('swagger-api', in_array('swagger-api', $selectedDocs));
         $this->input->setOption('bulk', $selectedBulkEndpoints);
         $this->input->setOption('overwrite', $overwrite);
+        $this->input->setOption('only-selected', $onlySelected);
         if ($controllerFolder) {
             $this->input->setOption('controller-folder', $controllerFolder);
         }
@@ -316,7 +339,7 @@ class GenerateAutoCrudCommand extends Command
         $this->generateForModels($selectedModels);
     }
 
-    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, array $bulkEndpoints, bool $overwrite, ?string $controllerFolder = null): void
+    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, array $bulkEndpoints, bool $overwrite, ?string $controllerFolder = null, bool $onlySelected = false): void
     {
         note('📋 Generation Summary');
 
@@ -325,6 +348,7 @@ class GenerateAutoCrudCommand extends Command
         if ($controllerFolder) {
             info('Controller Folder: ' . $controllerFolder);
         }
+        info('Generation Scope: ' . ($onlySelected ? 'Selected options only' : 'Full CRUD'));
         info('Pattern: ' . $pattern);
         info('Index Method: ' . ($pagination === 'pagination' ? 'Paginated' : 'Get All'));
 
@@ -447,6 +471,28 @@ class GenerateAutoCrudCommand extends Command
         return str_replace('\\', '/', $path);
     }
 
+    private function getExistingControllerFolders(): array
+    {
+        $controllersPath = base_path('app/Http/Controllers');
+        if (!is_dir($controllersPath)) {
+            return [];
+        }
+
+        $directories = File::allDirectories($controllersPath);
+        $folders = [];
+        foreach ($directories as $directory) {
+            $relative = str_replace(base_path('app') . DIRECTORY_SEPARATOR, '', $directory);
+            $relative = trim(str_replace('\\', '/', $relative), '/');
+            if ($relative !== '') {
+                $folders[] = $relative;
+            }
+        }
+
+        sort($folders);
+
+        return $folders;
+    }
+
     private function hasAnyOptionProvided(): bool
     {
         return count($this->option('model')) > 0
@@ -462,6 +508,7 @@ class GenerateAutoCrudCommand extends Command
             || $this->option('curl')
             || $this->option('postman')
             || $this->option('swagger-api')
+            || $this->option('only-selected')
             || count($this->option('bulk')) > 0
             || $this->option('pattern') !== 'normal';
     }

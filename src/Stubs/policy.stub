@@ -17,7 +17,7 @@ class {{ class }}
         return $this->authorizeAction($user, 'view');
     }
 
-    public function view(User $user, {{ model }} ${{ modelVariable }}): bool
+    public function view(User $user, {{ model }} $model): bool
     {
         return $this->authorizeAction($user, 'view');
     }
@@ -27,12 +27,12 @@ class {{ class }}
         return $this->authorizeAction($user, 'create');
     }
 
-    public function update(User $user, {{ model }} ${{ modelVariable }}): bool
+    public function update(User $user, {{ model }} $model): bool
     {
         return $this->authorizeAction($user, 'update');
     }
 
-    public function delete(User $user, {{ model }} ${{ modelVariable }}): bool
+    public function delete(User $user, {{ model }} $model): bool
     {
         return $this->authorizeAction($user, 'delete');
     }

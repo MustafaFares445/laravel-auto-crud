@@ -9,12 +9,12 @@ use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 
 class RouteBuilder
 {
-    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false, array $bulkEndpoints = []): void
+    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false, array $bulkEndpoints = [], ?string $controllerFolder = null): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
-            $routesPath = base_path('routes/api.php');
+            $routesPath = $this->resolveApiRoutesPath($controllerFolder);
             $routeCode = $this->generateApiRouteCode($modelName, $controller, $hasSoftDeletes, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
@@ -98,12 +98,12 @@ class RouteBuilder
      * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
      * @return void
      */
-    public function createBulkRoutes(string $modelName, string $controller, array $types, array $bulkEndpoints = []): void
+    public function createBulkRoutes(string $modelName, string $controller, array $types, array $bulkEndpoints = [], ?string $controllerFolder = null): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
-            $routesPath = base_path('routes/api.php');
+            $routesPath = $this->resolveApiRoutesPath($controllerFolder);
             $routeCode = $this->generateBulkApiRouteCode($modelName, $controller, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
@@ -220,5 +220,43 @@ class RouteBuilder
             }
             throw new \RuntimeException("Error processing routes file: {$e->getMessage()}", 0, $e);
         }
+    }
+
+    private function resolveApiRoutesPath(?string $controllerFolder): string
+    {
+        $defaultRoutesPath = base_path('routes/api.php');
+        if (empty($controllerFolder)) {
+            return $defaultRoutesPath;
+        }
+
+        $normalizedFolder = str_replace('\\', '/', $controllerFolder);
+        $relativeFolder = preg_replace('#^Http/Controllers/#i', '', $normalizedFolder);
+        $relativeFolder = trim($relativeFolder, '/');
+        if ($relativeFolder === '') {
+            return $defaultRoutesPath;
+        }
+
+        $folderName = strtolower(basename($relativeFolder));
+        if ($folderName === '' || $folderName === 'api') {
+            return $defaultRoutesPath;
+        }
+
+        $routesApiDir = base_path('routes/api');
+        if (!is_dir($routesApiDir)) {
+            return $defaultRoutesPath;
+        }
+
+        $candidateFile = $routesApiDir . DIRECTORY_SEPARATOR . $folderName . '.php';
+        if (is_file($candidateFile)) {
+            return $candidateFile;
+        }
+
+        $candidateDir = $routesApiDir . DIRECTORY_SEPARATOR . $folderName;
+        if (is_dir($candidateDir)) {
+            $indexFile = $candidateDir . DIRECTORY_SEPARATOR . 'api.php';
+            return $indexFile;
+        }
+
+        return $defaultRoutesPath;
     }
 }
