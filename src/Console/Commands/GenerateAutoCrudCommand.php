@@ -142,7 +142,11 @@ class GenerateAutoCrudCommand extends Command
 
             $existingFolders = $this->getExistingControllerFolders();
             if (!empty($existingFolders)) {
-                note('Existing controller folders: ' . implode(', ', $existingFolders));
+                $folderNames = array_map(function($folder) {
+                    $parts = explode('/', $folder);
+                    return end($parts);
+                }, $existingFolders);
+                note('Existing controller folders: ' . implode(', ', $folderNames));
             }
 
             $folderOptions = [
@@ -150,7 +154,8 @@ class GenerateAutoCrudCommand extends Command
             ];
 
             foreach ($existingFolders as $folder) {
-                $folderOptions[$folder] = $folder;
+                $folderName = basename($folder);
+                $folderOptions[$folder] = $folderName;
             }
 
             $folderOptions['custom'] = 'Enter custom folder path';
@@ -480,10 +485,15 @@ class GenerateAutoCrudCommand extends Command
 
         $directories = File::allDirectories($controllersPath);
         $folders = [];
+        $appPath = base_path('app');
+        
         foreach ($directories as $directory) {
-            $relative = str_replace(base_path('app') . DIRECTORY_SEPARATOR, '', $directory);
-            $relative = trim(str_replace('\\', '/', $relative), '/');
-            if ($relative !== '') {
+            // Convert absolute path to relative path from app directory
+            $relative = str_replace($appPath . DIRECTORY_SEPARATOR, '', $directory);
+            $relative = str_replace('\\', '/', $relative);
+            $relative = trim($relative, '/');
+            
+            if ($relative !== '' && str_starts_with($relative, 'Http/Controllers/')) {
                 $folders[] = $relative;
             }
         }
