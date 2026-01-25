@@ -8,6 +8,8 @@ use Laravel\Sanctum\Sanctum;
 {{ enumUseStatements }}
 
 beforeEach(function () {
-{{ seederCall }});
+{{ seederCall }}    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+});
 
 {{ authorizationTests }}

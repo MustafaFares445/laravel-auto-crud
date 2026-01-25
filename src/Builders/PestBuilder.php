@@ -51,8 +51,6 @@ class PestBuilder
 
     private function createEndpointsTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
     {
-    private function createEndpointsTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
-    {
         return $this->fileService->createFromStub($modelData, 'pest_feature_api', 'tests/Feature/' . $modelData['modelName'], 'EndpointsTest', $overwrite, function ($modelData) use ($withPolicy) {
             $model = $this->getFullModelNamespace($modelData);
             $modelInstance = new $model;
