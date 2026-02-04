@@ -29,20 +29,30 @@ final class MediaHelper
      * @param  UploadedFile|array<UploadedFile>|null  $media  The media file(s) to upload. Can be a single file, array of files, or null.
      * @param  HasMedia|Model  $model  The model instance that implements HasMedia interface to associate the media with
      * @param  string  $collection  The media collection name (default: 'default')
+     * @param  float|array<int, float>|null  $duration  Duration in seconds for video/audio files. Can be single value or associative array with file index as key.
      * @return Media|array<Media> Returns a single Media object for single file upload, array of Media objects for multiple files, or empty array if null
      *
      * @throws FileDoesNotExist When the file does not exist
      * @throws FileIsTooBig When the file exceeds the maximum allowed size
      *
      * @example
-     * // Single file upload
-     * $media = MediaHelper::uploadMedia($request->file('image'), $user, 'avatars');
+     * // Single file upload with duration
+     * $media = MediaHelper::uploadMedia($request->file('video'), $user, 'videos', 120.5);
      *
-     * // Multiple files upload
-     * $media = MediaHelper::uploadMedia($request->file('images'), $post, 'gallery');
+     * // Multiple files upload with durations (only audio file at index 1 has duration)
+     * $media = MediaHelper::uploadMedia(
+     *     $request->file('files'), // [0 => pdf, 1 => audio, 2 => image]
+     *     $post, 
+     *     'gallery', 
+     *     [1 => 2.5] // Only the audio file at index 1 has duration
+     * );
      */
-    public static function uploadMedia(UploadedFile|array|null $media, HasMedia|Model $model, string $collection = 'default'): Media|array
-    {
+    public static function uploadMedia(
+        UploadedFile|array|null $media, 
+        HasMedia|Model $model, 
+        string $collection = 'default',
+        float|array|null $duration = null
+    ): Media|array {
         if ($media === null) {
             return [];
         }
@@ -52,10 +62,10 @@ final class MediaHelper
                 return [];
             }
 
-            return self::uploadMany($media, $model, $collection);
+            return self::uploadMany($media, $model, $collection, $duration);
         }
 
-        return self::upload($media, $model, $collection);
+        return self::upload($media, $model, $collection, $duration);
     }
 
     /**
@@ -68,20 +78,27 @@ final class MediaHelper
      * @param  UploadedFile|array<UploadedFile>|null  $media  The media file(s) to upload. Can be a single file, array of files, or null to only clear collection.
      * @param  HasMedia|Model  $model  The model instance that implements HasMedia interface to associate the media with
      * @param  string  $collection  The media collection name (default: 'default')
+     * @param  float|array<int, float>|null  $duration  Duration in seconds for video/audio files. Can be single value or associative array with file index as key.
      * @return Media|array<Media> Returns the created media object(s), or empty array if no media provided or collection was cleared
      *
      * @throws FileDoesNotExist When the file does not exist
      * @throws FileIsTooBig When the file exceeds the maximum allowed size
      *
      * @example
-     * // Replace all images in collection
-     * $media = MediaHelper::updateMedia($request->file('image'), $post, 'images');
-     *
-     * // Clear collection without uploading new files
-     * MediaHelper::updateMedia(null, $post, 'images');
+     * // Replace all files in collection with durations for specific files
+     * $media = MediaHelper::updateMedia(
+     *     $request->file('files'), 
+     *     $post, 
+     *     'media',
+     *     [0 => 180.0, 2 => 95.5] // Only files at index 0 and 2 have durations
+     * );
      */
-    public static function updateMedia(UploadedFile|array|null $media, HasMedia|Model $model, string $collection = 'default'): Media|array
-    {
+    public static function updateMedia(
+        UploadedFile|array|null $media, 
+        HasMedia|Model $model, 
+        string $collection = 'default',
+        float|array|null $duration = null
+    ): Media|array {
         $model->clearMediaCollection($collection);
 
         if ($media === null) {
@@ -93,10 +110,10 @@ final class MediaHelper
                 return [];
             }
 
-            return self::uploadMany($media, $model, $collection);
+            return self::uploadMany($media, $model, $collection, $duration);
         }
 
-        return self::upload($media, $model, $collection);
+        return self::upload($media, $model, $collection, $duration);
     }
 
     /**
@@ -184,13 +201,15 @@ final class MediaHelper
      * @param  Collection<object>|array<object>  $dataObjects
      * @param  array<string, string>  $mediaMap  ['propertyName' => 'collectionName']
      * @param  bool  $isUpdate  Clear existing media before upload
+     * @param  array<string, mixed>|null  $durationMap  ['propertyName' => durationPropertyName] Optional duration property names
      * @return void
      */
     public static function attachBulkMedia(
         Collection|array $models,
         Collection|array $dataObjects,
         array $mediaMap,
-        bool $isUpdate = false
+        bool $isUpdate = false,
+        ?array $durationMap = null
     ): void {
         $modelsCollection = $models instanceof Collection ? $models : collect($models);
         $dataCollection = $dataObjects instanceof Collection ? $dataObjects : collect($dataObjects);
@@ -213,13 +232,21 @@ final class MediaHelper
         }
 
         // File uploads - O(n) complexity is unavoidable
-        $modelsCollection->each(function ($model, $index) use ($dataCollection, $mediaMap) {
+        $modelsCollection->each(function ($model, $index) use ($dataCollection, $mediaMap, $durationMap) {
             $dataObject = $dataCollection->get($index);
 
             if ($dataObject) {
                 foreach ($mediaMap as $property => $collection) {
                     if (isset($dataObject->$property)) {
-                        self::uploadMedia($dataObject->$property, $model, $collection);
+                        $duration = null;
+                        
+                        // Get duration from durationMap if available
+                        if ($durationMap && isset($durationMap[$property])) {
+                            $durationProperty = $durationMap[$property];
+                            $duration = $dataObject->$durationProperty ?? null;
+                        }
+                        
+                        self::uploadMedia($dataObject->$property, $model, $collection, $duration);
                     }
                 }
             }
@@ -236,14 +263,27 @@ final class MediaHelper
      * @param  UploadedFile  $media  The media file to upload
      * @param  HasMedia  $model  The model instance that implements HasMedia interface to associate the media with
      * @param  string  $collection  The media collection name (default: 'default')
+     * @param  float|array|null  $duration  Duration in seconds for video/audio files
      * @return Media Returns the created Media object
      *
      * @throws FileDoesNotExist When the file does not exist
      * @throws FileIsTooBig When the file exceeds the maximum allowed size
      */
-    private static function upload(UploadedFile $media, HasMedia $model, string $collection = 'default'): Media
-    {
-        return $model->addMedia($media)->toMediaCollection($collection);
+    private static function upload(
+        UploadedFile $media, 
+        HasMedia $model, 
+        string $collection = 'default',
+        float|array|null $duration = null
+    ): Media {
+        $mediaItem = $model->addMedia($media)->toMediaCollection($collection);
+        
+        // Store duration if provided (for single file, only accept float value)
+        if ($duration !== null && is_float($duration)) {
+            $mediaItem->setCustomProperty('duration', $duration);
+            $mediaItem->save();
+        }
+        
+        return $mediaItem;
     }
 
     /**
@@ -251,20 +291,49 @@ final class MediaHelper
      *
      * Internal method used by uploadMedia() to handle multiple file uploads.
      * Maps over the array of files and uploads each one to the specified collection.
+     * Supports indexed duration array where only specific files have durations.
      *
      * @param  array<UploadedFile>  $media  The array of media files to upload
      * @param  HasMedia  $model  The model instance that implements HasMedia interface to associate the media with
      * @param  string  $collection  The media collection name (default: 'default')
+     * @param  float|array<int, float>|null  $duration  Duration in seconds. Can be single float or associative array [index => duration].
      * @return array<Media> Returns an array of created Media objects
      *
      * @throws FileDoesNotExist When any file does not exist
      * @throws FileIsTooBig When any file exceeds the maximum allowed size
      */
-    private static function uploadMany(array $media, HasMedia $model, string $collection = 'default'): array
-    {
-        return array_map(
-            static fn (UploadedFile $file): Media => $model->addMedia($file)->toMediaCollection($collection),
-            $media
-        );
+    private static function uploadMany(
+        array $media, 
+        HasMedia $model, 
+        string $collection = 'default',
+        float|array|null $duration = null
+    ): array {
+        $uploadedMedia = [];
+        
+        foreach ($media as $index => $file) {
+            $mediaItem = $model->addMedia($file)->toMediaCollection($collection);
+            
+            // Store duration if provided for this specific file
+            if ($duration !== null) {
+                $durationValue = null;
+                
+                if (is_float($duration)) {
+                    // If single float value, apply to all files
+                    $durationValue = $duration;
+                } elseif (is_array($duration) && isset($duration[$index])) {
+                    // If array, only use duration for files that have an entry
+                    $durationValue = $duration[$index];
+                }
+                
+                if ($durationValue !== null) {
+                    $mediaItem->setCustomProperty('duration', $durationValue);
+                    $mediaItem->save();
+                }
+            }
+            
+            $uploadedMedia[] = $mediaItem;
+        }
+        
+        return $uploadedMedia;
     }
 }

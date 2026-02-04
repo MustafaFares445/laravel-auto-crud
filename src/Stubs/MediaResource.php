@@ -30,6 +30,7 @@ final class MediaResource extends JsonResource
             'size' => $this->human_readable_size,
             'extension' => $this->extension,
             'type' => $this->getTypeFromExtension(),
+            'duration' => $this->getCustomProperty('duration'),
             'caption' => $this->getCustomProperty('caption') ?? $this->name,
             'createdAt' => $this->created_at->toDateTimeString()
         ];
