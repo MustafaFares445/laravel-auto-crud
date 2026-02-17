@@ -40,7 +40,7 @@ class SpatieFilterBuilder
      * @param bool $overwrite Whether to overwrite existing files
      * @return string Full namespace path of the created file
      */
-    public function createFilterRequest(array $modelData, bool $overwrite = false): string
+    public function createFilterRequest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $requestPath = 'Http/Requests/' . $modelData['modelName'] . 'Requests';
         return $this->fileService->createFromStub($modelData, 'spatie_filter_request', $requestPath, 'FilterRequest', $overwrite, function ($modelData) {
@@ -112,9 +112,10 @@ class SpatieFilterBuilder
      *
      * @param array<string, mixed> $modelData Model information
      * @param bool $overwrite Whether to overwrite existing files
+     * @param string|null $module Optional module name for generating within a module
      * @return string Full namespace path of the created file
      */
-    public function createFilterQueryTrait(array $modelData, bool $overwrite = false): string
+    public function createFilterQueryTrait(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $modelClass = $this->getFullModelNamespace($modelData);
         $hasScoutSearch = $this->modelHasScoutSearch($modelClass);

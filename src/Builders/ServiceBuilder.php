@@ -19,7 +19,7 @@ class ServiceBuilder
     {
         $this->fileService = $fileService;
     }
-    public function createServiceOnly(array $modelData, bool $overwrite = false): string
+    public function createServiceOnly(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'service_only', 'Services', 'Service', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
@@ -76,14 +76,13 @@ class ServiceBuilder
                 '{{ mediaUpdateLogic }}' => $mediaUpdateLogic,
                 '{{ syncRelationshipsCall }}' => $syncRelationshipsCall,
             ];
-        });
+        }, $module);
     }
 
-    public function createBulkService(array $modelData, bool $overwrite = false, ?string $uniqueKey = null, string $pattern = 'normal', ?string $spatieData = null): string
+    public function createBulkService(array $modelData, bool $overwrite = false, ?string $uniqueKey = null, string $pattern = 'normal', ?string $spatieData = null, ?string $module = null): string
     {
         $modifiedModelData = $modelData;
         $modifiedModelData['modelName'] = $modelData['modelName'] . 'Bulk';
-
         return $this->fileService->createFromStub($modifiedModelData, 'bulk_service', 'Services', 'Service', $overwrite, function ($modelData) use ($uniqueKey, $pattern, $spatieData) {
             $originalModelName = str_replace('Bulk', '', $modelData['modelName']);
             $originalModelData = [
@@ -117,8 +116,6 @@ class ServiceBuilder
                 '{{ dataImport }}' => $dataImport,
                 '{{ transformationLogic }}' => $transformationLogic,
             ];
-        });
+        }, $module);
     }
 }
-
-

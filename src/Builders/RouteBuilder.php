@@ -6,21 +6,22 @@ namespace Mrmarchone\LaravelAutoCrud\Builders;
 
 use Illuminate\Support\Str;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
+use Mrmarchone\LaravelAutoCrud\Services\ModuleService;
 
 class RouteBuilder
 {
-    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false, array $bulkEndpoints = [], ?string $controllerFolder = null): void
+    public function create(string $modelName, string $controller, array $types, bool $hasSoftDeletes = false, array $bulkEndpoints = [], ?string $controllerFolder = null, ?string $module = null): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
-            $routesPath = $this->resolveApiRoutesPath($controllerFolder);
+            $routesPath = $this->resolveApiRoutesPath($controllerFolder, $module);
             $routeCode = $this->generateApiRouteCode($modelName, $controller, $hasSoftDeletes, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
 
         if (in_array('web', $types)) {
-            $routesPath = base_path('routes/web.php');
+            $routesPath = $module ? base_path(ModuleService::getModulePath($module) . '/Routes/web.php') : base_path('routes/web.php');
             $routeCode = $this->generateWebRouteCode($modelName, $controller, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
@@ -98,18 +99,18 @@ class RouteBuilder
      * @param array $bulkEndpoints Selected bulk endpoints (create, update, delete)
      * @return void
      */
-    public function createBulkRoutes(string $modelName, string $controller, array $types, array $bulkEndpoints = [], ?string $controllerFolder = null): void
+    public function createBulkRoutes(string $modelName, string $controller, array $types, array $bulkEndpoints = [], ?string $controllerFolder = null, ?string $module = null): void
     {
         $modelName = HelperService::toSnakeCase(Str::plural($modelName));
 
         if (in_array('api', $types)) {
-            $routesPath = $this->resolveApiRoutesPath($controllerFolder);
+            $routesPath = $this->resolveApiRoutesPath($controllerFolder, $module);
             $routeCode = $this->generateBulkApiRouteCode($modelName, $controller, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
 
         if (in_array('web', $types)) {
-            $routesPath = base_path('routes/web.php');
+            $routesPath = $module ? base_path(ModuleService::getModulePath($module) . '/Routes/web.php') : base_path('routes/web.php');
             $routeCode = $this->generateBulkWebRouteCode($modelName, $controller, $bulkEndpoints);
             $this->createRoutes($routesPath, $routeCode);
         }
@@ -222,8 +223,12 @@ class RouteBuilder
         }
     }
 
-    private function resolveApiRoutesPath(?string $controllerFolder): string
+    private function resolveApiRoutesPath(?string $controllerFolder, ?string $module = null): string
     {
+        if ($module) {
+            return base_path(ModuleService::getModulePath($module) . '/Routes/api.php');
+        }
+
         $defaultRoutesPath = base_path('routes/api.php');
         if (empty($controllerFolder)) {
             return $defaultRoutesPath;

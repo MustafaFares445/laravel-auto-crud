@@ -20,10 +20,11 @@ class FileService
      * @param string $suffix Suffix to append to model name (e.g., 'Controller', 'Service')
      * @param bool $overwrite Whether to overwrite existing files
      * @param callable|null $dataCallback Optional callback to generate replacement data
+     * @param string|null $module Optional module name for generating within a module
      * @return string Full namespace path of the created file
      * @throws \RuntimeException If stub file is not found
      */
-    public function createFromStub(array $modelData, string $stubType, string $basePath, string $suffix, bool $overwrite = false, ?callable $dataCallback = null): string
+    public function createFromStub(array $modelData, string $stubType, string $basePath, string $suffix, bool $overwrite = false, ?callable $dataCallback = null, ?string $module = null): string
     {
         // Check custom stub path, project stubs directory, then fall back to package stubs
         $customStubPath = config('laravel_auto_crud.custom_stub_path');
@@ -38,15 +39,21 @@ class FileService
             throw new \RuntimeException("Stub file not found: {$stubType}.stub. Checked: {$projectStubPath} and {$packageStubPath}");
         }
         
-        $isTest = str_starts_with($basePath, 'tests');
-        $namespace = $isTest ? 'Tests\\' : 'App\\';
-        $namespace .= str_replace('/', '\\', $isTest ? $basePath : $basePath);
+        $isTest = str_starts_with($basePath, 'tests') || str_starts_with($basePath, 'Tests');
+        
+        if ($module) {
+            $baseNamespace = \Mrmarchone\LaravelAutoCrud\Services\ModuleService::getModuleNamespace($module);
+            $namespace = $baseNamespace . '\\' . str_replace('/', '\\', $basePath);
+        } else {
+            $namespace = $isTest ? 'Tests\\' : 'App\\';
+            $namespace .= str_replace('/', '\\', $isTest ? $basePath : $basePath);
+        }
 
         if ($modelData['folders']) {
             $namespace .= '\\'.str_replace('/', '\\', $modelData['folders']);
         }
 
-        $filePath = $this->generateFilePath($modelData, $basePath, $suffix);
+        $filePath = $this->generateFilePath($modelData, $basePath, $suffix, $module);
 
         if (! $overwrite) {
             if (file_exists($filePath)) {
@@ -77,31 +84,43 @@ class FileService
      * @param array<string, mixed> $modelData Model information
      * @param string $basePath Base path for the file
      * @param string $suffix File suffix
+     * @param string|null $module Optional module name
      * @return string Full file path
      * @throws \InvalidArgumentException If path contains invalid characters
      */
-    private function generateFilePath(array $modelData, string $basePath, string $suffix): string
+    private function generateFilePath(array $modelData, string $basePath, string $suffix, ?string $module = null): string
     {
         // Sanitize path components to prevent directory traversal while preserving valid structure
         $basePath = $this->sanitizePath($basePath);
         $modelName = $this->sanitizeFileName($modelData['modelName']);
         $suffix = $this->sanitizeFileName($suffix);
         
-        $isTest = str_starts_with($basePath, 'tests');
+        $isTest = str_starts_with($basePath, 'tests') || str_starts_with($basePath, 'Tests');
         
-        if (!empty($modelData['folders'])) {
-            $folders = $this->sanitizePath($modelData['folders']);
-            $path = $isTest 
-                ? base_path("{$basePath}/{$folders}/{$modelName}{$suffix}.php")
-                : app_path("{$basePath}/{$folders}/{$modelName}{$suffix}.php");
+        if ($module) {
+            $modulePath = \Mrmarchone\LaravelAutoCrud\Services\ModuleService::getModulePath($module);
+            
+            if (!empty($modelData['folders'])) {
+                $folders = $this->sanitizePath($modelData['folders']);
+                $path = base_path("{$modulePath}/{$basePath}/{$folders}/{$modelName}{$suffix}.php");
+            } else {
+                $path = base_path("{$modulePath}/{$basePath}/{$modelName}{$suffix}.php");
+            }
         } else {
-            $path = $isTest
-                ? base_path("{$basePath}/{$modelName}{$suffix}.php")
-                : app_path("{$basePath}/{$modelName}{$suffix}.php");
+            if (!empty($modelData['folders'])) {
+                $folders = $this->sanitizePath($modelData['folders']);
+                $path = $isTest 
+                    ? base_path("{$basePath}/{$folders}/{$modelName}{$suffix}.php")
+                    : app_path("{$basePath}/{$folders}/{$modelName}{$suffix}.php");
+            } else {
+                $path = $isTest
+                    ? base_path("{$basePath}/{$modelName}{$suffix}.php")
+                    : app_path("{$basePath}/{$modelName}{$suffix}.php");
+            }
         }
         
         // Additional validation: ensure path is within allowed directories
-        $allowedBase = $isTest ? base_path() : app_path();
+        $allowedBase = $module ? base_path(\Mrmarchone\LaravelAutoCrud\Services\ModuleService::getModulePath($module)) : ($isTest ? base_path() : app_path());
         
         // Create directory if it doesn't exist for validation
         $dirPath = dirname($path);

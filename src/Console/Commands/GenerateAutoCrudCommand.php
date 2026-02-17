@@ -11,6 +11,7 @@ use Mrmarchone\LaravelAutoCrud\Services\DatabaseValidatorService;
 use Mrmarchone\LaravelAutoCrud\Services\DocumentationGenerator;
 use Mrmarchone\LaravelAutoCrud\Services\HelperService;
 use Mrmarchone\LaravelAutoCrud\Services\ModelService;
+use Mrmarchone\LaravelAutoCrud\Services\ModuleService;
 
 use function Laravel\Prompts\alert;
 use function Laravel\Prompts\confirm;
@@ -44,7 +45,9 @@ class GenerateAutoCrudCommand extends Command
     {--FC|factory : Generate Model Factory}
     {--PS|permissions-seeder : Generate permission seeder and update PermissionGroup enum}
     {--CF|controller-folder= : Custom folder path for controllers (e.g., Http/Controllers/Admin or Http/Controllers/API/V1)}
-    {--bulk=* : Bulk endpoints to generate (e.g., --bulk=create --bulk=update --bulk=delete or --bulk=all)}';
+    {--bulk=* : Bulk endpoints to generate (e.g., --bulk=create --bulk=update --bulk=delete or --bulk=all)}
+    {--module= : Specify module name for generation (e.g., --module=Blog)}
+    {--use-module : Use module mode even if auto-detection would not select modules}';
 
     protected $description = 'Generate complete CRUD scaffolding (Controller, Request, Resource, Routes, Service) for Eloquent models';
 
@@ -82,8 +85,33 @@ class GenerateAutoCrudCommand extends Command
     private function handleInteractiveMode(): void
     {
         $modelPath = $this->option('model-path') ?? config('laravel_auto_crud.fallback_models_path', 'app/Models/');
+        
+        // Step 1: Check if we should use modules
+        $selectedModule = null;
+        if (ModuleService::isModulesInstalled()) {
+            $modules = ModuleService::getAllModules();
+            
+            if (!empty($modules)) {
+                $moduleOptions = array_combine($modules, $modules);
+                $moduleOptions = array_merge(['none' => 'None (Standard Laravel)'], $moduleOptions);
+                
+                [$modulePromptOptions, $moduleLookup] = $this->indexedOptions($moduleOptions);
+                $selectedModuleIndex = select(
+                    label: '📦 Generate for a module or standard Laravel?',
+                    options: $modulePromptOptions,
+                    default: 1,
+                    hint: 'Type number to select, enter to confirm'
+                );
+                
+                $selectedModuleKey = $moduleLookup[$selectedModuleIndex];
+                if ($selectedModuleKey !== 'none') {
+                    $selectedModule = $selectedModuleKey;
+                    $modelPath = ModuleService::resolveModelPath($selectedModule);
+                }
+            }
+        }
 
-        // Step 1: Select Models
+        // Step 2: Select Models
         $availableModels = ModelService::getAvailableModels($modelPath);
 
         if (empty($availableModels)) {
@@ -110,7 +138,7 @@ class GenerateAutoCrudCommand extends Command
             $selectedModels = $availableModels;
         }
 
-        // Step 2: Select Controller Type
+        // Step 3: Select Controller Type
         [$controllerOptions, $controllerLookup] = $this->indexedOptions(
             [
                 'api' => 'API Controller (JSON responses)',
@@ -134,7 +162,7 @@ class GenerateAutoCrudCommand extends Command
             $controllerTypes = ['api', 'web'];
         }
 
-        // Step 2.5: Select Controller Folder (if not provided via option)
+        // Step 3.5: Select Controller Folder (if not provided via option)
         $controllerFolder = $this->option('controller-folder');
         if (!$controllerFolder) {
             $defaultApiFolder = config('laravel_auto_crud.default_api_controller_folder', 'Http/Controllers/API');
@@ -185,7 +213,7 @@ class GenerateAutoCrudCommand extends Command
             }
         }
 
-        // Step 3: Select Data Pattern
+        // Step 4: Select Data Pattern
         [$patternOptions, $patternLookup] = $this->indexedOptions([
             'normal' => 'Normal - Standard Laravel Form Requests',
             'spatie-data' => 'Spatie Data - Use spatie/laravel-data DTOs',
@@ -199,7 +227,7 @@ class GenerateAutoCrudCommand extends Command
         );
         $pattern = $patternLookup[$selectedPatternIndex];
 
-        // Step 4: Select Index Method Style
+        // Step 5: Select Index Method Style
         [$paginationOptions, $paginationLookup] = $this->indexedOptions([
             'pagination' => 'Pagination - Return paginated results (recommended)',
             'all' => 'Get All - Return all records using Model::all()',
@@ -213,7 +241,7 @@ class GenerateAutoCrudCommand extends Command
         );
         $usePagination = $paginationLookup[$selectedPaginationIndex];
 
-        // Step 5: Select Features
+        // Step 6: Select Features
         $featureOptions = [
             'service' => '🔧 Service Layer - Extract business logic to service classes',
             'response-messages' => '💬 Response Messages - Add ResponseMessages enum for standardized API responses',
@@ -245,7 +273,7 @@ class GenerateAutoCrudCommand extends Command
             $selectedFeatures = array_keys(array_filter($featureOptions, fn($key) => $key !== 'all', ARRAY_FILTER_USE_KEY));
         }
 
-        // Step 6: Select Documentation (only for API)
+        // Step 7: Select Documentation (only for API)
         $selectedDocs = [];
         if (in_array('api', $controllerTypes)) {
             [$docsPromptOptions, $docsLookup] = $this->indexedOptions(
@@ -271,7 +299,7 @@ class GenerateAutoCrudCommand extends Command
             }
         }
 
-        // Step 6.5: Select Bulk Endpoints
+        // Step 7.5: Select Bulk Endpoints
         $selectedBulkEndpoints = [];
         [$bulkOptions, $bulkLookup] = $this->indexedOptions(
             [
@@ -295,22 +323,22 @@ class GenerateAutoCrudCommand extends Command
             $selectedBulkEndpoints = ['create', 'update', 'delete'];
         }
 
-        // Step 7: Generation scope
+        // Step 8: Generation scope
         $onlySelected = confirm(
             label: 'Generate only selected options (skip core CRUD files)?',
             default: false,
             hint: 'Use this when you want tests-only or factory-only output'
         );
 
-        // Step 8: Overwrite confirmation
+        // Step 9: Overwrite confirmation
         $overwrite = confirm(
             label: '🔄 Overwrite existing files without asking?',
             default: false,
             hint: 'If No, you will be prompted for each existing file'
         );
 
-        // Step 9: Show summary and confirm
-        $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $selectedBulkEndpoints, $overwrite, $controllerFolder, $onlySelected);
+        // Step 10: Show summary and confirm
+        $this->showSummary($selectedModels, $controllerTypes, $pattern, $usePagination, $selectedFeatures, $selectedDocs, $selectedBulkEndpoints, $overwrite, $controllerFolder, $onlySelected, $selectedModule);
 
         if (! confirm(label: '🚀 Proceed with generation?', default: true)) {
             warning('Generation cancelled.');
@@ -339,15 +367,21 @@ class GenerateAutoCrudCommand extends Command
         if ($controllerFolder) {
             $this->input->setOption('controller-folder', $controllerFolder);
         }
+        if ($selectedModule) {
+            $this->input->setOption('module', $selectedModule);
+        }
 
         // Generate
-        $this->generateForModels($selectedModels);
+        $this->generateForModels($selectedModels, $selectedModule);
     }
 
-    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, array $bulkEndpoints, bool $overwrite, ?string $controllerFolder = null, bool $onlySelected = false): void
+    private function showSummary(array $models, array $types, string $pattern, string $pagination, array $features, array $docs, array $bulkEndpoints, bool $overwrite, ?string $controllerFolder = null, bool $onlySelected = false, ?string $module = null): void
     {
         note('📋 Generation Summary');
 
+        if ($module) {
+            info('Module: ' . $module);
+        }
         info('Models: ' . implode(', ', $models));
         info('Controller Types: ' . implode(', ', $types));
         if ($controllerFolder) {
@@ -374,7 +408,16 @@ class GenerateAutoCrudCommand extends Command
 
     private function handleBatchMode(): void
     {
-        $modelPath = $this->option('model-path') ?? config('laravel_auto_crud.fallback_models_path', 'app/Models/');
+        $module = $this->option('module');
+        $modelPath = $this->option('model-path');
+        
+        if (!$modelPath) {
+            if ($module) {
+                $modelPath = ModuleService::resolveModelPath($module);
+            } else {
+                $modelPath = config('laravel_auto_crud.fallback_models_path', 'app/Models/');
+            }
+        }
 
         $models = ModelService::showModels($modelPath);
 
@@ -387,12 +430,21 @@ class GenerateAutoCrudCommand extends Command
         $this->forceAllBooleanOptions();
         $this->input->setOption('overwrite', $this->option('force-all'));
 
-        $this->generateForModels($models);
+        $this->generateForModels($models, $module);
     }
 
     private function handleCommandLineMode(): void
     {
-        $modelPath = $this->option('model-path') ?? config('laravel_auto_crud.fallback_models_path', 'app/Models/');
+        $module = $this->option('module');
+        $modelPath = $this->option('model-path');
+        
+        if (!$modelPath) {
+            if ($module) {
+                $modelPath = ModuleService::resolveModelPath($module);
+            } else {
+                $modelPath = config('laravel_auto_crud.fallback_models_path', 'app/Models/');
+            }
+        }
 
         $models = [];
         if (count($this->option('model'))) {
@@ -420,10 +472,10 @@ class GenerateAutoCrudCommand extends Command
             HelperService::askForType($this->input, $this->option('type'));
         }
 
-        $this->generateForModels($models);
+        $this->generateForModels($models, $module);
     }
 
-    private function generateForModels(array $models): void
+    private function generateForModels(array $models, ?string $module = null): void
     {
         foreach ($models as $model) {
             $modelData = ModelService::resolveModelName($model);
@@ -448,7 +500,7 @@ class GenerateAutoCrudCommand extends Command
                 $options['controller-folder'] = $this->normalizeControllerFolderPath($options['controller-folder']);
             }
 
-            $this->CRUDGenerator->generate($modelData, $options);
+            $this->CRUDGenerator->generate($modelData, $options, $module);
             $this->documentationGenerator->generate($modelData, $options, count($models) > 1);
         }
 
@@ -520,7 +572,8 @@ class GenerateAutoCrudCommand extends Command
             || $this->option('swagger-api')
             || $this->option('only-selected')
             || count($this->option('bulk')) > 0
-            || $this->option('pattern') !== 'normal';
+            || $this->option('pattern') !== 'normal'
+            || !empty($this->option('module'));
     }
 
     private function everythingIsOk(): bool

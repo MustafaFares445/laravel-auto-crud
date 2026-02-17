@@ -171,6 +171,105 @@ php artisan auto-crud:publish-translations
 
 This command publishes translation files to `lang/vendor/laravel-auto-crud/` where you can customize response messages for different languages.
 
+## Module Support (nwidart/laravel-modules)
+
+Laravel Auto CRUD includes built-in support for generating CRUD operations within [nwidart/laravel-modules](https://github.com/nwidart/laravel-modules) module structure.
+
+### Auto-Detection
+
+The package automatically detects if your Laravel project uses the nwidart/laravel-modules package and displays module options during interactive generation.
+
+### Using Modules
+
+#### Interactive Mode
+
+Run the standard command:
+```bash
+php artisan auto-crud:generate
+```
+
+During the interactive prompts, you'll see an option to select a module or choose "Standard Laravel" for non-module generation.
+
+#### Command-Line Mode
+
+Specify the module name with the `--module` option:
+
+```bash
+php artisan auto-crud:generate --model=Post --module=Blog
+```
+
+Generate for multiple models in a module:
+```bash
+php artisan auto-crud:generate --model=Post --model=Category --module=Blog --type=api
+```
+
+### Generated File Locations
+
+When generating CRUD for a module, files are created following the nwidart/laravel-modules structure:
+
+- **Controllers**: `Modules/{ModuleName}/Http/Controllers/`
+- **Models**: `Modules/{ModuleName}/Models/`
+- **Requests**: `Modules/{ModuleName}/Http/Requests/{ModelName}Requests/`
+- **Resources**: `Modules/{ModuleName}/Http/Resources/`
+- **Services**: `Modules/{ModuleName}/Services/`
+- **Policies**: `Modules/{ModuleName}/Policies/`
+- **Factories**: `Modules/{ModuleName}/Database/Factories/`
+- **Tests**: `Modules/{ModuleName}/Tests/Feature/` and `Modules/{ModuleName}/Tests/Unit/`
+- **Routes**: `Modules/{ModuleName}/Routes/api.php` or `Modules/{ModuleName}/Routes/web.php`
+
+### Configuration
+
+Module settings can be customized in your `config/laravel_auto_crud.php`:
+
+```php
+'modules' => [
+    // Enable/disable module support (auto-detected by default)
+    'enabled' => null,
+    
+    // Base namespace for modules
+    'namespace' => 'Modules',
+    
+    // Base path for modules
+    'path' => 'Modules',
+    
+    // Custom path mappings (optional)
+    'custom_paths' => [
+        // 'controllers' => 'Http/Controllers',
+        // 'models' => 'Models',
+        // 'services' => 'Services',
+    ],
+],
+```
+
+### Example
+
+Generate complete CRUD for a Post model in the Blog module:
+
+```bash
+php artisan auto-crud:generate \
+  --model=Post \
+  --module=Blog \
+  --type=api \
+  --service \
+  --policy \
+  --factory \
+  --pest \
+  --pattern=spatie-data
+```
+
+This will create:
+- `Modules/Blog/Http/Controllers/PostController.php`
+- `Modules/Blog/Models/Post.php` (if not existing)
+- `Modules/Blog/Http/Requests/PostRequests/{Store,Update}Request.php`
+- `Modules/Blog/Http/Resources/PostResource.php`
+- `Modules/Blog/Services/PostService.php`
+- `Modules/Blog/Policies/PostPolicy.php`
+- `Modules/Blog/Database/Factories/PostFactory.php`
+- `Modules/Blog/Tests/Feature/Post/EndpointsTest.php`
+- `Modules/Blog/Routes/api.php` (with routes)
+
+And update the `Modules/Blog/Http/Controllers/PostController.php` with all CRUD operations.
+
 ## Features
 
 ### 1. Automatic Media Detection

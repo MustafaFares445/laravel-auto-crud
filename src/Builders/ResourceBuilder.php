@@ -29,7 +29,7 @@ class ResourceBuilder
         $this->tableColumnsService = $tableColumnsService;
     }
 
-    public function create(array $modelData, bool $overwrite = false, string $pattern = 'normal', ?string $spatieData = null): string
+    public function create(array $modelData, bool $overwrite = false, string $pattern = 'normal', ?string $spatieData = null, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'resource', 'Http/Resources', 'Resource', $overwrite, function ($modelData) use ($pattern, $spatieData) {
             $model = $this->getFullModelNamespace($modelData);
@@ -55,7 +55,7 @@ class ResourceBuilder
                 '{{ baseResourceImport }}' => $baseResourceImport,
                 '{{ baseResourceClass }}' => $baseResourceClass,
             ];
-        });
+        }, $module);
     }
     
     /**

@@ -33,7 +33,7 @@ class SpatieDataBuilder
         $this->tableColumnsService = $tableColumnsService;
     }
 
-    public function create(array $modelData, bool $overwrite = false): string
+    public function create(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $model = $this->getFullModelNamespace($modelData);
         $modelKey = $model;
@@ -153,7 +153,7 @@ class SpatieDataBuilder
                 '{{ namespaces }}' => SpatieDataTransformer::convertNamespacesToString($supportedData['namespaces']),
                 '{{ data }}' => $dataSection,
             ];
-        });
+        }, $module);
     }
 
     /**

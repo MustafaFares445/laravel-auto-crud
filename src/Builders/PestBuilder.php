@@ -23,10 +23,10 @@ class PestBuilder
         $this->tableColumnsService = $tableColumnsService;
     }
 
-    public function createFeatureTest(array $modelData, bool $overwrite = false, bool $withPolicy = false, bool $noPagination = false): string
+    public function createFeatureTest(array $modelData, bool $overwrite = false, bool $withPolicy = false, bool $noPagination = false, ?string $module = null): string
     {
         // Generate the main endpoints test file
-        $endpointsTestPath = $this->createEndpointsTest($modelData, $overwrite, $withPolicy);
+        $endpointsTestPath = $this->createEndpointsTest($modelData, $overwrite, $withPolicy, $module);
         
         // Generate validation test file if enabled
         if (config('laravel_auto_crud.test_settings.include_validation_tests', true)) {
@@ -51,7 +51,7 @@ class PestBuilder
         return $endpointsTestPath;
     }
 
-    private function createEndpointsTest(array $modelData, bool $overwrite = false, bool $withPolicy = false): string
+    private function createEndpointsTest(array $modelData, bool $overwrite = false, bool $withPolicy = false, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'pest_feature_api', 'tests/Feature/' . $modelData['modelName'], 'EndpointsTest', $overwrite, function ($modelData) use ($withPolicy) {
             $model = $this->getFullModelNamespace($modelData);
@@ -229,10 +229,10 @@ class PestBuilder
                 '{{ authorizationTests }}' => $authorizationTests,
                 '{{ enumUseStatements }}' => $enumUseStatements,
             ];
-        });
+        }, $module);
     }
 
-    public function createFilterTest(array $modelData, bool $overwrite = false): string
+    public function createFilterTest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'pest_feature_filters', 'tests/Feature/' . $modelData['modelName'], 'FiltersTest', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
@@ -271,7 +271,7 @@ class PestBuilder
                 '{{ responseMessagesNamespace }}' => 'Mrmarchone\\LaravelAutoCrud\\Enums\\ResponseMessages',
                 '{{ filterTests }}' => $filterTests,
             ];
-        });
+        }, $module);
     }
 
     private function generateExtraTests(array $modelData, string $model, string $searchField): string
@@ -1256,7 +1256,7 @@ class PestBuilder
      * @param bool $overwrite
      * @return string
      */
-    public function createServiceUnitTest(array $modelData, bool $overwrite = false): string
+    public function createServiceUnitTest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'pest_unit_service', 'tests/Unit/Services', 'ServiceTest', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);

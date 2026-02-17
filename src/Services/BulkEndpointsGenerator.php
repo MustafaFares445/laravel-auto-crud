@@ -40,7 +40,7 @@ class BulkEndpointsGenerator
         $this->pestBuilder = new PestBuilder($this->fileService, $this->tableColumnsService);
     }
 
-    public function generate(array $modelData, array $options): void
+    public function generate(array $modelData, array $options, ?string $module = null): void
     {
         $controllerTypes = $options['type'] ?? ['api'];
         $bulkEndpoints = $options['bulk'] ?? [];
@@ -58,12 +58,13 @@ class BulkEndpointsGenerator
             $modelData,
             $bulkEndpoints,
             $pattern,
-            $overwrite
+            $overwrite,
+            $module
         );
 
         $resourceName = null;
         if (in_array('api', $controllerTypes, true)) {
-            $resourceName = $this->resourceBuilder->create($modelData, $overwrite, $pattern, null);
+            $resourceName = $this->resourceBuilder->create($modelData, $overwrite, $pattern, null, $module);
         }
 
         $controllerOptions = [
@@ -77,7 +78,7 @@ class BulkEndpointsGenerator
 
         if ($service) {
             $uniqueKey = $options['uniqueKey'] ?? null;
-            $this->serviceBuilder->createBulkService($modelData, $overwrite, $uniqueKey, $pattern, $spatieData);
+            $this->serviceBuilder->createBulkService($modelData, $overwrite, $uniqueKey, $pattern, $spatieData, $module);
         }
 
         if (in_array('api', $controllerTypes, true)) {
@@ -85,14 +86,16 @@ class BulkEndpointsGenerator
                 $modelData,
                 $resourceName,
                 $bulkRequests,
-                $controllerOptions
+                $controllerOptions,
+                $module
             );
             $this->routeBuilder->createBulkRoutes(
                 $modelData['modelName'],
                 $apiControllerName,
                 ['api'],
                 $bulkEndpoints,
-                $options['controller-folder'] ?? null
+                $options['controller-folder'] ?? null,
+                $module
             );
         }
 
@@ -100,14 +103,16 @@ class BulkEndpointsGenerator
             $webControllerName = $this->bulkControllerBuilder->createWeb(
                 $modelData,
                 $bulkRequests,
-                $controllerOptions
+                $controllerOptions,
+                $module
             );
             $this->routeBuilder->createBulkRoutes(
                 $modelData['modelName'],
                 $webControllerName,
                 ['web'],
                 $bulkEndpoints,
-                $options['controller-folder'] ?? null
+                $options['controller-folder'] ?? null,
+                $module
             );
         }
 

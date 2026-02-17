@@ -73,9 +73,10 @@ class CRUDGenerator
      *
      * @param array<string, mixed> $modelData Model information including 'modelName', 'namespace', 'folders', 'path'
      * @param array<string, mixed> $options Generation options including 'type', 'pattern', 'overwrite', etc.
+     * @param string|null $module Optional module name for generating within a module
      * @return void
      */
-    public function generate(array $modelData, array $options): void
+    public function generate(array $modelData, array $options, ?string $module = null): void
     {
         $checkForType = $options['type'];
         $onlySelected = (bool) ($options['only-selected'] ?? false);
@@ -85,8 +86,8 @@ class CRUDGenerator
         $filterBuilder = $filterRequest = null;
         if ($options['filter'] ?? false) {
             if ($options['pattern'] === 'spatie-data') {
-                $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite']);
-                $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite']);
+                $filterRequest = $this->spatieFilterBuilder->createFilterRequest($modelData, $options['overwrite'], $module);
+                $filterBuilder = $this->spatieFilterBuilder->createFilterQueryTrait($modelData, $options['overwrite'], $module);
             } else {
                 throw new \InvalidArgumentException('Filter option is only supported with the spatie-data pattern.');
             }
@@ -111,17 +112,17 @@ class CRUDGenerator
         $requests = $bulkRequests = $spatieDataName = $service = null;
 
         if ($options['pattern'] === 'spatie-data' && ($generateCrud || ($options['service'] ?? false))) {
-            $spatieDataName = $this->spatieDataBuilder->create($modelData, $options['overwrite']);
+            $spatieDataName = $this->spatieDataBuilder->create($modelData, $options['overwrite'], $module);
         }
 
         if ($generateCrud) {
             if ($options['pattern'] === 'spatie-data') {
                 // If using service with spatie-data, also create FormRequest
                 if ($options['service'] ?? false) {
-                    $requests = $this->requestBuilder->createForSpatieData($modelData, $options['overwrite']);
+                    $requests = $this->requestBuilder->createForSpatieData($modelData, $options['overwrite'], $module);
                 }
             } else {
-                $requests = $this->requestBuilder->create($modelData, $options['overwrite']);
+                $requests = $this->requestBuilder->create($modelData, $options['overwrite'], $module);
             }
         }
 
@@ -130,19 +131,19 @@ class CRUDGenerator
         $bulkEndpoints = $options['bulk'] ?? [];
 
         if ($options['service'] ?? false) {
-            $service = $this->serviceBuilder->createServiceOnly($modelData, $options['overwrite']);
+            $service = $this->serviceBuilder->createServiceOnly($modelData, $options['overwrite'], $module);
         }
 
         if ($options['policy'] ?? false) {
-            $this->policyBuilder->create($modelData, $options['overwrite']);
+            $this->policyBuilder->create($modelData, $options['overwrite'], $module);
         }
 
         if ($options['factory'] ?? false) {
-            $this->factoryBuilder->create($modelData, $options['overwrite']);
+            $this->factoryBuilder->create($modelData, $options['overwrite'], $module);
         }
 
         if ($options['permissions-seeder'] ?? false) {
-            $this->permissionSeederBuilder->create($modelData, $options['overwrite']);
+            $this->permissionSeederBuilder->create($modelData, $options['overwrite'], $module);
             $this->permissionGroupEnumBuilder->updateEnum($modelData, $options['overwrite']);
         }
 
@@ -151,12 +152,13 @@ class CRUDGenerator
                 $modelData,
                 $options['overwrite'],
                 (bool) ($options['policy'] ?? false),
-                (bool) ($options['no-pagination'] ?? false)
+                (bool) ($options['no-pagination'] ?? false),
+                $module
             );
             
             // Generate filter tests if filters are enabled
             if (($options['filter'] ?? false) && $options['pattern'] === 'spatie-data') {
-                $this->pestBuilder->createFilterTest($modelData, $options['overwrite']);
+                $this->pestBuilder->createFilterTest($modelData, $options['overwrite'], $module);
             }
 
             // Generate unit tests if enabled in config (when pest is selected)
@@ -164,23 +166,23 @@ class CRUDGenerator
             if ($generateUnitTests) {
                 // Generate service unit tests if service is generated
                 if ($options['service'] ?? false) {
-                    $this->pestBuilder->createServiceUnitTest($modelData, $options['overwrite']);
+                    $this->pestBuilder->createServiceUnitTest($modelData, $options['overwrite'], $module);
                 }
 
                 // Generate request validation tests if requests are generated
                 if (!empty($requests)) {
-                    $this->pestBuilder->createRequestValidationTest($modelData, 'store', $options['overwrite']);
-                    $this->pestBuilder->createRequestValidationTest($modelData, 'update', $options['overwrite']);
+                    $this->pestBuilder->createRequestValidationTest($modelData, 'store', $options['overwrite'], $module);
+                    $this->pestBuilder->createRequestValidationTest($modelData, 'update', $options['overwrite'], $module);
                 }
 
                 // Generate policy tests if policy is generated
                 if ($options['policy'] ?? false) {
-                    $this->pestBuilder->createPolicyTest($modelData, $options['overwrite']);
+                    $this->pestBuilder->createPolicyTest($modelData, $options['overwrite'], $module);
                 }
 
                 // Generate resource tests if resources are generated (always generated for API)
                 if (in_array('api', $checkForType, true)) {
-                    $this->pestBuilder->createResourceTest($modelData, $options['overwrite']);
+                    $this->pestBuilder->createResourceTest($modelData, $options['overwrite'], $module);
                 }
             }
         }
@@ -195,7 +197,7 @@ class CRUDGenerator
                 'filterRequest' => $filterRequest ?? '',
             ];
 
-            $controllerName = $this->generateController($checkForType, $modelData, $data, $options);
+            $controllerName = $this->generateController($checkForType, $modelData, $data, $options, $module);
             
             $modelClass = ModelService::getFullModelNamespace($modelData);
             $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
@@ -207,7 +209,8 @@ class CRUDGenerator
                 $checkForType,
                 $hasSoftDeletes,
                 [],
-                $options['controller-folder'] ?? null
+                $options['controller-folder'] ?? null,
+                $module
             );
         }
 
@@ -225,22 +228,22 @@ class CRUDGenerator
             } else {
                 unset($bulkOptions['spatieData']);
             }
-            $this->bulkEndpointsGenerator->generate($modelData, $bulkOptions);
+            $this->bulkEndpointsGenerator->generate($modelData, $bulkOptions, $module);
         }
 
         info('Auto CRUD files generated successfully for '.$modelData['modelName'].' Model');
     }
 
-    private function generateController(array $types, array $modelData, array $data, array $options): string
+    private function generateController(array $types, array $modelData, array $data, array $options, ?string $module = null): string
     {
         $controllerName = null;
 
         if (in_array('api', $types, true)) {
-            $controllerName = $this->generateAPIController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null, []);
+            $controllerName = $this->generateAPIController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], $data['filterBuilder'] ?? null, $data['filterRequest'] ?? null, [], $module);
         }
 
         if (in_array('web', $types, true)) {
-            $controllerName = $this->generateWebController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], []);
+            $controllerName = $this->generateWebController($modelData, $data['requests'], $data['service'], $options, $data['spatieData'], [], $module);
         }
 
         if (! $controllerName) {
@@ -250,12 +253,12 @@ class CRUDGenerator
         return $controllerName;
     }
 
-    private function generateAPIController(array $modelData, array $requests, string $service, array $options, ?string $spatieData = null, ?string $filterBuilder = null, ?string $filterRequest = null, array $bulkRequests = []): string
+    private function generateAPIController(array $modelData, array $requests, string $service, array $options, ?string $spatieData = null, ?string $filterBuilder = null, ?string $filterRequest = null, array $bulkRequests = [], ?string $module = null): string
     {
         $controllerName = null;
 
         // Always generate Resource for API controllers
-        $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite'], $options['pattern'] ?? 'normal', $spatieData);
+        $resourceName = $this->resourceBuilder->create($modelData, $options['overwrite'], $options['pattern'] ?? 'normal', $spatieData, $module);
 
         $modelClass = ModelService::getFullModelNamespace($modelData);
         $hasSoftDeletes = SoftDeleteDetector::hasSoftDeletes($modelClass);
@@ -274,12 +277,12 @@ class CRUDGenerator
         if ($options['pattern'] === 'spatie-data') {
             // If service with spatie-data, use FormRequest + Data class pattern
             if ($service && !empty($requests)) {
-                $controllerName = $this->controllerBuilder->createAPIServiceSpatieData($modelData, $spatieData, $requests, $service, $resourceName, $controllerOptions);
+                $controllerName = $this->controllerBuilder->createAPIServiceSpatieData($modelData, $spatieData, $requests, $service, $resourceName, $controllerOptions, $module);
             } else {
-                $controllerName = $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $resourceName, $controllerOptions);
+                $controllerName = $this->controllerBuilder->createAPISpatieData($modelData, $spatieData, $resourceName, $controllerOptions, $module);
             }
         } elseif ($options['pattern'] === 'normal') {
-            $controllerName = $this->controllerBuilder->createAPI($modelData, $resourceName, $requests, $controllerOptions);
+            $controllerName = $this->controllerBuilder->createAPI($modelData, $resourceName, $requests, $controllerOptions, $module);
         }
 
         if (! $controllerName) {
@@ -289,7 +292,7 @@ class CRUDGenerator
         return $controllerName;
     }
 
-    private function generateWebController(array $modelData, array $requests, string $service, array $options, string $spatieData = '', array $bulkRequests = []): string
+    private function generateWebController(array $modelData, array $requests, string $service, array $options, string $spatieData = '', array $bulkRequests = [], ?string $module = null): string
     {
         $controllerName = null;
         $controllerFolder = $options['controller-folder'] ?? null;
@@ -301,9 +304,9 @@ class CRUDGenerator
         ];
 
         if ($options['pattern'] === 'spatie-data') {
-            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $controllerOptions);
+            $controllerName = $this->controllerBuilder->createWebSpatieData($modelData, $spatieData, $controllerOptions, $module);
         } elseif ($options['pattern'] === 'normal') {
-            $controllerName = $this->controllerBuilder->createWeb($modelData, $requests, $controllerOptions);
+            $controllerName = $this->controllerBuilder->createWeb($modelData, $requests, $controllerOptions, $module);
         }
 
         $this->viewBuilder->create($modelData, $options['overwrite']);

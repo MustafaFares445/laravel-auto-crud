@@ -25,12 +25,17 @@ class FactoryBuilder
         $this->tableColumnsService = $tableColumnsService;
     }
 
-    public function create(array $modelData, bool $overwrite = false): string
+    public function create(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $model = $this->getFullModelNamespace($modelData);
         $modelName = $modelData['modelName'];
         $factoryName = $modelName . 'Factory';
-        $filePath = database_path("factories/{$factoryName}.php");
+        
+        if ($module) {
+            $filePath = base_path(\Mrmarchone\LaravelAutoCrud\Services\ModuleService::getModulePath($module) . '/Database/Factories/' . $factoryName . '.php');
+        } else {
+            $filePath = database_path("factories/{$factoryName}.php");
+        }
 
         if (file_exists($filePath) && ! $overwrite) {
             $shouldOverwrite = confirm(

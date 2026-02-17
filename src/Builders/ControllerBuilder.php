@@ -44,7 +44,7 @@ class ControllerBuilder
         ];
     }
     
-    public function createAPI(array $modelData, string $resource, array $requests, array $options = []): string
+    public function createAPI(array $modelData, string $resource, array $requests, array $options = [], ?string $module = null): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
         $filterRequest = $options['filterRequest'] ?? null;
@@ -139,10 +139,10 @@ class ControllerBuilder
                 '{{ controllerImport }}' => $controllerBaseClass['import'],
                 '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
-        });
+        }, $module);
     }
 
-    public function createAPISpatieData(array $modelData, string $spatieData, string $resource, array $options = []): string
+    public function createAPISpatieData(array $modelData, string $spatieData, string $resource, array $options = [], ?string $module = null): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
         $filterRequest = $options['filterRequest'] ?? null;
@@ -237,11 +237,11 @@ class ControllerBuilder
                 '{{ controllerImport }}' => $controllerBaseClass['import'],
                 '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
-        });
+        }, $module);
     }
 
 
-    public function createWeb(array $modelData, array $requests, array $options = []): string
+    public function createWeb(array $modelData, array $requests, array $options = [], ?string $module = null): string
     {
         $overwrite = $options['overwrite'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
@@ -290,11 +290,11 @@ class ControllerBuilder
                 '{{ controllerImport }}' => $controllerBaseClass['import'],
                 '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
-        });
+        }, $module);
     }
 
 
-    public function createWebSpatieData(array $modelData, string $spatieData, array $options = []): string
+    public function createWebSpatieData(array $modelData, string $spatieData, array $options = [], ?string $module = null): string
     {
         $overwrite = $options['overwrite'] ?? false;
         $controllerFolder = $options['controller-folder'] ?? config('laravel_auto_crud.default_web_controller_folder', 'Http/Controllers');
@@ -340,11 +340,11 @@ class ControllerBuilder
                 '{{ controllerImport }}' => $controllerBaseClass['import'],
                 '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
-        });
+        }, $module);
     }
 
 
-    public function createAPIServiceSpatieData(array $modelData, string $spatieData, array $requests, string $service, string $resource, array $options = []): string
+    public function createAPIServiceSpatieData(array $modelData, string $spatieData, array $requests, string $service, string $resource, array $options = [], ?string $module = null): string
     {
         $filterBuilder = $options['filterBuilder'] ?? null;
         $filterRequest = $options['filterRequest'] ?? null;
@@ -449,7 +449,7 @@ class ControllerBuilder
                 '{{ controllerImport }}' => $controllerBaseClass['import'],
                 '{{ controllerExtends }}' => $controllerBaseClass['extends'],
             ];
-        });
+        }, $module);
     }
 
     /**

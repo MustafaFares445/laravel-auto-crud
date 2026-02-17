@@ -158,4 +158,55 @@ return [
     |
     */
     'permission_group_enum_path' => 'app/Enums/PermissionGroup.php',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Module Support (nwidart/laravel-modules)
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for generating CRUD files within Laravel modules.
+    | The package will auto-detect if modules are installed.
+    |
+    */
+    'modules' => [
+        /*
+         * Enable/disable module support. If null, auto-detection is used.
+         */
+        'enabled' => null,
+
+        /*
+         * Base namespace for modules (default: Modules)
+         */
+        'namespace' => 'Modules',
+
+        /*
+         * Base path for modules (default: Modules)
+         */
+        'path' => 'Modules',
+
+        /*
+         * Custom path mappings for different file types within modules.
+         * Leave empty to use default nwidart/laravel-modules structure.
+         *
+         * Example:
+         * 'custom_paths' => [
+         *     'controllers' => 'Http/Controllers',
+         *     'models' => 'Entities', // If you prefer Entities over Models
+         *     'services' => 'Services',
+         *     'policies' => 'Policies',
+         *     'factories' => 'Database/Factories',
+         *     'seeders' => 'Database/Seeders',
+         *     'tests' => 'Tests',
+         *     'routes' => 'Routes',
+         *     'data' => 'Data',
+         *     'filters' => 'FilterBuilders',
+         *     'traits' => 'Traits',
+         * ]
+         */
+        'custom_paths' => [
+            // 'controllers' => 'Http/Controllers',
+            // 'models' => 'Models',
+            // 'services' => 'Services',
+        ],
+    ],
 ];

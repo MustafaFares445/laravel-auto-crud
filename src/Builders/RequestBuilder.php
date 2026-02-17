@@ -40,12 +40,13 @@ class RequestBuilder
      *
      * @param array $modelData Model information including name, namespace, etc.
      * @param bool $overwrite Whether to overwrite existing request files
+     * @param string|null $module Optional module name for generating within a module
      * @return array Returns array with 'store' and 'update' keys containing file paths
      */
-    public function create(array $modelData, bool $overwrite = false): array
+    public function create(array $modelData, bool $overwrite = false, ?string $module = null): array
     {
-        $storeRequestPath = $this->createStoreRequest($modelData, $overwrite);
-        $updateRequestPath = $this->createUpdateRequest($modelData, $overwrite);
+        $storeRequestPath = $this->createStoreRequest($modelData, $overwrite, $module);
+        $updateRequestPath = $this->createUpdateRequest($modelData, $overwrite, $module);
         
         return [
             'store' => $storeRequestPath,
@@ -63,10 +64,10 @@ class RequestBuilder
      * @param bool $overwrite Whether to overwrite existing request files
      * @return array Returns array with 'store' and 'update' keys containing file paths
      */
-    public function createForSpatieData(array $modelData, bool $overwrite = false): array
+    public function createForSpatieData(array $modelData, bool $overwrite = false, ?string $module = null): array
     {
-        $storeRequestPath = $this->createSpatieDataStoreRequest($modelData, $overwrite);
-        $updateRequestPath = $this->createSpatieDataUpdateRequest($modelData, $overwrite);
+        $storeRequestPath = $this->createSpatieDataStoreRequest($modelData, $overwrite, $module);
+        $updateRequestPath = $this->createSpatieDataUpdateRequest($modelData, $overwrite, $module);
         
         return [
             'store' => $storeRequestPath,
@@ -297,7 +298,7 @@ class RequestBuilder
      * @param bool $overwrite Whether to overwrite existing request file
      * @return string Path to the created StoreRequest file
      */
-    protected function createStoreRequest(array $modelData, bool $overwrite = false): string
+    protected function createStoreRequest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $requestPath = $this->getRequestFolderPath($modelData);
         return $this->fileService->createFromStub($modelData, 'store_request', $requestPath, 'StoreRequest', $overwrite, function ($modelData) {
@@ -306,7 +307,7 @@ class RequestBuilder
                 '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
-        });
+        }, $module);
     }
 
     /**
@@ -318,7 +319,7 @@ class RequestBuilder
      * @param bool $overwrite Whether to overwrite existing request file
      * @return string Path to the created UpdateRequest file
      */
-    protected function createUpdateRequest(array $modelData, bool $overwrite = false): string
+    protected function createUpdateRequest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $requestPath = $this->getRequestFolderPath($modelData);
         return $this->fileService->createFromStub($modelData, 'update_request', $requestPath, 'UpdateRequest', $overwrite, function ($modelData) {
@@ -327,7 +328,7 @@ class RequestBuilder
                 '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
-        });
+        }, $module);
     }
 
     /**
@@ -339,7 +340,7 @@ class RequestBuilder
      * @param bool $overwrite Whether to overwrite existing request file
      * @return string Path to the created StoreRequest file
      */
-    protected function createSpatieDataStoreRequest(array $modelData, bool $overwrite = false): string
+    protected function createSpatieDataStoreRequest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $requestPath = $this->getRequestFolderPath($modelData);
         return $this->fileService->createFromStub($modelData, 'spatie_data_store_request', $requestPath, 'StoreRequest', $overwrite, function ($modelData) {
@@ -355,10 +356,10 @@ class RequestBuilder
                 '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
-        });
+        }, $module);
     }
 
-    protected function createSpatieDataUpdateRequest(array $modelData, bool $overwrite = false): string
+    protected function createSpatieDataUpdateRequest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         $requestPath = $this->getRequestFolderPath($modelData);
         return $this->fileService->createFromStub($modelData, 'spatie_data_update_request', $requestPath, 'UpdateRequest', $overwrite, function ($modelData) {
@@ -374,7 +375,7 @@ class RequestBuilder
                 '{{ data }}' => $this->formatRulesAsString($data['rules']),
                 '{{ useStatements }}' => $this->generateUseStatements($data['useStatements']),
             ];
-        });
+        }, $module);
     }
     
     /**

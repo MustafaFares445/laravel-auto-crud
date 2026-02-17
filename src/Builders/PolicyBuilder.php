@@ -17,7 +17,7 @@ class PolicyBuilder
     {
         $this->fileService = $fileService;
     }
-    public function create(array $modelData, bool $overwrite = false): string
+    public function create(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'policy', 'Policies', 'Policy', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
@@ -29,6 +29,6 @@ class PolicyBuilder
                 '{{ model }}' => $modelName,
                 '{{ modelVariable }}' => $modelVariable,
             ];
-        });
+        }, $module);
     }
 }
