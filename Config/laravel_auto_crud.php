@@ -186,12 +186,13 @@ return [
 
         /*
          * Custom path mappings for different file types within modules.
-         * Leave empty to use default nwidart/laravel-modules structure.
+         * Defaults follow nwidart/laravel-modules: app/Models, app/Http/Controllers, etc.
+         * Override here if your module uses a different structure (e.g. flat 'Models' at module root).
          *
          * Example:
          * 'custom_paths' => [
+         *     'models' => 'Models',           // Flat: Modules/MyModule/Models
          *     'controllers' => 'Http/Controllers',
-         *     'models' => 'Entities', // If you prefer Entities over Models
          *     'services' => 'Services',
          *     'policies' => 'Policies',
          *     'factories' => 'Database/Factories',

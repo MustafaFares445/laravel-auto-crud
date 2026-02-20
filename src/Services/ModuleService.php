@@ -87,6 +87,7 @@ class ModuleService
 
     /**
      * Resolve the models path for a module.
+     * Defaults to app/Models to match nwidart/laravel-modules structure.
      *
      * @param string $moduleName
      * @return string
@@ -94,7 +95,7 @@ class ModuleService
     public static function resolveModelPath(string $moduleName): string
     {
         $customPaths = config('laravel_auto_crud.modules.custom_paths', []);
-        $modelsSubPath = $customPaths['models'] ?? 'Models';
+        $modelsSubPath = $customPaths['models'] ?? 'app/Models';
         return self::getModulePath($moduleName) . '/' . $modelsSubPath;
     }
 
@@ -110,19 +111,19 @@ class ModuleService
         $customPaths = config('laravel_auto_crud.modules.custom_paths', []);
 
         $pathMap = [
-            'controllers' => $customPaths['controllers'] ?? 'Http/Controllers',
-            'requests' => $customPaths['requests'] ?? 'Http/Requests',
-            'resources' => $customPaths['resources'] ?? 'Http/Resources',
-            'services' => $customPaths['services'] ?? 'Services',
-            'policies' => $customPaths['policies'] ?? 'Policies',
-            'models' => $customPaths['models'] ?? 'Models',
-            'factories' => $customPaths['factories'] ?? 'Database/Factories',
-            'seeders' => $customPaths['seeders'] ?? 'Database/Seeders',
+            'controllers' => $customPaths['controllers'] ?? 'app/Http/Controllers',
+            'requests' => $customPaths['requests'] ?? 'app/Http/Requests',
+            'resources' => $customPaths['resources'] ?? 'app/Http/Resources',
+            'services' => $customPaths['services'] ?? 'app/Services',
+            'policies' => $customPaths['policies'] ?? 'app/Policies',
+            'models' => $customPaths['models'] ?? 'app/Models',
+            'factories' => $customPaths['factories'] ?? 'database/factories',
+            'seeders' => $customPaths['seeders'] ?? 'database/seeders',
             'tests' => $customPaths['tests'] ?? 'Tests',
             'routes' => $customPaths['routes'] ?? 'Routes',
-            'data' => $customPaths['data'] ?? 'Data',
-            'filters' => $customPaths['filters'] ?? 'FilterBuilders',
-            'traits' => $customPaths['traits'] ?? 'Traits',
+            'data' => $customPaths['data'] ?? 'app/Data',
+            'filters' => $customPaths['filters'] ?? 'app/FilterBuilders',
+            'traits' => $customPaths['traits'] ?? 'app/Traits',
         ];
 
         $subPath = $pathMap[$type] ?? 'Http/Controllers';

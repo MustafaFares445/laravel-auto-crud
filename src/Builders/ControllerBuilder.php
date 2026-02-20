@@ -648,7 +648,7 @@ class ControllerBuilder
                 return "        \${$modelVariable}s = {$modelClass}::getQuery()->get();\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
             }
 
-            return "        \${$modelVariable}s = {$modelClass}::getQuery()\n            ->paginate(\$request->input('per_page', \$request->input('perPage', 20)));\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
+            return "        \${$modelVariable}s = {$modelClass}::getQuery()\n            ->paginate(\$request->input('perPage', config('laravel_auto_crud.default_pagination', 20)));\n\n        return {$resourceClass}::collection(\${$modelVariable}s){$additionalMessage};";
         }
 
         if ($noPagination) {

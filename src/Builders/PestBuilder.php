@@ -45,7 +45,7 @@ class PestBuilder
         
         // Generate authorization test file if policy is enabled
         if ($withPolicy && config('laravel_auto_crud.test_settings.include_authorization_tests', true)) {
-            $this->createAuthorizationTest($modelData, $overwrite);
+            $this->createAuthorizationTest($modelData, $overwrite, $module);
         }
         
         return $endpointsTestPath;
@@ -199,7 +199,7 @@ class PestBuilder
         });
     }
 
-    private function createAuthorizationTest(array $modelData, bool $overwrite = false): string
+    private function createAuthorizationTest(array $modelData, bool $overwrite = false, ?string $module = null): string
     {
         return $this->fileService->createFromStub($modelData, 'pest_feature_authorization', 'tests/Feature/' . $modelData['modelName'], 'AuthorizationTest', $overwrite, function ($modelData) {
             $model = $this->getFullModelNamespace($modelData);
@@ -371,7 +371,7 @@ class PestBuilder
         $tests .= "it('paginates filtered {$modelPlural}', function () {
     {$modelName}::factory()->count(15)->create();
 
-    \$response = \$this->getJson('{$routePath}?per_page=5&page=1');
+    \$response = \$this->getJson('{$routePath}?perPage=5&page=1');
 
     \$response->assertOk();
     expect(\$response->json('data'))->toHaveCount(5);
@@ -1172,7 +1172,7 @@ class PestBuilder
     {$modelName}::factory()->count(15)->create();
     
     // Act
-    \$response = \$this->getJson('{$routePath}?per_page=5');
+    \$response = \$this->getJson('{$routePath}?perPage=5');
     
     // Assert
     \$response->assertOk();
